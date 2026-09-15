@@ -1,0 +1,50 @@
+{
+  "v": 19,
+  "G": {
+    "doors": 180,
+    "rent": 1460,
+    "seats": 7,
+    "listings": 15,
+    "tenancy": 4,
+    "wo": 500
+  },
+  "af": {
+    "rr": 1.47,
+    "cr": 4,
+    "rd": 170,
+    "cd": 10,
+    "ic": 1
+  },
+  "vl": {
+    "aptly": 80,
+    "quo": 140,
+    "meld": 2
+  },
+  "co": {},
+  "so": {},
+  "psv": {
+    "ps_renew_comp": 23,
+    "ps_portfolio_rpt": 47
+  },
+  "secView": {
+    "staff": "direct",
+    "insp": "direct",
+    "sw": "direct",
+    "turn": "direct",
+    "brok": "allocated",
+    "ops": "allocated",
+    "guar": "loaded",
+    "exec": "loaded"
+  },
+  "itemView": {},
+  "cv": "allocated",
+  "templates": [
+    {
+      "id": "default",
+      "name": "Default",
+      "ck": {},
+      "psk": {}
+    }
+  ],
+  "at": "default"
+}

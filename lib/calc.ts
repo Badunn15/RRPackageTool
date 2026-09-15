@@ -1,0 +1,129 @@
+import { CalcDoc, CostRow, CostView, ScenarioTemplate, Tier, TIERS } from "./types";
+
+const VIEW_ORDER: Record<CostView, number> = { direct: 0, allocated: 1, loaded: 2 };
+
+/** The currently active saved checkbox preset — its `ck`/`psk` ARE the live tier state. */
+export function activeTemplate(doc: CalcDoc): ScenarioTemplate {
+  return doc.templates.find((t) => t.id === doc.at) ?? doc.templates[0];
+}
+
+/**
+ * Monthly cost for a single row, given its basis and the live rate/burden/event
+ * inputs on the document. This is the heart of the tool — port it exactly.
+ */
+export function cmo(row: CostRow, doc: CalcDoc): number {
+  const v = doc.vl[row.id] ?? row.v;
+  const bd = doc.bd[row.id] ?? row.n_bd ?? 0;
+  const ev = doc.ev[row.id] ?? row.n_ev ?? 0;
+  const { doors, seats, listings, tenancy } = doc.G;
+
+  switch (row.e) {
+    case "annual":
+      // Payroll burden applies to annual only.
+      return (v * (1 + bd / 100)) / 12;
+    case "monthly":
+      return v;
+    case "door":
+      return v * doors;
+    case "door_yr":
+      return (v * doors) / 12;
+    case "seat":
+      return v * seats;
+    case "listing":
+      return v * listings;
+    case "event":
+      // Assumes one event per tenancy cycle per door.
+      return (v * doors) / (tenancy * 12);
+    case "claim":
+      // Total annual claim cost, spread across all doors at aggregation time.
+      return (v * ev) / 12;
+    case "af": {
+      const { af } = doc;
+      return af.rr * af.rd + (af.ic ? af.cr * af.cd : 0);
+    }
+    default:
+      return 0;
+  }
+}
+
+function rowView(doc: CalcDoc, rowId: string, groupId: string): CostView {
+  return (doc.itemView[rowId] as CostView) ?? doc.secView[groupId] ?? "direct";
+}
+
+function isVisible(rowV: CostView, activeView: CostView): boolean {
+  return VIEW_ORDER[rowV] <= VIEW_ORDER[activeView];
+}
+
+/** A promoted service (place = "cost:<groupId>") resolved into a synthetic cost row. */
+function promotedRow(doc: CalcDoc, id: string): { row: CostRow; groupId: string } | null {
+  const placement = doc.place[id];
+  if (typeof placement !== "string" || !placement.startsWith("cost:")) return null;
+  const groupId = placement.slice("cost:".length);
+  const master = doc.MASTER[id];
+  if (!master) return null;
+  const basis = doc.pbase[id] ?? "door_yr";
+  return {
+    groupId,
+    row: { id, name: master.n, e: basis as CostRow["e"], v: doc.vl[id] ?? 0 },
+  };
+}
+
+export interface CalcResult {
+  totalByTier: Record<Tier, number>;
+  perDoorByTier: Record<Tier, number>;
+  servicesByTier: Record<Tier, number>;
+}
+
+/**
+ * Per-tier, per-door cost at the document's active cost view.
+ *
+ *   for each group, for each row (including promoted services):
+ *     if viewIndex(rowView) > viewIndex(activeView): skip
+ *     for each tier: if ck[row][tier]: total[tier] += cmo(row)
+ *   cpu[tier] = total[tier] / doors
+ */
+export function calculate(doc: CalcDoc, view: CostView = doc.cv): CalcResult {
+  const total: Record<Tier, number> = { min: 0, special: 0, plus: 0 };
+  const services: Record<Tier, number> = { min: 0, special: 0, plus: 0 };
+  const ck = activeTemplate(doc).ck;
+
+  function apply(row: CostRow, groupId: string) {
+    const rv = rowView(doc, row.id, groupId);
+    if (!isVisible(rv, view)) return;
+    const flags = ck[row.id];
+    if (!flags) return;
+    const monthly = cmo(row, doc);
+    for (const t of TIERS) {
+      if (flags[t]) {
+        total[t] += monthly;
+        services[t] += 1;
+      }
+    }
+  }
+
+  for (const group of doc.CG) {
+    for (const row of group.rows) apply(row, group.id);
+  }
+
+  for (const id of Object.keys(doc.place)) {
+    const promoted = promotedRow(doc, id);
+    if (promoted) apply(promoted.row, promoted.groupId);
+  }
+
+  const perDoor: Record<Tier, number> = {
+    min: doc.G.doors ? total.min / doc.G.doors : 0,
+    special: doc.G.doors ? total.special / doc.G.doors : 0,
+    plus: doc.G.doors ? total.plus / doc.G.doors : 0,
+  };
+
+  return { totalByTier: total, perDoorByTier: perDoor, servicesByTier: services };
+}
+
+/** Convenience: per-door cost for every cost view, for the three tier readouts. */
+export function calculateAllViews(doc: CalcDoc): Record<CostView, CalcResult> {
+  return {
+    direct: calculate(doc, "direct"),
+    allocated: calculate(doc, "allocated"),
+    loaded: calculate(doc, "loaded"),
+  };
+}
