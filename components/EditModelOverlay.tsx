@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { bundleOwnerRows } from "@/lib/calc";
 import { Basis, CalcDoc } from "@/lib/types";
 
 const BASES: Basis[] = ["annual", "monthly", "door", "door_yr", "seat", "listing", "event", "claim"];
@@ -15,6 +16,8 @@ export default function EditModelOverlay({
   onRemoveRow,
   onAddCategory,
   onRemoveCategory,
+  onRenameCategory,
+  onAddScopeService,
   onExport,
   onImport,
 }: {
@@ -27,6 +30,8 @@ export default function EditModelOverlay({
   onRemoveRow: (rowId: string) => void;
   onAddCategory: (name: string) => void;
   onRemoveCategory: (name: string) => void;
+  onRenameCategory: (oldName: string, newName: string) => void;
+  onAddScopeService: (opts: { name: string; category: string; ownerRowId: string; value: number }) => void;
   onExport: () => void;
   onImport: (file: File) => void;
 }) {
@@ -37,6 +42,11 @@ export default function EditModelOverlay({
   const [newRowBasis, setNewRowBasis] = useState<Basis>("monthly");
   const [newRowValue, setNewRowValue] = useState(0);
   const [newCategory, setNewCategory] = useState("");
+  const owners = bundleOwnerRows(doc);
+  const [newSvcName, setNewSvcName] = useState("");
+  const [newSvcCategory, setNewSvcCategory] = useState(doc.CATS[0] ?? "");
+  const [newSvcOwner, setNewSvcOwner] = useState(owners[0]?.id ?? "");
+  const [newSvcValue, setNewSvcValue] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -154,8 +164,71 @@ export default function EditModelOverlay({
                 </button>
               </div>
               <p className="mt-2 text-xs text-cream/50">
-                To remove a line, use the &quot;remove&quot; link on its row in the main table (edit mode).
+                To remove, reorder, or move a line to another group, use its row in the main table (edit
+                mode).
               </p>
+            </div>
+
+            <div>
+              <h3 className="mb-2 font-semibold text-gold">Add a PM-scope service</h3>
+              <p className="mb-2 text-xs text-cream/50">
+                Scope services don&apos;t add to cost directly — their cost is bundled into whichever role
+                &quot;owns&quot; them. Reassign ownership any time from that role&apos;s expandable panel in
+                the main table.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  placeholder="Service name"
+                  className="rounded border border-gold/20 bg-navy px-2 py-1 text-cream"
+                  value={newSvcName}
+                  onChange={(e) => setNewSvcName(e.target.value)}
+                />
+                <select
+                  value={newSvcCategory}
+                  onChange={(e) => setNewSvcCategory(e.target.value)}
+                  className="rounded border border-gold/20 bg-navy px-2 py-1 text-cream"
+                >
+                  {doc.CATS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={newSvcOwner}
+                  onChange={(e) => setNewSvcOwner(e.target.value)}
+                  className="rounded border border-gold/20 bg-navy px-2 py-1 text-cream"
+                >
+                  {owners.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  placeholder="Value ($/door/yr)"
+                  className="w-28 rounded border border-gold/20 bg-navy px-2 py-1 text-cream"
+                  value={newSvcValue}
+                  onChange={(e) => setNewSvcValue(Number(e.target.value))}
+                />
+                <button
+                  onClick={() => {
+                    if (!newSvcName.trim() || !newSvcCategory || !newSvcOwner) return;
+                    onAddScopeService({
+                      name: newSvcName.trim(),
+                      category: newSvcCategory,
+                      ownerRowId: newSvcOwner,
+                      value: newSvcValue,
+                    });
+                    setNewSvcName("");
+                    setNewSvcValue(0);
+                  }}
+                  className="rounded bg-gold px-3 py-1 text-navy"
+                >
+                  Add service
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -165,8 +238,15 @@ export default function EditModelOverlay({
             <h3 className="mb-2 font-semibold text-gold">PM scope service categories</h3>
             <ul className="space-y-1">
               {doc.CATS.map((cat) => (
-                <li key={cat} className="flex items-center justify-between">
-                  <span className="text-cream/90">{cat}</span>
+                <li key={cat} className="flex items-center gap-2">
+                  <input
+                    className="flex-1 rounded border border-gold/20 bg-navy px-2 py-1 text-cream"
+                    defaultValue={cat}
+                    onBlur={(e) => {
+                      const next = e.target.value.trim();
+                      if (next && next !== cat) onRenameCategory(cat, next);
+                    }}
+                  />
                   <button
                     onClick={() => onRemoveCategory(cat)}
                     className="text-xs text-red-300 hover:text-red-200"

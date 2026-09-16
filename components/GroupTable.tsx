@@ -1,8 +1,9 @@
 "use client";
 
-import { Fragment } from "react";
-import { activeTemplate, cmo } from "@/lib/calc";
+import { Fragment, useState } from "react";
+import { activeTemplate, cmo, promotedRowsForGroup } from "@/lib/calc";
 import { Basis, CalcDoc, CostRow, CostView, TIERS } from "@/lib/types";
+import ScopeBundlePanel from "./ScopeBundlePanel";
 
 const BASIS_LABEL: Record<Basis, string> = {
   annual: "$/yr",
@@ -18,21 +19,7 @@ const BASIS_LABEL: Record<Basis, string> = {
 
 const VIEW_ORDER: Record<CostView, number> = { direct: 0, allocated: 1, loaded: 2 };
 
-export default function GroupTable({
-  doc,
-  editMode,
-  onRateChange,
-  onBurdenChange,
-  onEventsChange,
-  onAfChange,
-  onToggleTier,
-  onToggleCollapsed,
-  onGroupViewChange,
-  onRenameRow,
-  onRemoveRow,
-}: {
-  doc: CalcDoc;
-  editMode: boolean;
+export interface GroupTableHandlers {
   onRateChange: (rowId: string, value: number) => void;
   onBurdenChange: (rowId: string, value: number) => void;
   onEventsChange: (rowId: string, value: number) => void;
@@ -40,20 +27,43 @@ export default function GroupTable({
   onToggleTier: (rowId: string, tier: "min" | "special" | "plus") => void;
   onToggleCollapsed: (groupId: string) => void;
   onGroupViewChange: (groupId: string, view: CostView) => void;
+  onItemViewChange: (rowId: string, view: CostView | null) => void;
   onRenameRow: (rowId: string, name: string) => void;
   onRemoveRow: (rowId: string) => void;
-}) {
+  onReorderRow: (groupId: string, rowId: string, direction: -1 | 1) => void;
+  onMoveRowToGroup: (rowId: string, targetGroupId: string) => void;
+  onToggleScopeTier: (serviceId: string, tier: "min" | "special" | "plus") => void;
+  onScopeOwnerChange: (serviceId: string, newOwnerId: string) => void;
+  onBenchService: (serviceId: string) => void;
+}
+
+export default function GroupTable({
+  doc,
+  editMode,
+  ...h
+}: { doc: CalcDoc; editMode: boolean } & GroupTableHandlers) {
   const ck = activeTemplate(doc).ck;
   const activeView = doc.cv;
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(rowId: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  }
 
   return (
     <div className="overflow-x-auto rounded-md border border-gold/20">
-      <table className="w-full min-w-[720px] border-collapse text-sm">
+      <table className="w-full min-w-[820px] border-collapse text-sm">
         <thead>
           <tr className="bg-card text-left text-xs uppercase tracking-wide text-gold/80">
             <th className="px-3 py-2">Line</th>
             <th className="px-3 py-2 text-right">Rate</th>
             <th className="px-3 py-2">Basis</th>
+            <th className="px-3 py-2">View</th>
             <th className="px-3 py-2 text-right">$/mo</th>
             <th className="px-3 py-2 text-right">$/door</th>
             <th className="px-2 py-2 text-center">Min</th>
@@ -67,16 +77,19 @@ export default function GroupTable({
             const collapsed = !!doc.co[group.id];
             const rowView = doc.secView[group.id] ?? "direct";
             const groupHidden = VIEW_ORDER[rowView] > VIEW_ORDER[activeView];
-            const groupTotal = group.rows.reduce((sum, r) => sum + cmo(r, doc), 0);
+            const promotedRows = promotedRowsForGroup(doc, group.id);
+            const allRows = [...group.rows, ...promotedRows];
+            const groupTotal = allRows.reduce((sum, r) => sum + cmo(r, doc), 0);
+            const colCount = editMode ? 10 : 9;
 
             return (
               <Fragment key={group.id}>
                 <tr className="border-t border-gold/20 bg-navy/60">
-                  <td colSpan={editMode ? 9 : 8} className="px-3 py-2">
+                  <td colSpan={colCount} className="px-3 py-2">
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => onToggleCollapsed(group.id)}
+                        onClick={() => h.onToggleCollapsed(group.id)}
                         className="text-gold"
                       >
                         {collapsed ? "▸" : "▾"}
@@ -89,7 +102,7 @@ export default function GroupTable({
                       )}
                       <select
                         value={rowView}
-                        onChange={(e) => onGroupViewChange(group.id, e.target.value as CostView)}
+                        onChange={(e) => h.onGroupViewChange(group.id, e.target.value as CostView)}
                         className="ml-auto rounded border border-gold/30 bg-navy px-2 py-0.5 font-mono text-xs text-cream"
                       >
                         <option value="direct">direct</option>
@@ -103,20 +116,38 @@ export default function GroupTable({
                   </td>
                 </tr>
                 {!collapsed &&
-                  group.rows.map((row) => (
+                  group.rows.map((row, idx) => (
                     <Row
                       key={row.id}
                       row={row}
                       doc={doc}
+                      groups={doc.CG}
+                      currentGroupId={group.id}
                       editMode={editMode}
+                      expanded={expanded.has(row.id)}
+                      onToggleExpanded={() => toggleExpanded(row.id)}
+                      isFirst={idx === 0}
+                      isLast={idx === group.rows.length - 1}
                       flags={ck[row.id]}
-                      onRateChange={onRateChange}
-                      onBurdenChange={onBurdenChange}
-                      onEventsChange={onEventsChange}
-                      onAfChange={onAfChange}
-                      onToggleTier={onToggleTier}
-                      onRenameRow={onRenameRow}
-                      onRemoveRow={onRemoveRow}
+                      handlers={h}
+                    />
+                  ))}
+                {!collapsed &&
+                  promotedRows.map((row) => (
+                    <Row
+                      key={row.id}
+                      row={row}
+                      doc={doc}
+                      groups={doc.CG}
+                      currentGroupId={group.id}
+                      editMode={editMode}
+                      expanded={expanded.has(row.id)}
+                      onToggleExpanded={() => toggleExpanded(row.id)}
+                      isFirst
+                      isLast
+                      isPromoted
+                      flags={ck[row.id]}
+                      handlers={h}
                     />
                   ))}
               </Fragment>
@@ -131,116 +162,220 @@ export default function GroupTable({
 function Row({
   row,
   doc,
+  groups,
+  currentGroupId,
   editMode,
+  expanded,
+  onToggleExpanded,
+  isFirst,
+  isLast,
+  isPromoted,
   flags,
-  onRateChange,
-  onBurdenChange,
-  onEventsChange,
-  onAfChange,
-  onToggleTier,
-  onRenameRow,
-  onRemoveRow,
+  handlers: h,
 }: {
   row: CostRow;
   doc: CalcDoc;
+  groups: CalcDoc["CG"];
+  currentGroupId: string;
   editMode: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  isFirst: boolean;
+  isLast: boolean;
+  isPromoted?: boolean;
   flags: { min: boolean; special: boolean; plus: boolean } | undefined;
-  onRateChange: (rowId: string, value: number) => void;
-  onBurdenChange: (rowId: string, value: number) => void;
-  onEventsChange: (rowId: string, value: number) => void;
-  onAfChange: (key: keyof CalcDoc["af"], value: number) => void;
-  onToggleTier: (rowId: string, tier: "min" | "special" | "plus") => void;
-  onRenameRow: (rowId: string, name: string) => void;
-  onRemoveRow: (rowId: string) => void;
+  handlers: GroupTableHandlers;
 }) {
   const value = doc.vl[row.id] ?? row.v;
   const monthly = cmo(row, doc);
   const perDoor = doc.G.doors ? monthly / doc.G.doors : 0;
   const isAf = row.e === "af";
+  const hasSubConfig = row.n_bd !== undefined || row.n_ev !== undefined || isAf;
+  const hasScopePanel = row.pmScope === 1;
+  const canExpand = hasSubConfig || hasScopePanel;
+  const itemView = doc.itemView[row.id] as CostView | undefined;
 
   return (
-    <tr className="border-t border-gold/10">
-      <td className="px-3 py-1.5">
-        {editMode ? (
-          <input
-            className="w-full rounded border border-gold/20 bg-navy px-1 py-0.5 text-cream"
-            value={row.name}
-            onChange={(e) => onRenameRow(row.id, e.target.value)}
-          />
-        ) : (
-          <span className="text-cream/90">{row.name}</span>
-        )}
-        {row.d && <div className="text-[11px] text-cream/40">{row.d}</div>}
-      </td>
-      <td className="px-3 py-1.5 text-right">
-        {isAf ? (
-          <span className="text-cream/40">—</span>
-        ) : (
-          <input
-            type="number"
-            className="w-24 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream"
-            value={value}
-            onChange={(e) => onRateChange(row.id, Number(e.target.value))}
-          />
-        )}
-        {row.n_bd !== undefined && (
-          <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-cream/50">
-            burden
-            <input
-              type="number"
-              className="w-14 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream"
-              value={doc.bd[row.id] ?? row.n_bd}
-              onChange={(e) => onBurdenChange(row.id, Number(e.target.value))}
-            />
-            %
+    <>
+      <tr className="border-t border-gold/10">
+        <td className="px-3 py-1.5">
+          <div className="flex items-center gap-1.5">
+            {canExpand && (
+              <button
+                type="button"
+                onClick={onToggleExpanded}
+                className="text-gold/60 hover:text-gold"
+                title={hasScopePanel ? "Included services" : "More settings"}
+              >
+                {expanded ? "▾" : "▸"}
+              </button>
+            )}
+            {editMode && !isPromoted ? (
+              <input
+                className="w-full rounded border border-gold/20 bg-navy px-1 py-0.5 text-cream"
+                value={row.name}
+                onChange={(e) => h.onRenameRow(row.id, e.target.value)}
+              />
+            ) : (
+              <span className="text-cream/90">{row.name}</span>
+            )}
+            {isPromoted && (
+              <span className="rounded bg-gold/10 px-1.5 py-0.5 text-[10px] uppercase text-gold/60">
+                promoted
+              </span>
+            )}
           </div>
-        )}
-        {row.n_ev !== undefined && (
-          <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-cream/50">
-            claims/yr
-            <input
-              type="number"
-              className="w-12 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream"
-              value={doc.ev[row.id] ?? row.n_ev}
-              onChange={(e) => onEventsChange(row.id, Number(e.target.value))}
-            />
-          </div>
-        )}
-        {isAf && (
-          <div className="mt-1 grid grid-cols-2 gap-1 text-[11px] text-cream/50">
-            <AfField label="res $/unit" value={doc.af.rr} onChange={(v) => onAfChange("rr", v)} />
-            <AfField label="res units" value={doc.af.rd} onChange={(v) => onAfChange("rd", v)} />
-            <AfField label="com $/unit" value={doc.af.cr} onChange={(v) => onAfChange("cr", v)} />
-            <AfField label="com units" value={doc.af.cd} onChange={(v) => onAfChange("cd", v)} />
-          </div>
-        )}
-      </td>
-      <td className="px-3 py-1.5 font-mono text-xs text-cream/60">{BASIS_LABEL[row.e]}</td>
-      <td className="px-3 py-1.5 text-right font-mono text-cream">
-        {monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-      </td>
-      <td className="px-3 py-1.5 text-right font-mono text-cream/80">{perDoor.toFixed(2)}</td>
-      {TIERS.map((tier) => (
-        <td key={tier} className="px-2 py-1.5 text-center">
-          <input
-            type="checkbox"
-            checked={!!flags?.[tier]}
-            onChange={() => onToggleTier(row.id, tier)}
-          />
+          {row.d && <div className="pl-5 text-[11px] text-cream/40">{row.d}</div>}
         </td>
-      ))}
-      {editMode && (
-        <td className="px-2 py-1.5 text-right">
-          <button
-            type="button"
-            onClick={() => onRemoveRow(row.id)}
-            className="text-xs text-red-300 hover:text-red-200"
+        <td className="px-3 py-1.5 text-right">
+          {isAf ? (
+            <span className="text-cream/40">—</span>
+          ) : (
+            <input
+              type="number"
+              className="w-24 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream"
+              value={value}
+              onChange={(e) => h.onRateChange(row.id, Number(e.target.value))}
+            />
+          )}
+        </td>
+        <td className="px-3 py-1.5 font-mono text-xs text-cream/60">{BASIS_LABEL[row.e]}</td>
+        <td className="px-3 py-1.5">
+          <select
+            value={itemView ?? ""}
+            onChange={(e) => h.onItemViewChange(row.id, (e.target.value || null) as CostView | null)}
+            className="rounded border border-gold/20 bg-navy px-1 py-0.5 font-mono text-[11px] text-cream/70"
+            title="Override this line's cost view (blank = inherit from group)"
           >
-            remove
-          </button>
+            <option value="">inherit</option>
+            <option value="direct">direct</option>
+            <option value="allocated">allocated</option>
+            <option value="loaded">loaded</option>
+          </select>
         </td>
+        <td className="px-3 py-1.5 text-right font-mono text-cream">
+          {monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+        </td>
+        <td className="px-3 py-1.5 text-right font-mono text-cream/80">{perDoor.toFixed(2)}</td>
+        {TIERS.map((tier) => (
+          <td key={tier} className="px-2 py-1.5 text-center">
+            <input
+              type="checkbox"
+              checked={!!flags?.[tier]}
+              onChange={() => h.onToggleTier(row.id, tier)}
+            />
+          </td>
+        ))}
+        {editMode && (
+          <td className="whitespace-nowrap px-2 py-1.5 text-right">
+            {!isPromoted && (
+              <span className="mr-2 inline-flex flex-col align-middle leading-none">
+                <button
+                  type="button"
+                  disabled={isFirst}
+                  onClick={() => h.onReorderRow(currentGroupId, row.id, -1)}
+                  className="text-cream/50 hover:text-gold disabled:opacity-20"
+                  title="Move up"
+                >
+                  {"▴"}
+                </button>
+                <button
+                  type="button"
+                  disabled={isLast}
+                  onClick={() => h.onReorderRow(currentGroupId, row.id, 1)}
+                  className="text-cream/50 hover:text-gold disabled:opacity-20"
+                  title="Move down"
+                >
+                  {"▾"}
+                </button>
+              </span>
+            )}
+            {!isPromoted && (
+              <select
+                value={currentGroupId}
+                onChange={(e) => h.onMoveRowToGroup(row.id, e.target.value)}
+                className="mr-2 rounded border border-gold/20 bg-navy px-1 py-0.5 text-[11px] text-cream"
+                title="Move to another group"
+              >
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+            )}
+            {isPromoted ? (
+              <button
+                type="button"
+                onClick={() => h.onBenchService(row.id)}
+                className="text-xs text-cream/50 hover:text-gold"
+              >
+                bench
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => h.onRemoveRow(row.id)}
+                className="text-xs text-red-300 hover:text-red-200"
+              >
+                remove
+              </button>
+            )}
+          </td>
+        )}
+      </tr>
+      {expanded && hasSubConfig && (
+        <tr className="border-t border-gold/5 bg-navy/40">
+          <td colSpan={editMode ? 10 : 9} className="px-6 py-2">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-cream/60">
+              {row.n_bd !== undefined && (
+                <label className="flex items-center gap-1">
+                  Payroll burden %
+                  <input
+                    type="number"
+                    className="w-16 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream"
+                    value={doc.bd[row.id] ?? row.n_bd}
+                    onChange={(e) => h.onBurdenChange(row.id, Number(e.target.value))}
+                  />
+                </label>
+              )}
+              {row.n_ev !== undefined && (
+                <label className="flex items-center gap-1">
+                  Claims / yr
+                  <input
+                    type="number"
+                    className="w-14 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream"
+                    value={doc.ev[row.id] ?? row.n_ev}
+                    onChange={(e) => h.onEventsChange(row.id, Number(e.target.value))}
+                  />
+                </label>
+              )}
+              {isAf && (
+                <>
+                  <AfField label="res $/unit" value={doc.af.rr} onChange={(v) => h.onAfChange("rr", v)} />
+                  <AfField label="res units" value={doc.af.rd} onChange={(v) => h.onAfChange("rd", v)} />
+                  <AfField label="com $/unit" value={doc.af.cr} onChange={(v) => h.onAfChange("cr", v)} />
+                  <AfField label="com units" value={doc.af.cd} onChange={(v) => h.onAfChange("cd", v)} />
+                </>
+              )}
+            </div>
+          </td>
+        </tr>
       )}
-    </tr>
+      {expanded && hasScopePanel && (
+        <tr className="border-t border-gold/5 bg-navy/40">
+          <td colSpan={editMode ? 10 : 9}>
+            <ScopeBundlePanel
+              doc={doc}
+              ownerRowId={row.id}
+              onToggleTier={h.onToggleScopeTier}
+              onOwnerChange={h.onScopeOwnerChange}
+              onBench={h.onBenchService}
+            />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
@@ -254,7 +389,7 @@ function AfField({
   onChange: (v: number) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-1">
+    <label className="flex items-center gap-1">
       {label}
       <input
         type="number"

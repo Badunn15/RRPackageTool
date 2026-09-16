@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { calculate } from "@/lib/calc";
+import { benchedServices, calculate } from "@/lib/calc";
 import { api, ScenarioRow, ScenarioSummary } from "@/lib/api-client";
 import * as M from "@/lib/mutations";
 import { Basis, CalcDoc, CostView } from "@/lib/types";
@@ -12,6 +12,7 @@ import GroupTable from "./GroupTable";
 import EditModelOverlay from "./EditModelOverlay";
 import VersionHistoryOverlay from "./VersionHistoryOverlay";
 import CompareOverlay from "./CompareOverlay";
+import BenchOverlay from "./BenchOverlay";
 
 type ConflictState = { serverScenario: ScenarioRow; serverDoc: CalcDoc } | null;
 
@@ -31,7 +32,7 @@ export default function Calculator({
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [conflict, setConflict] = useState<ConflictState>(null);
   const [editMode, setEditMode] = useState(false);
-  const [overlay, setOverlay] = useState<"edit" | "versions" | "compare" | null>(null);
+  const [overlay, setOverlay] = useState<"edit" | "versions" | "compare" | "bench" | null>(null);
   const [versions, setVersions] = useState<
     { rev: number; note: string | null; createdBy: string; createdAt: string }[]
   >([]);
@@ -128,6 +129,7 @@ export default function Calculator({
   }
 
   const result = calculate(doc, doc.cv);
+  const benchCount = benchedServices(doc).length;
 
   return (
     <div className="min-h-screen bg-navy font-body text-cream">
@@ -194,6 +196,12 @@ export default function Calculator({
             }}
           />
 
+          <button
+            onClick={() => setOverlay("bench")}
+            className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
+          >
+            Bench{benchCount > 0 ? ` (${benchCount})` : ""}
+          </button>
           <button
             onClick={() => setOverlay("compare")}
             className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
@@ -278,8 +286,14 @@ export default function Calculator({
           onToggleTier={(id, tier) => update((d) => M.toggleTier(d, id, tier))}
           onToggleCollapsed={(id) => update((d) => M.toggleGroupCollapsed(d, id))}
           onGroupViewChange={(id, view) => update((d) => M.setGroupView(d, id, view))}
+          onItemViewChange={(id, view) => update((d) => M.setItemView(d, id, view))}
           onRenameRow={(id, name) => update((d) => M.renameRow(d, id, name))}
           onRemoveRow={(id) => update((d) => M.removeRow(d, id))}
+          onReorderRow={(groupId, id, dir) => update((d) => M.reorderRow(d, groupId, id, dir))}
+          onMoveRowToGroup={(id, targetGroupId) => update((d) => M.moveRowToGroup(d, id, targetGroupId))}
+          onToggleScopeTier={(id, tier) => update((d) => M.togglePsk(d, id, tier))}
+          onScopeOwnerChange={(id, ownerId) => update((d) => M.setScopeOwner(d, id, ownerId))}
+          onBenchService={(id) => update((d) => M.benchService(d, id))}
         />
       </main>
 
@@ -296,6 +310,8 @@ export default function Calculator({
           onRemoveRow={(id) => update((d) => M.removeRow(d, id))}
           onAddCategory={(name) => update((d) => M.addCategory(d, name))}
           onRemoveCategory={(name) => update((d) => M.removeCategory(d, name))}
+          onRenameCategory={(oldName, newName) => update((d) => M.renameCategory(d, oldName, newName))}
+          onAddScopeService={(opts) => update((d) => M.addScopeService(d, opts))}
           onExport={() => window.open(api.exportUrl(scenario.id), "_blank")}
           onImport={async (file) => {
             const text = await file.text();
@@ -321,6 +337,17 @@ export default function Calculator({
 
       {overlay === "compare" && (
         <CompareOverlay scenarios={scenarios} view={doc.cv} onClose={() => setOverlay(null)} />
+      )}
+
+      {overlay === "bench" && (
+        <BenchOverlay
+          doc={doc}
+          onClose={() => setOverlay(null)}
+          onDestinationChange={(id, destination) =>
+            update((d) => M.setBenchDestination(d, id, destination))
+          }
+          onMove={(id) => update((d) => M.promoteFromBench(d, id))}
+        />
       )}
     </div>
   );

@@ -27,6 +27,7 @@ export interface CostRow {
   n_bd?: number;
   n_ev?: number;
   sub?: 1;
+  /** This row's cost is what "buys" a bundle of PM-scope services — it gets an expandable included-services panel. Not PM-specific: Maintenance Coordinator and Accounting can carry it too. */
   pmScope?: 1;
   d?: string;
 }
@@ -104,6 +105,8 @@ export interface CalcDoc {
   bd: Record<string, number>;
   ev: Record<string, number>;
   pbase: Record<string, Basis>;
+  /** Which `pmScope`-flagged cost row "owns" (bundles) each scope service — which staff role's expandable panel it shows up under. */
+  scopeOwner: Record<string, string>;
   psv: Record<string, number>;
   uck: Record<string, TierFlags>;
   ucv: Record<string, number>;

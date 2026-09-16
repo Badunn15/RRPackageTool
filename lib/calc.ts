@@ -1,4 +1,4 @@
-import { CalcDoc, CostRow, CostView, ScenarioTemplate, Tier, TIERS } from "./types";
+import { CalcDoc, CostRow, CostView, MasterService, ScenarioTemplate, Tier, TIERS } from "./types";
 
 const VIEW_ORDER: Record<CostView, number> = { direct: 0, allocated: 1, loaded: 2 };
 
@@ -126,4 +126,44 @@ export function calculateAllViews(doc: CalcDoc): Record<CostView, CalcResult> {
     allocated: calculate(doc, "allocated"),
     loaded: calculate(doc, "loaded"),
   };
+}
+
+/** Promoted services (place = "cost:<groupId>") that belong to a given cost group, as synthetic rows. */
+export function promotedRowsForGroup(doc: CalcDoc, groupId: string): CostRow[] {
+  const rows: CostRow[] = [];
+  for (const id of Object.keys(doc.place)) {
+    const promoted = promotedRow(doc, id);
+    if (promoted && promoted.groupId === groupId) rows.push(promoted.row);
+  }
+  return rows;
+}
+
+/** Cost rows flagged `pmScope: 1` — each gets its own expandable "included services" panel. */
+export function bundleOwnerRows(doc: CalcDoc): CostRow[] {
+  return doc.CG.flatMap((g) => g.rows).filter((r) => r.pmScope === 1);
+}
+
+/** PM-scope services owned by a given bundle row, grouped by their display category. */
+export function scopedServicesByOwner(
+  doc: CalcDoc,
+  ownerRowId: string
+): { category: string; services: MasterService[] }[] {
+  const byCat = new Map<string, MasterService[]>();
+  for (const [id, svc] of Object.entries(doc.MASTER)) {
+    if (doc.place[id] !== "scope") continue;
+    if (doc.scopeOwner[id] !== ownerRowId) continue;
+    const cat = doc.icat[id] ?? svc.dc;
+    if (!byCat.has(cat)) byCat.set(cat, []);
+    byCat.get(cat)!.push(svc);
+  }
+  return [...byCat.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([category, services]) => ({ category, services }));
+}
+
+/** Benched (staged / not-yet-sold) services — the Bench overlay's contents. */
+export function benchedServices(doc: CalcDoc): MasterService[] {
+  return Object.entries(doc.MASTER)
+    .filter(([id]) => doc.place[id] === "uc")
+    .map(([, svc]) => svc);
 }

@@ -1,5 +1,5 @@
 import { activeTemplate } from "./calc";
-import { Basis, CalcDoc, CostView, Tier } from "./types";
+import { Basis, CalcDoc, CostView, Destination, TierFlags, Tier } from "./types";
 
 function clone(doc: CalcDoc): CalcDoc {
   return structuredClone(doc);
@@ -52,6 +52,44 @@ export function toggleTier(doc: CalcDoc, rowId: string, tier: Tier): CalcDoc {
 export function setGroupView(doc: CalcDoc, groupId: string, view: CostView): CalcDoc {
   const next = clone(doc);
   next.secView[groupId] = view;
+  return next;
+}
+
+/** Per-row cost-view override. `null` clears it, so the row inherits its group's view again. */
+export function setItemView(doc: CalcDoc, rowId: string, view: CostView | null): CalcDoc {
+  const next = clone(doc);
+  if (view === null) delete next.itemView[rowId];
+  else next.itemView[rowId] = view;
+  return next;
+}
+
+/** Reorder a line within its group (direction: -1 up, +1 down). */
+export function reorderRow(doc: CalcDoc, groupId: string, rowId: string, direction: -1 | 1): CalcDoc {
+  const next = clone(doc);
+  const group = next.CG.find((g) => g.id === groupId);
+  if (!group) return next;
+  const idx = group.rows.findIndex((r) => r.id === rowId);
+  const newIdx = idx + direction;
+  if (idx === -1 || newIdx < 0 || newIdx >= group.rows.length) return next;
+  const [row] = group.rows.splice(idx, 1);
+  group.rows.splice(newIdx, 0, row);
+  return next;
+}
+
+/** Move a cost line from its current group into a different one. */
+export function moveRowToGroup(doc: CalcDoc, rowId: string, targetGroupId: string): CalcDoc {
+  const next = clone(doc);
+  let moved: CalcDoc["CG"][number]["rows"][number] | undefined;
+  for (const group of next.CG) {
+    const idx = group.rows.findIndex((r) => r.id === rowId);
+    if (idx !== -1) {
+      moved = group.rows.splice(idx, 1)[0];
+      break;
+    }
+  }
+  if (!moved) return next;
+  const target = next.CG.find((g) => g.id === targetGroupId);
+  if (target) target.rows.push(moved);
   return next;
 }
 
@@ -133,6 +171,107 @@ export function removeCategory(doc: CalcDoc, name: string): CalcDoc {
   const next = clone(doc);
   next.CATS = next.CATS.filter((c) => c !== name);
   next.removed[`cat:${name}`] = true;
+  return next;
+}
+
+export function renameCategory(doc: CalcDoc, oldName: string, newName: string): CalcDoc {
+  const next = clone(doc);
+  const idx = next.CATS.indexOf(oldName);
+  if (idx === -1 || !newName.trim() || next.CATS.includes(newName)) return next;
+  next.CATS[idx] = newName;
+  for (const id of Object.keys(next.icat)) {
+    if (next.icat[id] === oldName) next.icat[id] = newName;
+  }
+  for (const svc of Object.values(next.MASTER)) {
+    if (svc.dc === oldName) svc.dc = newName;
+  }
+  return next;
+}
+
+/** Toggle a PM-scope service's tier inclusion (lives in the active template's `psk`, mirroring `ck`). */
+export function togglePsk(doc: CalcDoc, serviceId: string, tier: Tier): CalcDoc {
+  const next = clone(doc);
+  const tpl = activeTemplate(next);
+  if (!tpl.psk[serviceId]) tpl.psk[serviceId] = { min: false, special: false, plus: false };
+  tpl.psk[serviceId][tier] = !tpl.psk[serviceId][tier];
+  return next;
+}
+
+/** Reassign which bundle-owner row (PM comp, Maintenance Coordinator, Accounting, ...) a scope service shows up under. */
+export function setScopeOwner(doc: CalcDoc, serviceId: string, ownerRowId: string): CalcDoc {
+  const next = clone(doc);
+  next.scopeOwner[serviceId] = ownerRowId;
+  return next;
+}
+
+/** Add a brand-new PM-scope service, owned by the given bundle row, in the given category. */
+export function addScopeService(
+  doc: CalcDoc,
+  opts: { name: string; category: string; ownerRowId: string; value?: number }
+): CalcDoc {
+  const next = clone(doc);
+  const id = slug(opts.name, Object.keys(next.MASTER));
+  const dt: TierFlags = { min: true, special: true, plus: true };
+  const value = opts.value ?? 0;
+  next.MASTER[id] = { id, n: opts.name, dp: "scope", dc: opts.category, dsv: value, dt };
+  next.place[id] = "scope";
+  next.icat[id] = opts.category;
+  next.scopeOwner[id] = opts.ownerRowId;
+  next.psv[id] = value;
+  next.ucv[id] = value;
+  next.uck[id] = { ...dt };
+  next.pbase[id] = "door_yr";
+  next.vl[id] = value;
+  next.bd[id] = 0;
+  next.ev[id] = 0;
+  for (const tpl of next.templates) tpl.psk[id] = { ...dt };
+  return next;
+}
+
+export function removeScopeService(doc: CalcDoc, serviceId: string): CalcDoc {
+  const next = clone(doc);
+  delete next.MASTER[serviceId];
+  next.removed[`svc:${serviceId}`] = true;
+  return next;
+}
+
+/** Stage where a benched service should go — the destination picker in the Bench overlay. */
+export function setBenchDestination(doc: CalcDoc, serviceId: string, destination: Destination): CalcDoc {
+  const next = clone(doc);
+  next.udest[serviceId] = destination;
+  return next;
+}
+
+/** Send a live scope or promoted service back to the bench. */
+export function benchService(doc: CalcDoc, serviceId: string): CalcDoc {
+  const next = clone(doc);
+  next.place[serviceId] = "uc";
+  return next;
+}
+
+/** Move a benched service to its staged destination — either a cost group or a scope category. */
+export function promoteFromBench(doc: CalcDoc, serviceId: string): CalcDoc {
+  const next = clone(doc);
+  const master = next.MASTER[serviceId];
+  const destination = next.udest[serviceId];
+  if (!master || !destination) return next;
+  const [kind, target] = destination.split("::");
+
+  if (kind === "cost" && target) {
+    next.place[serviceId] = `cost:${target}`;
+    if (next.pbase[serviceId] === undefined) next.pbase[serviceId] = "door_yr";
+    if (next.vl[serviceId] === undefined) next.vl[serviceId] = master.dsv;
+    for (const tpl of next.templates) {
+      if (!tpl.ck[serviceId]) tpl.ck[serviceId] = { ...master.dt };
+    }
+  } else if (kind === "scope" && target) {
+    next.place[serviceId] = "scope";
+    next.icat[serviceId] = target;
+    if (next.scopeOwner[serviceId] === undefined) next.scopeOwner[serviceId] = "pm";
+    for (const tpl of next.templates) {
+      if (!tpl.psk[serviceId]) tpl.psk[serviceId] = { ...master.dt };
+    }
+  }
   return next;
 }
 

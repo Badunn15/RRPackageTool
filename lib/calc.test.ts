@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { calculate, calculateAllViews, cmo } from "./calc";
+import {
+  bundleOwnerRows,
+  calculate,
+  calculateAllViews,
+  cmo,
+  scopedServicesByOwner,
+} from "./calc";
+import { migrate } from "./migrate";
 import { CalcDoc } from "./types";
-import seed from "../data/seed-model.json";
+import seedRaw from "../data/seed-model.json";
 
-const doc = seed as unknown as CalcDoc;
+const doc = seedRaw as unknown as CalcDoc;
+const migrated = migrate(seedRaw);
 
 describe("canary", () => {
   it("Fully Allocated, Min Mgmt, 180 doors = $94.40/door/mo", () => {
@@ -67,5 +75,47 @@ describe("cost view inheritance", () => {
     const all = calculateAllViews(doc);
     expect(all.direct.totalByTier.min).toBeLessThanOrEqual(all.allocated.totalByTier.min);
     expect(all.allocated.totalByTier.min).toBeLessThanOrEqual(all.loaded.totalByTier.min);
+  });
+});
+
+describe("scope-service bundle ownership", () => {
+  it("still hits the $94.40 canary after migration, with Accounting split out at $0", () => {
+    // acct's rate is 0 until someone sets a real salary, so splitting it out
+    // of PM comp must not move the canary number.
+    const result = calculate(migrated, "allocated");
+    expect(result.perDoorByTier.min).toBeCloseTo(94.4, 1);
+  });
+
+  it("PM, Maintenance Coordinator, and Accounting are all bundle-owner rows", () => {
+    const owners = bundleOwnerRows(migrated).map((r) => r.id);
+    expect(owners).toEqual(expect.arrayContaining(["pm", "mc", "acct"]));
+  });
+
+  it("reassigned maintenance/accounting services show up under their new owner, not PM", () => {
+    const pmServices = scopedServicesByOwner(migrated, "pm").flatMap((g) => g.services.map((s) => s.id));
+    const mcServices = scopedServicesByOwner(migrated, "mc").flatMap((g) => g.services.map((s) => s.id));
+    const acctServices = scopedServicesByOwner(migrated, "acct").flatMap((g) => g.services.map((s) => s.id));
+
+    expect(mcServices).toEqual(
+      expect.arrayContaining(["ps_wo_triage", "ps_vendor_comm", "ps_invoice_rev", "ps_after_hours"])
+    );
+    expect(acctServices).toEqual(
+      expect.arrayContaining(["ps_distributions", "ps_vendor_pay", "ps_tax_docs"])
+    );
+    expect(pmServices).toEqual(
+      expect.arrayContaining(["ps_wo_escalation", "ps_rent_roll", "ps_owner_stmt"])
+    );
+    expect(pmServices).not.toEqual(expect.arrayContaining(mcServices));
+    expect(pmServices).not.toEqual(expect.arrayContaining(acctServices));
+  });
+
+  it("every scope service has exactly one owner", () => {
+    const owners = bundleOwnerRows(migrated).map((r) => r.id);
+    const scopeServiceIds = Object.entries(migrated.MASTER)
+      .filter(([id]) => migrated.place[id] === "scope")
+      .map(([id]) => id);
+    for (const id of scopeServiceIds) {
+      expect(owners).toContain(migrated.scopeOwner[id]);
+    }
   });
 });

@@ -48,6 +48,7 @@ function emptyDocShape(): Omit<CalcDoc, "schema" | "savedAt" | "G" | "af"> {
     bd: {},
     ev: {},
     pbase: {},
+    scopeOwner: {},
     psv: {},
     uck: {},
     ucv: {},
@@ -101,10 +102,26 @@ function mergeShippedDefaults(doc: CalcDoc): CalcDoc {
       group = { id: defGroup.id, label: defGroup.label, rows: [] };
       doc.CG.push(group);
     }
-    const existingRowIds = new Set(group.rows.map((r) => r.id));
     for (const defRow of defGroup.rows) {
       if (removed[`row:${defRow.id}`]) continue;
-      if (!existingRowIds.has(defRow.id)) group.rows.push({ ...defRow });
+      const existingRow = group.rows.find((r) => r.id === defRow.id);
+      if (!existingRow) {
+        group.rows.push({ ...defRow });
+        continue;
+      }
+      // Additive capability backfill: if this deploy declared a row
+      // burden/claims-eligible or a bundle owner (pmScope) that an
+      // already-seeded scenario predates, that capability applies going
+      // forward too. Never touches rate/name/basis -- those are the user's.
+      if (defRow.pmScope !== undefined && existingRow.pmScope === undefined) {
+        existingRow.pmScope = defRow.pmScope;
+      }
+      if (defRow.n_bd !== undefined && existingRow.n_bd === undefined) {
+        existingRow.n_bd = defRow.n_bd;
+      }
+      if (defRow.n_ev !== undefined && existingRow.n_ev === undefined) {
+        existingRow.n_ev = defRow.n_ev;
+      }
     }
   }
 
@@ -115,6 +132,9 @@ function mergeShippedDefaults(doc: CalcDoc): CalcDoc {
     if (doc.icat[id] === undefined) doc.icat[id] = SHIPPED.icat[id];
     if (SHIPPED.udest[id] !== undefined && doc.udest[id] === undefined) {
       doc.udest[id] = SHIPPED.udest[id];
+    }
+    if (doc.scopeOwner[id] === undefined && SHIPPED.scopeOwner[id] !== undefined) {
+      doc.scopeOwner[id] = SHIPPED.scopeOwner[id];
     }
   }
 
@@ -145,6 +165,11 @@ function backfillRowState(doc: CalcDoc): CalcDoc {
     if (doc.ev[id] === undefined) doc.ev[id] = row.n_ev ?? 0;
   }
 
+  const bundleOwnerIds = new Set(
+    [...cgRows.values()].filter((r) => r.pmScope === 1).map((r) => r.id)
+  );
+  const fallbackOwner = bundleOwnerIds.has("pm") ? "pm" : [...bundleOwnerIds][0];
+
   for (const [id, svc] of Object.entries(doc.MASTER)) {
     if (doc.psv[id] === undefined) doc.psv[id] = svc.dsv;
     if (doc.uck[id] === undefined) doc.uck[id] = { ...svc.dt };
@@ -153,6 +178,16 @@ function backfillRowState(doc: CalcDoc): CalcDoc {
     if (doc.vl[id] === undefined) doc.vl[id] = svc.dsv;
     if (doc.bd[id] === undefined) doc.bd[id] = 0;
     if (doc.ev[id] === undefined) doc.ev[id] = 0;
+    // A scope service without a valid bundle owner (missing, or pointing at a
+    // row that was removed / never had pmScope set) falls back to "pm" (or
+    // whatever bundle-owner row exists) so it always renders somewhere.
+    if (
+      doc.place[id] === "scope" &&
+      fallbackOwner &&
+      (doc.scopeOwner[id] === undefined || !bundleOwnerIds.has(doc.scopeOwner[id]))
+    ) {
+      doc.scopeOwner[id] = fallbackOwner;
+    }
   }
 
   if (!doc.templates.length) {
