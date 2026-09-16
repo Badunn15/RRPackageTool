@@ -365,17 +365,14 @@ function Row({
         </tr>
       )}
       {expanded && hasScopePanel && (
-        <tr className="border-t border-gold/5 bg-navy/40">
-          <td colSpan={editMode ? 10 : 9}>
-            <ScopeBundlePanel
-              doc={doc}
-              ownerRowId={row.id}
-              onToggleTier={h.onToggleScopeTier}
-              onOwnerChange={h.onScopeOwnerChange}
-              onBench={h.onBenchService}
-            />
-          </td>
-        </tr>
+        <ScopeBundlePanel
+          doc={doc}
+          ownerRowId={row.id}
+          colCount={editMode ? 10 : 9}
+          onToggleTier={h.onToggleScopeTier}
+          onOwnerChange={h.onScopeOwnerChange}
+          onBench={h.onBenchService}
+        />
       )}
     </>
   );

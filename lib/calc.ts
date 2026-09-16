@@ -32,8 +32,11 @@ export function cmo(row: CostRow, doc: CalcDoc): number {
     case "listing":
       return v * listings;
     case "event":
-      // Assumes one event per tenancy cycle per door.
-      return (v * doors) / (tenancy * 12);
+      // Assumes one event per tenancy cycle per door. A 0-year tenancy
+      // assumption is nonsensical (infinite turnover) rather than "no cost" —
+      // guard it so the UI shows 0 instead of Infinity/NaN cascading through
+      // every total.
+      return tenancy > 0 ? (v * doors) / (tenancy * 12) : 0;
     case "claim":
       // Total annual claim cost, spread across all doors at aggregation time.
       return (v * ev) / 12;

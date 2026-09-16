@@ -59,6 +59,12 @@ describe("cmo bases", () => {
     expect(cmo(row, doc)).toBeCloseTo((75 * doc.G.doors) / (doc.G.tenancy * 12), 2);
   });
 
+  it("event basis returns 0, not Infinity/NaN, when tenancy is set to 0", () => {
+    const zeroTenancyDoc: CalcDoc = { ...doc, G: { ...doc.G, tenancy: 0 } };
+    const row = { id: "insp_mgmt", name: "Inspection", e: "event" as const, v: 75 };
+    expect(cmo(row, zeroTenancyDoc)).toBe(0);
+  });
+
   it("claim spreads total annual claim cost across all doors at aggregation, not per row", () => {
     const row = { id: "pet_g", name: "Pet guarantee", e: "claim" as const, v: 1000, n_ev: 1 };
     expect(cmo(row, doc)).toBeCloseTo((1000 * 1) / 12, 2);

@@ -42,13 +42,33 @@ export default function Calculator({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(false);
 
+  // Refs mirror the latest scenario/rev/doc so the autosave flush — which
+  // runs asynchronously, sometimes after further edits or even another
+  // autosave have already landed — always reads current values instead of
+  // ones captured in a stale closure. Reading `rev` from React state inside
+  // that async callback was the bug: a save scheduled while an earlier one
+  // was still in flight would fire with the rev from before that earlier
+  // save completed, so the server (correctly) saw a mismatch and reported a
+  // "someone else edited this" conflict — even with a single user, single
+  // tab. See scheduleSave/flushSave below.
+  const scenarioRef = useRef<ScenarioRow | null>(null);
+  const revRef = useRef(0);
+  const pendingDocRef = useRef<CalcDoc | null>(null);
+  const savingRef = useRef(false);
+
   const loadScenario = useCallback(async (id: string) => {
+    // Cancel any pending autosave for whatever scenario was open before —
+    // its doc belongs to that scenario, not this one.
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     const { scenario: s, doc: d } = await api.get(id);
     setScenario(s);
     setDoc(d);
     setRev(s.rev);
     setStatus("idle");
     dirtyRef.current = false;
+    scenarioRef.current = s;
+    revRef.current = s.rev;
+    pendingDocRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -72,27 +92,51 @@ export default function Calculator({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initAttempt]);
 
+  const flushSave = useCallback(async () => {
+    // Never let two saves race each other: if one is already in flight when
+    // the timer fires, wait for it and retry shortly instead of firing a
+    // second request that could land with an already-outdated rev.
+    if (savingRef.current) {
+      saveTimer.current = setTimeout(flushSave, 300);
+      return;
+    }
+    const nextDoc = pendingDocRef.current;
+    const currentScenario = scenarioRef.current;
+    if (!nextDoc || !currentScenario) return;
+
+    savingRef.current = true;
+    setStatus("saving");
+    const { ok, body } = await api.save(currentScenario.id, nextDoc, revRef.current);
+    savingRef.current = false;
+
+    // The user may have switched to a different scenario while this request
+    // was in flight. Its response no longer applies to what's on screen —
+    // applying it would clobber the newly-loaded scenario's state.
+    if (scenarioRef.current?.id !== currentScenario.id) return;
+
+    if (!ok && "error" in body) {
+      setConflict({ serverScenario: body.scenario, serverDoc: body.doc });
+      setStatus("error");
+      return;
+    }
+    const saved = body as ScenarioRow;
+    revRef.current = saved.rev;
+    scenarioRef.current = saved;
+    setRev(saved.rev);
+    setScenario(saved);
+    dirtyRef.current = false;
+    pendingDocRef.current = null;
+    setStatus("saved");
+  }, []);
+
   const scheduleSave = useCallback(
     (nextDoc: CalcDoc) => {
       dirtyRef.current = true;
+      pendingDocRef.current = nextDoc;
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(async () => {
-        if (!scenario) return;
-        setStatus("saving");
-        const { ok, body } = await api.save(scenario.id, nextDoc, rev);
-        if (!ok && "error" in body) {
-          setConflict({ serverScenario: body.scenario, serverDoc: body.doc });
-          setStatus("error");
-          return;
-        }
-        const saved = body as ScenarioRow;
-        setRev(saved.rev);
-        setScenario(saved);
-        dirtyRef.current = false;
-        setStatus("saved");
-      }, AUTOSAVE_MS);
+      saveTimer.current = setTimeout(flushSave, AUTOSAVE_MS);
     },
-    [scenario, rev]
+    [flushSave]
   );
 
   function update(mutator: (d: CalcDoc) => CalcDoc) {
@@ -240,6 +284,9 @@ export default function Calculator({
               setDoc(conflict.serverDoc);
               setScenario(conflict.serverScenario);
               setRev(conflict.serverScenario.rev);
+              scenarioRef.current = conflict.serverScenario;
+              revRef.current = conflict.serverScenario.rev;
+              pendingDocRef.current = null;
               setConflict(null);
               setStatus("idle");
             }}
@@ -251,6 +298,8 @@ export default function Calculator({
             className="underline"
             onClick={() => {
               setRev(conflict.serverScenario.rev);
+              scenarioRef.current = conflict.serverScenario;
+              revRef.current = conflict.serverScenario.rev;
               setConflict(null);
               if (doc) scheduleSave(doc);
             }}

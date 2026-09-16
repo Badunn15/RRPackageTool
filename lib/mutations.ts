@@ -118,6 +118,14 @@ export function removeGroup(doc: CalcDoc, groupId: string): CalcDoc {
   const next = clone(doc);
   next.CG = next.CG.filter((g) => g.id !== groupId);
   next.removed[`grp:${groupId}`] = true;
+  // Any service promoted into this group (place = "cost:<groupId>") would
+  // otherwise become invisible in the table but keep contributing to cost
+  // totals, since calculate() resolves promoted rows from `place` directly
+  // rather than from what's actually still in CG. Send them back to the
+  // bench instead of silently orphaning them.
+  for (const id of Object.keys(next.place)) {
+    if (next.place[id] === `cost:${groupId}`) next.place[id] = "uc";
+  }
   return next;
 }
 
