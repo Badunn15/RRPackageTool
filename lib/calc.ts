@@ -46,6 +46,53 @@ export function cmo(row: CostRow, doc: CalcDoc): number {
   }
 }
 
+function fmt(n: number): string {
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/** Human-readable breakdown of how a row's $/mo was computed — the "info tab" from the original tool. */
+export function formulaText(row: CostRow, doc: CalcDoc): string {
+  const v = doc.vl[row.id] ?? row.v;
+  const { doors, seats, listings, tenancy } = doc.G;
+  const monthly = cmo(row, doc);
+  const perDoor = doors ? monthly / doors : 0;
+  const tail = ` = $${fmt(monthly)}/mo → $${fmt(perDoor)}/door`;
+
+  switch (row.e) {
+    case "annual": {
+      const bd = doc.bd[row.id] ?? row.n_bd ?? 0;
+      if (bd) {
+        const withBurden = v * (1 + bd / 100);
+        return `$${fmt(v)}/yr + ${fmt(bd)}% burden = $${fmt(withBurden)}/yr ÷ 12${tail}`;
+      }
+      return `$${fmt(v)}/yr ÷ 12${tail}`;
+    }
+    case "monthly":
+      return `$${fmt(v)}/mo${tail}`;
+    case "door":
+      return `$${fmt(v)}/door/mo × ${doors} doors${tail}`;
+    case "door_yr":
+      return `$${fmt(v)}/door/yr × ${doors} doors ÷ 12${tail}`;
+    case "seat":
+      return `$${fmt(v)}/seat/mo × ${seats} seats${tail}`;
+    case "listing":
+      return `$${fmt(v)}/listing/mo × ${listings} listings${tail}`;
+    case "event":
+      return `$${fmt(v)}/event × ${doors} doors ÷ (${tenancy}yr tenancy × 12)${tail}`;
+    case "claim": {
+      const ev = doc.ev[row.id] ?? row.n_ev ?? 0;
+      return `$${fmt(v)}/claim × ${fmt(ev)} claims/yr ÷ 12${tail}`;
+    }
+    case "af": {
+      const { af } = doc;
+      const com = af.ic ? ` + com: $${fmt(af.cr)} × ${af.cd} units` : " (commercial not included)";
+      return `res: $${fmt(af.rr)} × ${af.rd} units${com}${tail}`;
+    }
+    default:
+      return `${tail.slice(3)}`;
+  }
+}
+
 function rowView(doc: CalcDoc, rowId: string, groupId: string): CostView {
   return (doc.itemView[rowId] as CostView) ?? doc.secView[groupId] ?? "direct";
 }

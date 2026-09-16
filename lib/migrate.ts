@@ -31,8 +31,30 @@ export function migrate(input: unknown): CalcDoc {
   let doc = normalizeLegacy(input);
   doc = mergeShippedDefaults(doc);
   doc = backfillRowState(doc);
+  doc = cleanupStaleNotes(doc);
   doc.schema = CURRENT_SCHEMA;
   if (!doc.savedAt) doc.savedAt = new Date().toISOString();
+  return doc;
+}
+
+/**
+ * One-time, narrowly-scoped cleanup: the "acct" row shipped briefly with a
+ * placeholder description explaining its $0 rate. There's no UI yet to edit
+ * a row's description, so scenarios that already merged that row in (like
+ * the live "Current" one) can't clear it themselves. Exact-match only, so
+ * this can never clobber a description someone actually wrote.
+ */
+const STALE_NOTES: Record<string, string> = {
+  acct: "Salary not yet set — this line was split out from PM comp so accounting-specific scope services (owner distributions, vendor pay, tax docs) have a real cost home.",
+};
+function cleanupStaleNotes(doc: CalcDoc): CalcDoc {
+  for (const group of doc.CG) {
+    for (const row of group.rows) {
+      if (STALE_NOTES[row.id] && row.d === STALE_NOTES[row.id]) {
+        delete row.d;
+      }
+    }
+  }
   return doc;
 }
 

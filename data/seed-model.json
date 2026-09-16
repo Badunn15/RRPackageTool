@@ -859,7 +859,7 @@
         { "id": "pm", "name": "PM comp", "e": "door", "v": 27, "pmScope": 1 },
         { "id": "mc", "name": "Maintenance coordinator", "e": "annual", "v": 31200, "n_bd": 9.4, "pmScope": 1 },
         { "id": "pc", "name": "Process coordinator", "e": "annual", "v": 27000, "n_bd": 0 },
-        { "id": "acct", "name": "Accounting", "e": "annual", "v": 0, "n_bd": 0, "pmScope": 1, "d": "Salary not yet set — this line was split out from PM comp so accounting-specific scope services (owner distributions, vendor pay, tax docs) have a real cost home." }
+        { "id": "acct", "name": "Accounting", "e": "annual", "v": 0, "n_bd": 0, "pmScope": 1 }
       ]
     },
     {

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { activeTemplate, cmo, promotedRowsForGroup } from "@/lib/calc";
+import { activeTemplate, cmo, formulaText, promotedRowsForGroup } from "@/lib/calc";
 import { Basis, CalcDoc, CostRow, CostView, TIERS } from "@/lib/types";
 import ScopeBundlePanel from "./ScopeBundlePanel";
 
@@ -84,7 +84,7 @@ export default function GroupTable({
 
             return (
               <Fragment key={group.id}>
-                <tr className="border-t border-gold/20 bg-navy/60">
+                <tr className="border-t border-gold/30 bg-card">
                   <td colSpan={colCount} className="px-3 py-2">
                     <div className="flex items-center gap-3">
                       <button
@@ -197,7 +197,7 @@ function Row({
 
   return (
     <>
-      <tr className="border-t border-gold/10">
+      <tr className="border-t border-gold/10 bg-card/20 hover:bg-card/40">
         <td className="px-3 py-1.5">
           <div className="flex items-center gap-1.5">
             {canExpand && (
@@ -254,7 +254,9 @@ function Row({
           </select>
         </td>
         <td className="px-3 py-1.5 text-right font-mono text-cream">
-          {monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          <span className="cursor-help border-b border-dotted border-cream/30" title={formulaText(row, doc)}>
+            {monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          </span>
         </td>
         <td className="px-3 py-1.5 text-right font-mono text-cream/80">{perDoor.toFixed(2)}</td>
         {TIERS.map((tier) => (
