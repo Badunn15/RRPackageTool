@@ -17,5 +17,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session }) {
       return session;
     },
+    // Used by middleware.ts (`export { auth as middleware }`): returning
+    // false here is what makes NextAuth actually redirect an unauthenticated
+    // request to `pages.signIn` instead of letting it fall through.
+    authorized({ auth }) {
+      return !!auth?.user;
+    },
   },
 });

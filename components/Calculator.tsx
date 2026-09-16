@@ -35,6 +35,8 @@ export default function Calculator({
   const [versions, setVersions] = useState<
     { rev: number; note: string | null; createdBy: string; createdAt: string }[]
   >([]);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [initAttempt, setInitAttempt] = useState(0);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(false);
@@ -49,20 +51,25 @@ export default function Calculator({
   }, []);
 
   useEffect(() => {
+    setInitError(null);
     (async () => {
-      const list = await api.list();
-      setScenarios(list);
-      const initial = list.find((s) => s.isDefault) ?? list[0];
-      if (initial) {
-        await loadScenario(initial.id);
-      } else {
-        const created = await api.create("Current", seedModel as unknown as CalcDoc);
-        setScenarios([created]);
-        await loadScenario(created.id);
+      try {
+        const list = await api.list();
+        setScenarios(list);
+        const initial = list.find((s) => s.isDefault) ?? list[0];
+        if (initial) {
+          await loadScenario(initial.id);
+        } else {
+          const created = await api.create("Current", seedModel as unknown as CalcDoc);
+          setScenarios([created]);
+          await loadScenario(created.id);
+        }
+      } catch (err) {
+        setInitError(err instanceof Error ? err.message : "Failed to load scenarios.");
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initAttempt]);
 
   const scheduleSave = useCallback(
     (nextDoc: CalcDoc) => {
@@ -102,8 +109,20 @@ export default function Calculator({
 
   if (!doc || !scenario) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-navy font-body text-cream/60">
-        Loading…
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-navy p-4 text-center font-body text-cream/60">
+        {initError ? (
+          <>
+            <p className="max-w-md text-red-300">Couldn&apos;t load the model: {initError}</p>
+            <button
+              onClick={() => setInitAttempt((n) => n + 1)}
+              className="rounded border border-gold/40 px-3 py-1 text-sm text-gold hover:bg-gold/10"
+            >
+              Retry
+            </button>
+          </>
+        ) : (
+          "Loading…"
+        )}
       </div>
     );
   }
