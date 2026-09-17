@@ -421,6 +421,7 @@ export default function Calculator({
           doc={doc}
           editMode={editMode}
           onRateChange={(id, v) => update((d) => M.setRowRate(d, id, v))}
+          onBasisChange={(id, basis) => update((d) => M.setRowBasis(d, id, basis))}
           onBurdenChange={(id, v) => update((d) => M.setRowBurden(d, id, v))}
           onEventsChange={(id, v) => update((d) => M.setRowEvents(d, id, v))}
           onAfChange={(key, v) => update((d) => M.setAfConfig(d, key, v))}

@@ -163,6 +163,24 @@ describe("scopeServiceStats", () => {
     );
   });
 
+  it("excludes scope services whose bundle owner isn't shown at the given cost view", () => {
+    // Gate just the Accounting row to "loaded" (via itemView override) so
+    // its bundled scope services drop out of the picture at direct/allocated
+    // but come back at loaded -- without touching PM/MC's services.
+    const acctOwnedCount = Object.entries(migrated.MASTER).filter(
+      ([id]) => migrated.place[id] === "scope" && migrated.scopeOwner[id] === "acct"
+    ).length;
+    expect(acctOwnedCount).toBeGreaterThan(0);
+
+    const gated: CalcDoc = { ...migrated, itemView: { ...migrated.itemView, acct: "loaded" } };
+    const baseline = scopeServiceStats(migrated, "min", "direct");
+    const atDirect = scopeServiceStats(gated, "min", "direct");
+    const atLoaded = scopeServiceStats(gated, "min", "loaded");
+
+    expect(atDirect.total).toBe(baseline.total - acctOwnedCount);
+    expect(atLoaded.total).toBe(baseline.total);
+  });
+
   it("the five 'Reporting & Proactive' items are event-based (claim), not door-scaled", () => {
     // These are things done once for an owner/portfolio/deal, not per door --
     // door_yr would wrongly multiply their value by door count if ever promoted.

@@ -33,6 +33,7 @@ const VIEW_ORDER: Record<CostView, number> = { direct: 0, allocated: 1, loaded: 
 
 export interface GroupTableHandlers {
   onRateChange: (rowId: string, value: number) => void;
+  onBasisChange: (rowId: string, basis: Basis) => void;
   onBurdenChange: (rowId: string, value: number) => void;
   onEventsChange: (rowId: string, value: number) => void;
   onAfChange: (key: keyof CalcDoc["af"], value: number) => void;
@@ -369,7 +370,25 @@ function Row({
             />
           )}
         </td>
-        <td className="px-3 py-1.5 font-mono text-xs text-cream/60">{BASIS_LABEL[row.e]}</td>
+        <td className="px-3 py-1.5 font-mono text-xs text-cream/60">
+          {editMode ? (
+            <select
+              value={row.e}
+              onChange={(e) => h.onBasisChange(row.id, e.target.value as Basis)}
+              className="rounded border border-gold/20 bg-navy px-1 py-0.5 font-mono text-xs text-cream"
+            >
+              {(Object.keys(BASIS_LABEL) as Basis[])
+                .filter((b) => b !== "af" || row.e === "af")
+                .map((b) => (
+                  <option key={b} value={b}>
+                    {BASIS_LABEL[b]}
+                  </option>
+                ))}
+            </select>
+          ) : (
+            BASIS_LABEL[row.e]
+          )}
+        </td>
         <td className="px-3 py-1.5">
           <select
             value={itemView ?? ""}

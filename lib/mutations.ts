@@ -29,6 +29,15 @@ export function setRowRate(doc: CalcDoc, rowId: string, value: number): CalcDoc 
   return next;
 }
 
+export function setRowBasis(doc: CalcDoc, rowId: string, basis: Basis): CalcDoc {
+  const next = clone(doc);
+  for (const group of next.CG) {
+    const row = group.rows.find((r) => r.id === rowId);
+    if (row) row.e = basis;
+  }
+  return next;
+}
+
 export function setRowBurden(doc: CalcDoc, rowId: string, value: number): CalcDoc {
   const next = clone(doc);
   next.bd[rowId] = value;

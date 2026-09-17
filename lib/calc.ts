@@ -104,6 +104,16 @@ function isVisible(rowV: CostView, activeView: CostView): boolean {
   return VIEW_ORDER[rowV] <= VIEW_ORDER[activeView];
 }
 
+/** Whether a bundle-owner row (and therefore everything bundled under it) is even shown at the given cost view. */
+function isOwnerVisibleAtView(doc: CalcDoc, ownerRowId: string, view: CostView): boolean {
+  for (const group of doc.CG) {
+    if (group.rows.some((r) => r.id === ownerRowId)) {
+      return isVisible(rowView(doc, ownerRowId, group.id), view);
+    }
+  }
+  return true;
+}
+
 /** A promoted service (place = "cost:<groupId>") resolved into a synthetic cost row. */
 function promotedRow(doc: CalcDoc, id: string): { row: CostRow; groupId: string } | null {
   const placement = doc.place[id];
@@ -258,14 +268,24 @@ function annualScopeValue(doc: CalcDoc, id: string, svc: MasterService): number 
   return value;
 }
 
-/** How many PM-scope services are included at a tier, and a rough indicative annual value for the ones that aren't. */
-export function scopeServiceStats(doc: CalcDoc, tier: Tier): ScopeServiceStats {
+/**
+ * How many PM-scope services are included at a tier, and a rough indicative
+ * annual value for the ones that aren't -- scoped to the given cost view.
+ * A service whose bundle owner isn't even shown at this view (e.g. an owner
+ * row gated to "loaded" while looking at "direct") is left out of both
+ * counts entirely, not counted as "excluded value": nothing about that
+ * owner is part of the picture at this view, so it isn't a meaningful
+ * exclusion at this tier, just invisible at this view.
+ */
+export function scopeServiceStats(doc: CalcDoc, tier: Tier, view: CostView = doc.cv): ScopeServiceStats {
   const psk = activeTemplate(doc).psk;
   let included = 0;
   let total = 0;
   let excludedValue = 0;
   for (const [id, svc] of Object.entries(doc.MASTER)) {
     if (doc.place[id] !== "scope") continue;
+    const ownerId = doc.scopeOwner[id];
+    if (ownerId && !isOwnerVisibleAtView(doc, ownerId, view)) continue;
     total += 1;
     if (psk[id]?.[tier]) {
       included += 1;

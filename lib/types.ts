@@ -128,7 +128,7 @@ export interface CalcDoc {
 export const TIERS: Tier[] = ["min", "special", "plus"];
 export const COST_VIEWS: CostView[] = ["direct", "allocated", "loaded"];
 export const TIER_LABELS: Record<Tier, string> = {
-  min: "Min Mgmt",
+  min: "Minimum Management",
   special: "Raynor Special",
-  plus: "Prot Plus",
+  plus: "Protection Plus",
 };
