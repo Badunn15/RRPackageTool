@@ -350,3 +350,65 @@ export function serviceStats(doc: CalcDoc, tier: Tier, view: CostView = doc.cv):
   }
   return { included, total, excludedValue };
 }
+
+export interface ExcludedItem {
+  id: string;
+  name: string;
+  kind: "cost" | "scope";
+  /** Why this item isn't in the tier's total: hidden entirely at this view, or visible but unchecked/unincluded for this tier. */
+  reason: "hidden" | "unchecked";
+  /** Whether the tier checkbox itself is already on (a "hidden" row can still be checked — only its view is the problem). */
+  checked: boolean;
+  annualValue: number;
+}
+
+/**
+ * The itemized breakdown behind serviceStats().excludedValue, one row per
+ * excluded cost-row/promoted-service and unchecked scope-catalog service, so
+ * the UI can list what's being left out instead of just a lump sum. Sorted
+ * largest dollar impact first.
+ */
+export function excludedItems(doc: CalcDoc, tier: Tier, view: CostView = doc.cv): ExcludedItem[] {
+  const ck = activeTemplate(doc).ck;
+  const psk = activeTemplate(doc).psk;
+  const items: ExcludedItem[] = [];
+
+  function considerCostRow(row: CostRow, groupId: string) {
+    const visible = isVisible(rowView(doc, row.id, groupId), view);
+    const checked = !!ck[row.id]?.[tier];
+    if (visible && checked) return;
+    items.push({
+      id: row.id,
+      name: row.name,
+      kind: "cost",
+      reason: visible ? "unchecked" : "hidden",
+      checked,
+      annualValue: cmo(row, doc) * 12,
+    });
+  }
+
+  for (const group of doc.CG) {
+    for (const row of group.rows) considerCostRow(row, group.id);
+  }
+  for (const id of Object.keys(doc.place)) {
+    const promoted = promotedRow(doc, id);
+    if (promoted) considerCostRow(promoted.row, promoted.groupId);
+  }
+
+  for (const [id, svc] of Object.entries(doc.MASTER)) {
+    if (doc.place[id] !== "scope") continue;
+    const ownerId = doc.scopeOwner[id];
+    if (ownerId && !isOwnerVisibleAtView(doc, ownerId, view)) continue;
+    if (psk[id]?.[tier]) continue;
+    items.push({
+      id,
+      name: svc.n,
+      kind: "scope",
+      reason: "unchecked",
+      checked: false,
+      annualValue: annualScopeValue(doc, id, svc),
+    });
+  }
+
+  return items.sort((a, b) => b.annualValue - a.annualValue);
+}

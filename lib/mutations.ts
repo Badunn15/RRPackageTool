@@ -1,4 +1,4 @@
-import { activeTemplate } from "./calc";
+import { activeTemplate, ExcludedItem } from "./calc";
 import { Basis, CalcDoc, CostView, Destination, TierFlags, Tier } from "./types";
 
 function clone(doc: CalcDoc): CalcDoc {
@@ -212,6 +212,22 @@ export function togglePsk(doc: CalcDoc, serviceId: string, tier: Tier): CalcDoc 
   if (!tpl.psk[serviceId]) tpl.psk[serviceId] = { min: false, special: false, plus: false };
   tpl.psk[serviceId][tier] = !tpl.psk[serviceId][tier];
   return next;
+}
+
+/**
+ * Force an excluded item (from calc.ts's excludedItems()) into a tier's
+ * total: clears any per-row view override hiding it at the current view,
+ * then checks its tier box if it isn't already. The two steps are
+ * independent because a "hidden" cost row can still have its checkbox on —
+ * only the view was the problem.
+ */
+export function includeExcludedItem(doc: CalcDoc, item: ExcludedItem, tier: Tier): CalcDoc {
+  let next = doc;
+  if (item.kind === "cost" && item.reason === "hidden") {
+    next = setItemView(next, item.id, next.cv);
+  }
+  if (item.checked) return next;
+  return item.kind === "cost" ? toggleTier(next, item.id, tier) : togglePsk(next, item.id, tier);
 }
 
 /** Reassign which bundle-owner row (PM comp, Maintenance Coordinator, Accounting, ...) a scope service shows up under. */

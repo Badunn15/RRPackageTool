@@ -359,7 +359,11 @@ export default function Calculator({
 
       <div className="border-b border-gold/20 bg-navy/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto max-w-[1400px] space-y-3">
-          <TierReadouts doc={doc} result={result} />
+          <TierReadouts
+            doc={doc}
+            result={result}
+            onIncludeExcluded={(item, tier) => update((d) => M.includeExcludedItem(d, item, tier))}
+          />
 
           <AssumptionsDrawer
             doc={doc}
