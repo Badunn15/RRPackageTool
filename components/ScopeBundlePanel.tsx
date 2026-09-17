@@ -327,10 +327,14 @@ function ServiceRow({
           <input
             type="number"
             value={hours || ""}
-            placeholder="hrs"
+            placeholder={isEventBased ? "hrs/ev" : "hrs/yr"}
             onChange={(e) => onHoursChange(svc.id, Number(e.target.value))}
-            className="w-10 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream placeholder:text-cream/30"
-            title={`Hours of ${svc.n.toLowerCase()} time — auto-converts to $ using this role's derived hourly rate (currently $${hourlyRate.toFixed(2)}/hr), no need to know the rate yourself`}
+            className="w-14 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream placeholder:text-cream/30"
+            title={
+              isEventBased
+                ? `Hours of ${svc.n.toLowerCase()} time for ONE event (not per year) — the events/yr box to the right multiplies it out. Auto-converts to $ at this role's derived rate (currently $${hourlyRate.toFixed(2)}/hr)`
+                : `Hours of ${svc.n.toLowerCase()} time PER YEAR (per door) — auto-converts to $ at this role's derived rate (currently $${hourlyRate.toFixed(2)}/hr), no need to know the rate yourself`
+            }
           />
           <input
             type="number"
@@ -340,7 +344,7 @@ function ServiceRow({
             className={`w-16 rounded border border-gold/20 px-1 py-0.5 text-right font-mono text-cream ${isHoursMode ? "bg-navy/60 text-cream/60" : "bg-navy"}`}
             title={
               isHoursMode
-                ? `Computed from ${hours} hr(s) × $${hourlyRate.toFixed(2)}/hr — clear the hrs field to enter a $ value directly`
+                ? `Computed from ${hours} hr(s)${isEventBased ? "/event" : "/yr"} × $${hourlyRate.toFixed(2)}/hr — clear the hrs field to enter a $ value directly`
                 : isEventBased
                   ? "Indicative value per event — used for the tier readouts' excluded-value estimate"
                   : "Indicative service value ($/door/yr) — used for the tier readouts' excluded-value estimate"
