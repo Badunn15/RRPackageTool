@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { activeTemplate, ownerHourlyRate, scopeServiceValue, scopedServicesByOwner } from "@/lib/calc";
 import { Basis, CalcDoc, MasterService, TIERS } from "@/lib/types";
+import InfoHint from "./InfoHint";
 
 /**
  * Renders as sibling <tr> rows in the same <table> as the main cost table
@@ -271,6 +272,7 @@ function ServiceRow({
           ) : (
             <span className="pl-1">{svc.n}</span>
           )}
+          {svc.d && <InfoHint text={svc.d} />}
         </div>
       </td>
       <td className="px-3 py-1 text-right">

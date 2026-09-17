@@ -15,6 +15,7 @@ import {
 import { activeTemplate, cmo, formulaText, promotedRowsForGroup } from "@/lib/calc";
 import { Basis, CalcDoc, CostRow, CostView, TIERS } from "@/lib/types";
 import ScopeBundlePanel from "./ScopeBundlePanel";
+import InfoHint from "./InfoHint";
 
 const BASIS_LABEL: Record<Basis, string> = {
   annual: "$/yr",
@@ -342,6 +343,7 @@ function Row({
             ) : (
               <span className="text-cream/90">{row.name}</span>
             )}
+            {row.d && <InfoHint text={row.d} />}
             {isPromoted && (
               <span className="rounded bg-gold/10 px-1.5 py-0.5 text-[10px] uppercase text-gold/60">
                 promoted
@@ -353,7 +355,6 @@ function Row({
               </span>
             )}
           </div>
-          {row.d && <div className="pl-5 text-[11px] text-cream/40">{row.d}</div>}
         </td>
         <td className="px-3 py-1.5 text-right">
           {isAf ? (

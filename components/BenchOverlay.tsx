@@ -2,6 +2,7 @@
 
 import { benchedServices } from "@/lib/calc";
 import { CalcDoc } from "@/lib/types";
+import InfoHint from "./InfoHint";
 
 export default function BenchOverlay({
   doc,
@@ -47,8 +48,10 @@ export default function BenchOverlay({
             {services.map((svc) => (
               <li key={svc.id} className="flex flex-wrap items-center gap-2 py-2">
                 <div className="min-w-0 flex-1">
-                  <div className="text-cream/90">{svc.n}</div>
-                  {svc.d && <div className="text-[11px] text-cream/40">{svc.d}</div>}
+                  <div className="flex items-center gap-1.5 text-cream/90">
+                    {svc.n}
+                    {svc.d && <InfoHint text={svc.d} />}
+                  </div>
                 </div>
                 <select
                   value={doc.udest[svc.id] ?? ""}
