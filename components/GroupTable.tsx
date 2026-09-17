@@ -254,9 +254,9 @@ export default function GroupTable({
           )}
         </tbody>
       </table>
-      <DragOverlay>
+      <DragOverlay dropAnimation={null} zIndex={100}>
         {dragLabel && (
-          <div className="rounded border border-gold bg-card px-3 py-1 text-xs text-cream shadow-lg">
+          <div className="w-max max-w-[240px] truncate whitespace-nowrap rounded border border-gold bg-card px-3 py-1.5 text-xs text-cream shadow-xl">
             {dragLabel}
           </div>
         )}

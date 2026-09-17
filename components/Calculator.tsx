@@ -13,8 +13,10 @@ import EditModelOverlay from "./EditModelOverlay";
 import VersionHistoryOverlay from "./VersionHistoryOverlay";
 import CompareOverlay from "./CompareOverlay";
 import BenchOverlay from "./BenchOverlay";
+import PromptModal from "./PromptModal";
 
 type ConflictState = { serverScenario: ScenarioRow; serverDoc: CalcDoc } | null;
+type PromptState = { kind: "create" | "duplicate" | "rename"; defaultValue: string } | null;
 
 /**
  * Edits are local-only until explicitly saved. Nothing autosaves and
@@ -48,6 +50,7 @@ export default function Calculator({
   >([]);
   const [initError, setInitError] = useState<string | null>(null);
   const [initAttempt, setInitAttempt] = useState(0);
+  const [promptState, setPromptState] = useState<PromptState>(null);
 
   const loadScenario = useCallback(async (id: string) => {
     const { scenario: s, doc: d } = await api.get(id);
@@ -172,7 +175,7 @@ export default function Calculator({
   return (
     <div className="min-h-screen bg-navy font-body text-cream">
       <header className="sticky top-0 z-40 border-b border-gold/20 bg-navy/95 px-4 py-3 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="font-display text-xl text-cream">Package Cost Calculator</h1>
 
           <select
@@ -185,87 +188,73 @@ export default function Calculator({
             <option value="loaded">Fully Loaded</option>
           </select>
 
-          <select
-            value={scenario.id}
-            onChange={(e) => {
-              if (!confirmDiscardIfDirty()) return;
-              loadScenario(e.target.value);
-            }}
-            className="rounded border border-gold/30 bg-card px-2 py-1 text-sm text-cream"
-          >
-            {scenarios.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-1 rounded border border-gold/20 bg-card/40 p-1">
+            <select
+              value={scenario.id}
+              onChange={(e) => {
+                if (!confirmDiscardIfDirty()) return;
+                loadScenario(e.target.value);
+              }}
+              className="rounded border border-gold/30 bg-card px-2 py-1 text-sm text-cream"
+            >
+              {scenarios.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
 
-          <ScenarioMenu
-            scenario={scenario}
-            onCreate={async () => {
-              // Uses the current (possibly edited) doc as the new scenario's
-              // starting point, so this never discards anything — it's the
-              // "save this experiment as its own scenario" path.
-              const name = window.prompt("New scenario name?", "New scenario");
-              if (!name) return;
-              const created = await api.create(name, doc);
-              await refreshList();
-              await loadScenario(created.id);
-            }}
-            onDuplicate={async () => {
-              // Duplicates the last *saved* version server-side, not any
-              // local unsaved tweaks.
-              if (!confirmDiscardIfDirty()) return;
-              const name = window.prompt("Name for the duplicate?", `${scenario.name} (copy)`);
-              const created = await api.duplicate(scenario.id, name ?? undefined);
-              await refreshList();
-              await loadScenario(created.id);
-            }}
-            onRename={async () => {
-              const name = window.prompt("Rename scenario", scenario.name);
-              if (!name) return;
-              await api.rename(scenario.id, name);
-              await refreshList();
-              setScenario((s) => (s ? { ...s, name } : s));
-            }}
-            onDelete={async () => {
-              if (!confirmDiscardIfDirty()) return;
-              if (!window.confirm(`Archive "${scenario.name}"? This can be restored by an admin later.`)) {
-                return;
-              }
-              await api.remove(scenario.id);
-              await refreshList();
-              const list = await api.list();
-              if (list[0]) await loadScenario(list[0].id);
-            }}
-            onVersions={async () => {
-              setVersions(await api.versions(scenario.id));
-              setOverlay("versions");
-            }}
-          />
+            <ScenarioMenu
+              scenario={scenario}
+              onCreate={() => setPromptState({ kind: "create", defaultValue: "New scenario" })}
+              onDuplicate={() => {
+                // Duplicates the last *saved* version server-side, not any
+                // local unsaved tweaks.
+                if (!confirmDiscardIfDirty()) return;
+                setPromptState({ kind: "duplicate", defaultValue: `${scenario.name} (copy)` });
+              }}
+              onRename={() => setPromptState({ kind: "rename", defaultValue: scenario.name })}
+              onDelete={async () => {
+                if (!confirmDiscardIfDirty()) return;
+                if (!window.confirm(`Archive "${scenario.name}"? This can be restored by an admin later.`)) {
+                  return;
+                }
+                await api.remove(scenario.id);
+                await refreshList();
+                const list = await api.list();
+                if (list[0]) await loadScenario(list[0].id);
+              }}
+              onVersions={async () => {
+                setVersions(await api.versions(scenario.id));
+                setOverlay("versions");
+              }}
+            />
+          </div>
 
-          <button
-            onClick={() => setOverlay("bench")}
-            className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
-          >
-            Bench{benchCount > 0 ? ` (${benchCount})` : ""}
-          </button>
-          <button
-            onClick={() => setOverlay("compare")}
-            className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
-          >
-            Compare
-          </button>
-          <button
-            onClick={() => setOverlay("edit")}
-            className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
-          >
-            Edit model
-          </button>
-          <label className="flex items-center gap-1 text-sm text-cream/70">
-            <input type="checkbox" checked={editMode} onChange={(e) => setEditMode(e.target.checked)} />
-            edit rows
-          </label>
+          <div className="flex items-center gap-2 border-l border-gold/20 pl-3">
+            <button
+              onClick={() => setOverlay("bench")}
+              className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
+            >
+              Bench{benchCount > 0 ? ` (${benchCount})` : ""}
+            </button>
+            <button
+              onClick={() => setOverlay("compare")}
+              className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
+            >
+              Compare
+            </button>
+            <button
+              onClick={() => setOverlay("edit")}
+              className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
+            >
+              Edit model
+            </button>
+            <label className="flex items-center gap-1 whitespace-nowrap text-sm text-cream/70">
+              <input type="checkbox" checked={editMode} onChange={(e) => setEditMode(e.target.checked)} />
+              edit rows
+            </label>
+          </div>
 
           <div className="ml-auto flex items-center gap-3 text-xs text-cream/50">
             {confirmingSave ? (
@@ -324,7 +313,9 @@ export default function Calculator({
             ) : (
               <SaveIndicator status={status} />
             )}
-            <span>{userEmail}</span>
+            <span className="hidden max-w-[180px] truncate sm:inline" title={userEmail}>
+              {userEmail}
+            </span>
             <form action={signOutAction}>
               <button type="submit" className="text-gold hover:underline">
                 Sign out
@@ -468,6 +459,39 @@ export default function Calculator({
             update((d) => M.setBenchDestination(d, id, destination))
           }
           onMove={(id) => update((d) => M.promoteFromBench(d, id))}
+        />
+      )}
+
+      {promptState && (
+        <PromptModal
+          title={
+            promptState.kind === "create"
+              ? "New scenario"
+              : promptState.kind === "duplicate"
+                ? "Duplicate scenario"
+                : "Rename scenario"
+          }
+          label={promptState.kind === "rename" ? undefined : "Name"}
+          defaultValue={promptState.defaultValue}
+          confirmLabel={promptState.kind === "rename" ? "Rename" : "Create"}
+          onCancel={() => setPromptState(null)}
+          onSubmit={async (name) => {
+            const kind = promptState.kind;
+            setPromptState(null);
+            if (kind === "create") {
+              const created = await api.create(name, doc);
+              await refreshList();
+              await loadScenario(created.id);
+            } else if (kind === "duplicate") {
+              const created = await api.duplicate(scenario.id, name);
+              await refreshList();
+              await loadScenario(created.id);
+            } else {
+              await api.rename(scenario.id, name);
+              await refreshList();
+              setScenario((s) => (s ? { ...s, name } : s));
+            }
+          }}
         />
       )}
     </div>
