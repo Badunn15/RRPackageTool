@@ -15,6 +15,7 @@ export default function ScopeBundlePanel({
   colCount,
   onToggleTier,
   onOwnerChange,
+  onCategoryChange,
   onBench,
 }: {
   doc: CalcDoc;
@@ -22,6 +23,7 @@ export default function ScopeBundlePanel({
   colCount: number;
   onToggleTier: (serviceId: string, tier: "min" | "special" | "plus") => void;
   onOwnerChange: (serviceId: string, newOwnerId: string) => void;
+  onCategoryChange: (serviceId: string, category: string) => void;
   onBench: (serviceId: string) => void;
 }) {
   const groups = scopedServicesByOwner(doc, ownerRowId);
@@ -52,12 +54,26 @@ export default function ScopeBundlePanel({
           {services.map((svc) => (
             <tr key={svc.id} className="bg-navy/40 text-xs">
               <td className="py-1 pl-10 pr-3 text-cream/80">{svc.n}</td>
-              <td />
+              <td className="px-3 py-1">
+                <select
+                  value={category}
+                  onChange={(e) => onCategoryChange(svc.id, e.target.value)}
+                  className="w-full rounded border border-gold/20 bg-navy px-1 py-0.5 text-cream"
+                  title="Move to a different PM-scope category"
+                >
+                  {doc.CATS.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </td>
               <td className="px-3 py-1">
                 <select
                   value={ownerRowId}
                   onChange={(e) => onOwnerChange(svc.id, e.target.value)}
                   className="w-full rounded border border-gold/20 bg-navy px-1 py-0.5 text-cream"
+                  title="Reassign which role owns this service"
                 >
                   {owners.map((o) => (
                     <option key={o.id} value={o.id}>

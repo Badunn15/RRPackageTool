@@ -36,6 +36,9 @@ export default function Calculator({
   const [rev, setRev] = useState<number>(0);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [confirmingSave, setConfirmingSave] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [conflict, setConflict] = useState<ConflictState>(null);
   const [editMode, setEditMode] = useState(false);
@@ -90,36 +93,42 @@ export default function Calculator({
   async function saveNow(revOverride?: number) {
     if (!scenario || !doc || saving) return;
     setSaving(true);
-    const { ok, body } = await api.save(scenario.id, doc, revOverride ?? rev);
-    setSaving(false);
-
-    if (!ok && "error" in body) {
-      setConflict({ serverScenario: body.scenario, serverDoc: body.doc });
-      setStatus("error");
-      return;
+    setSaveError(null);
+    try {
+      const { ok, body } = await api.save(scenario.id, doc, revOverride ?? rev);
+      if (!ok && "error" in body) {
+        setConflict({ serverScenario: body.scenario, serverDoc: body.doc });
+        setStatus("error");
+        return;
+      }
+      const saved = body as ScenarioRow;
+      setRev(saved.rev);
+      setScenario(saved);
+      setDirty(false);
+      setStatus("saved");
+    } catch (err) {
+      // A failed request (session hiccup, network blip, server error) must
+      // never leave `saving` stuck true forever -- that permanently disables
+      // the Save button with zero feedback, which looks like "nothing
+      // happens" when you click it. Surface the error and let them retry.
+      setSaveError(err instanceof Error ? err.message : "Save failed. Your changes are still here — try again.");
+    } finally {
+      setSaving(false);
     }
-    const saved = body as ScenarioRow;
-    setRev(saved.rev);
-    setScenario(saved);
-    setDirty(false);
-    setStatus("saved");
   }
 
   function handleSaveClick() {
-    if (
-      !window.confirm(
-        "Save your changes to this scenario? This updates it for everyone who opens it."
-      )
-    ) {
-      return;
-    }
-    saveNow();
+    setConfirmingSave(true);
   }
 
-  function handleDiscardClick() {
+  async function handleDiscardClick() {
+    setConfirmingDiscard(false);
     if (!scenario) return;
-    if (!window.confirm("Discard your changes and reload the last saved version?")) return;
-    loadScenario(scenario.id);
+    try {
+      await loadScenario(scenario.id);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Couldn't reload the saved version — try again.");
+    }
   }
 
   /** Confirms losing unsaved edits before navigating away from them (switching/creating/archiving a scenario, restoring a version, importing). */
@@ -259,11 +268,46 @@ export default function Calculator({
           </label>
 
           <div className="ml-auto flex items-center gap-3 text-xs text-cream/50">
-            {dirty ? (
+            {confirmingSave ? (
+              <>
+                <span className="text-gold">Save for everyone who opens this scenario?</span>
+                <button
+                  onClick={() => setConfirmingSave(false)}
+                  className="rounded border border-gold/30 px-2 py-1 text-cream/70 hover:bg-gold/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirmingSave(false);
+                    saveNow();
+                  }}
+                  className="rounded bg-gold px-3 py-1 font-semibold text-navy"
+                >
+                  Yes, save
+                </button>
+              </>
+            ) : confirmingDiscard ? (
+              <>
+                <span className="text-gold">Discard your changes?</span>
+                <button
+                  onClick={() => setConfirmingDiscard(false)}
+                  className="rounded border border-gold/30 px-2 py-1 text-cream/70 hover:bg-gold/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDiscardClick}
+                  className="rounded bg-red-500/80 px-3 py-1 font-semibold text-navy hover:bg-red-500"
+                >
+                  Yes, discard
+                </button>
+              </>
+            ) : dirty ? (
               <>
                 <span className="text-gold">Unsaved changes</span>
                 <button
-                  onClick={handleDiscardClick}
+                  onClick={() => setConfirmingDiscard(true)}
                   disabled={saving}
                   className="rounded border border-gold/30 px-2 py-1 text-cream/70 hover:bg-gold/10 disabled:opacity-50"
                 >
@@ -289,6 +333,15 @@ export default function Calculator({
           </div>
         </div>
       </header>
+
+      {saveError && (
+        <div className="flex items-center justify-between border-b border-red-400/40 bg-red-950/40 px-4 py-2 text-sm text-red-100">
+          <span>{saveError}</span>
+          <button className="underline" onClick={() => setSaveError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {conflict && (
         <div className="border-b border-red-400/40 bg-red-950/40 px-4 py-2 text-sm text-red-100">
@@ -353,7 +406,12 @@ export default function Calculator({
           onMoveRowToGroup={(id, targetGroupId) => update((d) => M.moveRowToGroup(d, id, targetGroupId))}
           onToggleScopeTier={(id, tier) => update((d) => M.togglePsk(d, id, tier))}
           onScopeOwnerChange={(id, ownerId) => update((d) => M.setScopeOwner(d, id, ownerId))}
+          onScopeCategoryChange={(id, category) => update((d) => M.setServiceCategory(d, id, category))}
           onBenchService={(id) => update((d) => M.benchService(d, id))}
+          onQuickAddRow={(groupId) => update((d) => M.addRow(d, groupId, "New line", "monthly", 0))}
+          onRemoveGroup={(id) => update((d) => M.removeGroup(d, id))}
+          onQuickAddGroup={() => update((d) => M.addGroup(d, "New group"))}
+          onRenameGroup={(id, label) => update((d) => M.renameGroup(d, id, label))}
         />
       </main>
 

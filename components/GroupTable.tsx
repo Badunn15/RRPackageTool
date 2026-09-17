@@ -34,7 +34,12 @@ export interface GroupTableHandlers {
   onMoveRowToGroup: (rowId: string, targetGroupId: string) => void;
   onToggleScopeTier: (serviceId: string, tier: "min" | "special" | "plus") => void;
   onScopeOwnerChange: (serviceId: string, newOwnerId: string) => void;
+  onScopeCategoryChange: (serviceId: string, category: string) => void;
   onBenchService: (serviceId: string) => void;
+  onQuickAddRow: (groupId: string) => void;
+  onRemoveGroup: (groupId: string) => void;
+  onQuickAddGroup: () => void;
+  onRenameGroup: (groupId: string, label: string) => void;
 }
 
 export default function GroupTable({
@@ -94,10 +99,47 @@ export default function GroupTable({
                       >
                         {collapsed ? "▸" : "▾"}
                       </button>
-                      <span className="font-display text-base text-cream">{group.label}</span>
+                      {editMode ? (
+                        <input
+                          value={group.label}
+                          onChange={(e) => h.onRenameGroup(group.id, e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded border border-gold/20 bg-navy px-2 py-0.5 font-display text-base text-cream"
+                        />
+                      ) : (
+                        <span className="font-display text-base text-cream">{group.label}</span>
+                      )}
                       {groupHidden && (
                         <span className="rounded bg-gold/10 px-2 py-0.5 text-[10px] uppercase text-gold/70">
                           hidden at this view
+                        </span>
+                      )}
+                      {editMode && (
+                        <span className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => h.onQuickAddRow(group.id)}
+                            className="flex h-5 w-5 items-center justify-center rounded border border-gold/40 text-gold hover:bg-gold/10"
+                            title="Add a line to this group"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Remove the "${group.label}" group and every line in it? You can still Discard before saving if this was a mistake.`
+                                )
+                              ) {
+                                h.onRemoveGroup(group.id);
+                              }
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded border border-red-400/40 text-red-300 hover:bg-red-400/10"
+                            title="Remove this group"
+                          >
+                            −
+                          </button>
                         </span>
                       )}
                       <select
@@ -153,6 +195,22 @@ export default function GroupTable({
               </Fragment>
             );
           })}
+          {editMode && (
+            <tr className="border-t border-gold/10">
+              <td colSpan={10} className="px-3 py-2">
+                <button
+                  type="button"
+                  onClick={h.onQuickAddGroup}
+                  className="flex items-center gap-1.5 text-sm text-gold/70 hover:text-gold"
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded border border-gold/40">
+                    +
+                  </span>
+                  Add group
+                </button>
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -318,9 +376,10 @@ function Row({
               <button
                 type="button"
                 onClick={() => h.onRemoveRow(row.id)}
-                className="text-xs text-red-300 hover:text-red-200"
+                className="flex h-5 w-5 items-center justify-center rounded border border-red-400/40 text-red-300 hover:bg-red-400/10"
+                title="Remove this line"
               >
-                remove
+                −
               </button>
             )}
           </td>
@@ -371,6 +430,7 @@ function Row({
           colCount={editMode ? 10 : 9}
           onToggleTier={h.onToggleScopeTier}
           onOwnerChange={h.onScopeOwnerChange}
+          onCategoryChange={h.onScopeCategoryChange}
           onBench={h.onBenchService}
         />
       )}

@@ -212,6 +212,13 @@ export function setScopeOwner(doc: CalcDoc, serviceId: string, ownerRowId: strin
   return next;
 }
 
+/** Move a scope service into a different PM-scope category (e.g. Communication & Support -> Leasing & Placement). */
+export function setServiceCategory(doc: CalcDoc, serviceId: string, category: string): CalcDoc {
+  const next = clone(doc);
+  next.icat[serviceId] = category;
+  return next;
+}
+
 /** Add a brand-new PM-scope service, owned by the given bundle row, in the given category. */
 export function addScopeService(
   doc: CalcDoc,
