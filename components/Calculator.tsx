@@ -175,28 +175,28 @@ export default function Calculator({
   return (
     <div className="min-h-screen bg-navy font-body text-cream">
       <div className="sticky top-0 z-40 bg-navy">
-      <header className="border-b border-gold/20 bg-navy/95 px-4 py-3 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="font-display text-xl text-cream">Package Cost Calculator</h1>
+      <header className="border-b border-gold/20 bg-navy/95 px-3 py-2 backdrop-blur">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h1 className="whitespace-nowrap font-display text-base text-cream">Package Cost Calculator</h1>
 
           <select
             value={doc.cv}
             onChange={(e) => update((d) => M.setCostView(d, e.target.value as CostView))}
-            className="rounded border border-gold/30 bg-card px-2 py-1 font-mono text-sm text-cream"
+            className="rounded border border-gold/30 bg-card px-1.5 py-1 font-mono text-xs text-cream"
           >
             <option value="direct">Direct COGS</option>
             <option value="allocated">Fully Allocated</option>
             <option value="loaded">Fully Loaded</option>
           </select>
 
-          <div className="flex items-center gap-1 rounded border border-gold/20 bg-card/40 p-1">
+          <div className="flex items-center gap-1 rounded border border-gold/20 bg-card/40 p-0.5">
             <select
               value={scenario.id}
               onChange={(e) => {
                 if (!confirmDiscardIfDirty()) return;
                 loadScenario(e.target.value);
               }}
-              className="rounded border border-gold/30 bg-card px-2 py-1 text-sm text-cream"
+              className="max-w-[140px] rounded border border-gold/30 bg-card px-1.5 py-1 text-xs text-cream"
             >
               {scenarios.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -232,32 +232,32 @@ export default function Calculator({
             />
           </div>
 
-          <div className="flex items-center gap-2 border-l border-gold/20 pl-3">
+          <div className="flex items-center gap-1 border-l border-gold/20 pl-2">
             <button
               onClick={() => setOverlay("bench")}
-              className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
+              className="whitespace-nowrap rounded border border-gold/30 px-2 py-1 text-xs text-gold hover:bg-gold/10"
             >
               Bench{benchCount > 0 ? ` (${benchCount})` : ""}
             </button>
             <button
               onClick={() => setOverlay("compare")}
-              className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
+              className="whitespace-nowrap rounded border border-gold/30 px-2 py-1 text-xs text-gold hover:bg-gold/10"
             >
               Compare
             </button>
             <button
               onClick={() => setOverlay("edit")}
-              className="rounded border border-gold/30 px-3 py-1 text-sm text-gold hover:bg-gold/10"
+              className="whitespace-nowrap rounded border border-gold/30 px-2 py-1 text-xs text-gold hover:bg-gold/10"
             >
               Edit model
             </button>
-            <label className="flex items-center gap-1 whitespace-nowrap text-sm text-cream/70">
+            <label className="flex items-center gap-1 whitespace-nowrap text-xs text-cream/70">
               <input type="checkbox" checked={editMode} onChange={(e) => setEditMode(e.target.checked)} />
               edit rows
             </label>
           </div>
 
-          <div className="ml-auto flex items-center gap-3 text-xs text-cream/50">
+          <div className="ml-auto flex flex-none items-center gap-2 whitespace-nowrap text-xs text-cream/50">
             {confirmingSave ? (
               <>
                 <span className="text-gold">Save for everyone who opens this scenario?</span>
