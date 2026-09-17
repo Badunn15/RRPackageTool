@@ -256,8 +256,36 @@ export function scopeServiceValue(doc: CalcDoc, id: string, svc: MasterService):
 export interface ScopeServiceStats {
   included: number;
   total: number;
-  /** Annualized value of scope services NOT checked at this tier — a rough, non-authoritative gauge of what's being left out, not a hard number. */
+  /** Annualized $ NOT in this tier's total at this view — real cost-row dollars (hidden by view and/or unchecked for the tier) plus scope-catalog indicative value for unchecked services. A rough, non-authoritative gauge of what's being left out, not a hard number. */
   excludedValue: number;
+}
+
+/**
+ * Annualized $ for cost-group/promoted rows that do NOT make it into a
+ * tier's total at the given view — either the row is hidden entirely at
+ * this view (e.g. Guarantees, gated to "loaded"), or it's visible but
+ * simply unchecked for this tier. Mirrors calculate()'s own
+ * visible-and-checked condition, just inverted.
+ */
+function excludedCostRowValue(doc: CalcDoc, tier: Tier, view: CostView): number {
+  const ck = activeTemplate(doc).ck;
+  let sum = 0;
+
+  function consider(row: CostRow, groupId: string) {
+    const visible = isVisible(rowView(doc, row.id, groupId), view);
+    const checked = !!ck[row.id]?.[tier];
+    if (!(visible && checked)) sum += cmo(row, doc) * 12;
+  }
+
+  for (const group of doc.CG) {
+    for (const row of group.rows) consider(row, group.id);
+  }
+  for (const id of Object.keys(doc.place)) {
+    const promoted = promotedRow(doc, id);
+    if (promoted) consider(promoted.row, promoted.groupId);
+  }
+
+  return sum;
 }
 
 /** A scope service's own indicative annual value: $/event × events/yr for "claim"-basis services, or its raw indicative value for door-scaled ones. */
@@ -270,18 +298,22 @@ function annualScopeValue(doc: CalcDoc, id: string, svc: MasterService): number 
 
 /**
  * How many PM-scope services are included at a tier, and a rough indicative
- * annual value for the ones that aren't -- scoped to the given cost view.
- * A service whose bundle owner isn't even shown at this view (e.g. an owner
- * row gated to "loaded" while looking at "direct") is left out of both
- * counts entirely, not counted as "excluded value": nothing about that
- * owner is part of the picture at this view, so it isn't a meaningful
- * exclusion at this tier, just invisible at this view.
+ * annual value for what's NOT in this tier's total at the given cost view --
+ * both real cost-row dollars (e.g. Guarantees, hidden entirely at "direct")
+ * and scope-catalog indicative value, combined into one annualized figure.
+ *
+ * A scope-catalog service whose bundle owner isn't even shown at this view
+ * (e.g. an owner row gated to "loaded" while looking at "direct") is left
+ * out of the included/total counts entirely: nothing about that owner is
+ * part of the picture at this view, so it isn't a meaningful exclusion at
+ * this tier, just invisible at this view. Cost rows don't have this
+ * distinction -- a hidden-by-view row is simply excluded value.
  */
 export function scopeServiceStats(doc: CalcDoc, tier: Tier, view: CostView = doc.cv): ScopeServiceStats {
   const psk = activeTemplate(doc).psk;
   let included = 0;
   let total = 0;
-  let excludedValue = 0;
+  let excludedValue = excludedCostRowValue(doc, tier, view);
   for (const [id, svc] of Object.entries(doc.MASTER)) {
     if (doc.place[id] !== "scope") continue;
     const ownerId = doc.scopeOwner[id];

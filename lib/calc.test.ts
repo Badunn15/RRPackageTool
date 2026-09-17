@@ -238,6 +238,31 @@ describe("hours-mode scope value", () => {
   });
 });
 
+describe("excludedValue includes hidden-by-view cost rows, not just scope-catalog services", () => {
+  it("Guarantees (gated to 'loaded') count as excluded at direct/allocated, but not once counted at loaded", () => {
+    const direct = scopeServiceStats(migrated, "min", "direct");
+    const loaded = scopeServiceStats(migrated, "min", "loaded");
+    expect(direct.excludedValue).toBeGreaterThan(loaded.excludedValue);
+
+    // The scope-catalog portion is identical at both views here (PM/MC/
+    // Accounting are all gated to "direct", visible everywhere), so the
+    // entire delta should be exactly the annualized cost of every row in
+    // every group NOT gated to "direct" (i.e. newly visible at "loaded":
+    // Brokerage Split and Operating at "allocated", Guarantees and
+    // Executive at "loaded") that's checked for "min".
+    const ck = migrated.templates.find((t) => t.id === migrated.at)!.ck;
+    let expectedDelta = 0;
+    for (const group of migrated.CG) {
+      if ((migrated.secView[group.id] ?? "direct") === "direct") continue;
+      for (const row of group.rows) {
+        if (ck[row.id]?.min) expectedDelta += cmo(row, migrated) * 12;
+      }
+    }
+    expect(expectedDelta).toBeGreaterThan(0);
+    expect(direct.excludedValue - loaded.excludedValue).toBeCloseTo(expectedDelta, 2);
+  });
+});
+
 describe("evict_filing hard cost", () => {
   it("is a real cost row (claim basis) separate from the owner-facing evict_g guarantee", () => {
     const row = migrated.CG.flatMap((g) => g.rows).find((r) => r.id === "evict_filing");

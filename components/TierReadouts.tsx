@@ -15,10 +15,7 @@ export default function TierReadouts({ doc, result }: { doc: CalcDoc; result: Ca
               ${result.perDoorByTier[tier].toFixed(2)}
               <span className="ml-1 text-xs text-cream/50">/door/mo</span>
             </div>
-            <div
-              className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-xs text-cream/60"
-              title="Rough gauge, not a hard number: sum of annualized indicative value for scope services excluded at this tier."
-            >
+            <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-xs text-cream/60">
               <span>${result.totalByTier[tier].toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</span>
               <span className="text-cream/30">·</span>
               <span>{result.servicesByTier[tier]} lines</span>
@@ -29,8 +26,11 @@ export default function TierReadouts({ doc, result }: { doc: CalcDoc; result: Ca
               {scope.excludedValue > 0 && (
                 <>
                   <span className="text-cream/30">·</span>
-                  <span className="text-cream/40">
-                    ${scope.excludedValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} excluded
+                  <span
+                    className="text-cream/40"
+                    title="Rough gauge, not a hard number: annualized $ not in this tier's total at the current view -- real cost-row dollars hidden by view or unchecked for this tier, plus indicative value for unchecked scope-catalog services."
+                  >
+                    ${scope.excludedValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr excluded
                   </span>
                 </>
               )}
