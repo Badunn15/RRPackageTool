@@ -174,7 +174,8 @@ export default function Calculator({
 
   return (
     <div className="min-h-screen bg-navy font-body text-cream">
-      <header className="sticky top-0 z-40 border-b border-gold/20 bg-navy/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-40 bg-navy">
+      <header className="border-b border-gold/20 bg-navy/95 px-4 py-3 backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="font-display text-xl text-cream">Package Cost Calculator</h1>
 
@@ -325,6 +326,25 @@ export default function Calculator({
         </div>
       </header>
 
+      <div className="border-b border-gold/20 bg-navy/95 px-4 py-3 backdrop-blur">
+        <div className="mx-auto max-w-[1400px] space-y-3">
+          <TierReadouts doc={doc} result={result} />
+
+          <AssumptionsDrawer
+            doc={doc}
+            onGlobalChange={(key, value) => update((d) => M.setGlobal(d, key, value))}
+            onReset={() =>
+              update((d) => ({
+                ...d,
+                G: { ...(seedModel as unknown as CalcDoc).G },
+                af: { ...(seedModel as unknown as CalcDoc).af },
+              }))
+            }
+          />
+        </div>
+      </div>
+      </div>
+
       {saveError && (
         <div className="flex items-center justify-between border-b border-red-400/40 bg-red-950/40 px-4 py-2 text-sm text-red-100">
           <span>{saveError}</span>
@@ -365,21 +385,7 @@ export default function Calculator({
         </div>
       )}
 
-      <main className="mx-auto max-w-6xl space-y-4 p-4">
-        <TierReadouts doc={doc} result={result} />
-
-        <AssumptionsDrawer
-          doc={doc}
-          onGlobalChange={(key, value) => update((d) => M.setGlobal(d, key, value))}
-          onReset={() =>
-            update((d) => ({
-              ...d,
-              G: { ...(seedModel as unknown as CalcDoc).G },
-              af: { ...(seedModel as unknown as CalcDoc).af },
-            }))
-          }
-        />
-
+      <main className="mx-auto max-w-[1400px] space-y-4 p-4">
         <GroupTable
           doc={doc}
           editMode={editMode}
