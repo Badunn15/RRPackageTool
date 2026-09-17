@@ -52,6 +52,7 @@ export interface GroupTableHandlers {
   onAddCategory: (name: string) => void;
   onRemoveCategory: (name: string) => void;
   onRenameCategory: (oldName: string, newName: string) => void;
+  onAddScopeService: (opts: { name: string; category: string; ownerRowId: string }) => void;
   onQuickAddRow: (groupId: string) => void;
   onRemoveGroup: (groupId: string) => void;
   onQuickAddGroup: () => void;
@@ -509,6 +510,7 @@ function Row({
           onAddCategory={h.onAddCategory}
           onRemoveCategory={h.onRemoveCategory}
           onRenameCategory={h.onRenameCategory}
+          onAddService={h.onAddScopeService}
         />
       )}
     </>

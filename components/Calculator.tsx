@@ -403,6 +403,7 @@ export default function Calculator({
           onAddCategory={(name) => update((d) => M.addCategory(d, name))}
           onRemoveCategory={(name) => update((d) => M.removeCategory(d, name))}
           onRenameCategory={(oldName, newName) => update((d) => M.renameCategory(d, oldName, newName))}
+          onAddScopeService={(opts) => update((d) => M.addScopeService(d, opts))}
           onQuickAddRow={(groupId) => update((d) => M.addRow(d, groupId, "New line", "monthly", 0))}
           onRemoveGroup={(id) => update((d) => M.removeGroup(d, id))}
           onQuickAddGroup={() => update((d) => M.addGroup(d, "New group"))}

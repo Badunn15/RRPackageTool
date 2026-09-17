@@ -30,6 +30,7 @@ export default function ScopeBundlePanel({
   onAddCategory,
   onRemoveCategory,
   onRenameCategory,
+  onAddService,
 }: {
   doc: CalcDoc;
   ownerRowId: string;
@@ -44,11 +45,13 @@ export default function ScopeBundlePanel({
   onAddCategory: (name: string) => void;
   onRemoveCategory: (name: string) => void;
   onRenameCategory: (oldName: string, newName: string) => void;
+  onAddService: (opts: { name: string; category: string; ownerRowId: string }) => void;
 }) {
   const groups = scopedServicesByOwner(doc, ownerRowId);
   const psk = activeTemplate(doc).psk;
   const trailingCols = colCount - 9; // extra column(s) after Plus, e.g. edit-mode actions
   const hourlyRate = ownerHourlyRate(doc, ownerRowId);
+  const ownerName = doc.CG.flatMap((g) => g.rows).find((r) => r.id === ownerRowId)?.name ?? ownerRowId;
   // Categories just created via "+ add category" below, before any service
   // has been dragged into them -- scopedServicesByOwner only returns
   // categories that already have a service, so without this a brand-new
@@ -57,6 +60,9 @@ export default function ScopeBundlePanel({
   const [newCategory, setNewCategory] = useState("");
   const shownCategories = new Set(groups.map((g) => g.category));
   const emptyPending = pendingCategories.filter((c) => !shownCategories.has(c));
+  const availableCategories = [...new Set([...groups.map((g) => g.category), ...emptyPending, ...doc.CATS])];
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceCategory, setNewServiceCategory] = useState(availableCategories[0] ?? "");
 
   if (groups.length === 0 && emptyPending.length === 0 && !editMode) {
     return (
@@ -151,6 +157,47 @@ export default function ScopeBundlePanel({
               </button>
               <span className="text-[11px] text-cream/30">
                 drag a service onto the new category header to move it in
+              </span>
+            </div>
+          </td>
+        </tr>
+      )}
+      {editMode && (
+        <tr className="bg-navy/40">
+          <td colSpan={colCount} className="px-6 py-1.5">
+            <div className="flex items-center gap-1.5">
+              <input
+                value={newServiceName}
+                onChange={(e) => setNewServiceName(e.target.value)}
+                placeholder="New service name"
+                className="w-48 rounded border border-gold/20 bg-navy px-2 py-0.5 text-xs text-cream"
+              />
+              <select
+                value={newServiceCategory}
+                onChange={(e) => setNewServiceCategory(e.target.value)}
+                className="rounded border border-gold/20 bg-navy px-2 py-0.5 text-xs text-cream"
+              >
+                {availableCategories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  const name = newServiceName.trim();
+                  if (!name || !newServiceCategory) return;
+                  onAddService({ name, category: newServiceCategory, ownerRowId });
+                  setNewServiceName("");
+                }}
+                className="flex h-5 w-5 items-center justify-center rounded border border-gold/40 text-xs text-gold hover:bg-gold/10"
+                title="Add a new scope-of-work line to this category"
+              >
+                +
+              </button>
+              <span className="text-[11px] text-cream/30">
+                bundled under {ownerName}, in the category picked above
               </span>
             </div>
           </td>
