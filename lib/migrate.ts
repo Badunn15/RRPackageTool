@@ -243,7 +243,7 @@ function backfillRowState(doc: CalcDoc): CalcDoc {
   }
 
   if (!doc.templates.length) {
-    doc.templates = [{ id: "default", name: "Default", ck: {}, psk: {} }];
+    doc.templates = [{ id: "default", name: "Default", ck: {}, psk: {}, exclIgnore: {} }];
   }
   if (!doc.templates.some((t) => t.id === doc.at)) {
     doc.at = doc.templates[0].id;
@@ -251,6 +251,7 @@ function backfillRowState(doc: CalcDoc): CalcDoc {
   for (const tpl of doc.templates) {
     if (!tpl.ck) tpl.ck = {};
     if (!tpl.psk) tpl.psk = {};
+    if (!tpl.exclIgnore) tpl.exclIgnore = {};
     for (const id of cgRows.keys()) {
       if (!tpl.ck[id]) tpl.ck[id] = { min: true, special: true, plus: true };
     }

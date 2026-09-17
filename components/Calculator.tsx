@@ -363,6 +363,7 @@ export default function Calculator({
             doc={doc}
             result={result}
             onIncludeExcluded={(item, tier) => update((d) => M.includeExcludedItem(d, item, tier))}
+            onToggleExclusionIgnored={(item, tier) => update((d) => M.toggleExclusionIgnored(d, item.id, tier))}
           />
 
           <AssumptionsDrawer

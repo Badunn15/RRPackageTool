@@ -215,6 +215,21 @@ export function togglePsk(doc: CalcDoc, serviceId: string, tier: Tier): CalcDoc 
 }
 
 /**
+ * Toggle whether an item's dollar value is dismissed from the excluded-value
+ * gauge for a tier. Purely cosmetic to the gauge -- never touches ck/psk/
+ * itemView, so the item stays exactly as unchecked/hidden as it was; this
+ * just stops counting it as a "missed" dollar (e.g. "not sure what this
+ * costs yet, don't hold it against the total").
+ */
+export function toggleExclusionIgnored(doc: CalcDoc, id: string, tier: Tier): CalcDoc {
+  const next = clone(doc);
+  const tpl = activeTemplate(next);
+  if (!tpl.exclIgnore[id]) tpl.exclIgnore[id] = { min: false, special: false, plus: false };
+  tpl.exclIgnore[id][tier] = !tpl.exclIgnore[id][tier];
+  return next;
+}
+
+/**
  * Force an excluded item (from calc.ts's excludedItems()) into a tier's
  * total: clears any per-row view override hiding it at the current view,
  * then checks its tier box if it isn't already. The two steps are

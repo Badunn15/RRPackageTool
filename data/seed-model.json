@@ -871,7 +871,8 @@
         "uc_claims": { "min": false, "special": false, "plus": false },
         "uc_term_offboard": { "min": false, "special": false, "plus": false },
         "uc_sale_fee": { "min": false, "special": false, "plus": false }
-      }
+      },
+      "exclIgnore": {}
     }
   ],
   "at": "default",

@@ -264,11 +264,13 @@ export interface ServiceStats {
  */
 function excludedCostRowValue(doc: CalcDoc, tier: Tier, view: CostView): number {
   const ck = activeTemplate(doc).ck;
+  const exclIgnore = activeTemplate(doc).exclIgnore;
   let sum = 0;
 
   function consider(row: CostRow, groupId: string) {
     const visible = isVisible(rowView(doc, row.id, groupId), view);
     const checked = !!ck[row.id]?.[tier];
+    if (exclIgnore[row.id]?.[tier]) return;
     if (!(visible && checked)) sum += cmo(row, doc) * 12;
   }
 
@@ -318,6 +320,7 @@ function annualScopeValue(doc: CalcDoc, id: string, svc: MasterService): number 
 export function serviceStats(doc: CalcDoc, tier: Tier, view: CostView = doc.cv): ServiceStats {
   const ck = activeTemplate(doc).ck;
   const psk = activeTemplate(doc).psk;
+  const exclIgnore = activeTemplate(doc).exclIgnore;
   let included = 0;
   let total = 0;
   let excludedValue = excludedCostRowValue(doc, tier, view);
@@ -344,7 +347,7 @@ export function serviceStats(doc: CalcDoc, tier: Tier, view: CostView = doc.cv):
     total += 1;
     if (psk[id]?.[tier]) {
       included += 1;
-    } else {
+    } else if (!exclIgnore[id]?.[tier]) {
       excludedValue += annualScopeValue(doc, id, svc);
     }
   }
@@ -359,18 +362,24 @@ export interface ExcludedItem {
   reason: "hidden" | "unchecked";
   /** Whether the tier checkbox itself is already on (a "hidden" row can still be checked — only its view is the problem). */
   checked: boolean;
+  /** Intentionally dismissed from the excluded-value gauge (via "Ignore") — still not in the tier's total, just not counted as a "missed" dollar. */
+  ignored: boolean;
   annualValue: number;
 }
 
 /**
  * The itemized breakdown behind serviceStats().excludedValue, one row per
  * excluded cost-row/promoted-service and unchecked scope-catalog service, so
- * the UI can list what's being left out instead of just a lump sum. Sorted
- * largest dollar impact first.
+ * the UI can list what's being left out instead of just a lump sum. Includes
+ * ignored items too (flagged via `ignored`) so the UI can offer an undo;
+ * callers computing a dollar total should sum only the non-ignored ones, to
+ * match serviceStats().excludedValue exactly. Sorted largest dollar impact
+ * first.
  */
 export function excludedItems(doc: CalcDoc, tier: Tier, view: CostView = doc.cv): ExcludedItem[] {
   const ck = activeTemplate(doc).ck;
   const psk = activeTemplate(doc).psk;
+  const exclIgnore = activeTemplate(doc).exclIgnore;
   const items: ExcludedItem[] = [];
 
   function considerCostRow(row: CostRow, groupId: string) {
@@ -383,6 +392,7 @@ export function excludedItems(doc: CalcDoc, tier: Tier, view: CostView = doc.cv)
       kind: "cost",
       reason: visible ? "unchecked" : "hidden",
       checked,
+      ignored: !!exclIgnore[row.id]?.[tier],
       annualValue: cmo(row, doc) * 12,
     });
   }
@@ -406,6 +416,7 @@ export function excludedItems(doc: CalcDoc, tier: Tier, view: CostView = doc.cv)
       kind: "scope",
       reason: "unchecked",
       checked: false,
+      ignored: !!exclIgnore[id]?.[tier],
       annualValue: annualScopeValue(doc, id, svc),
     });
   }

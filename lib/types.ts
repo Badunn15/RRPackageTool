@@ -86,6 +86,8 @@ export interface ScenarioTemplate {
   name: string;
   ck: Record<string, TierFlags>;
   psk: Record<string, TierFlags>;
+  /** Items intentionally left out of a tier (e.g. "not sure what this costs yet") whose dollar value should NOT count toward the excluded-value gauge, even though they stay unchecked/hidden exactly as before. Purely cosmetic to the gauge -- never affects calculate(). */
+  exclIgnore: Record<string, TierFlags>;
 }
 
 /**
