@@ -122,7 +122,9 @@
     "uc_sla": 0,
     "uc_turn_g": 0,
     "uc_place_g": 0,
-    "uc_claims": 0
+    "uc_claims": 0,
+    "uc_term_offboard": 0,
+    "uc_sale_fee": 0
   },
   "co": {},
   "so": {},
@@ -190,7 +192,9 @@
     "uc_sla": 0,
     "uc_turn_g": 0,
     "uc_place_g": 0,
-    "uc_claims": 0
+    "uc_claims": 0,
+    "uc_term_offboard": 0,
+    "uc_sale_fee": 0
   },
   "psh": {
     "ps_screen": 0,
@@ -256,7 +260,9 @@
     "uc_sla": 0,
     "uc_turn_g": 0,
     "uc_place_g": 0,
-    "uc_claims": 0
+    "uc_claims": 0,
+    "uc_term_offboard": 0,
+    "uc_sale_fee": 0
   },
   "uck": {
     "ps_screen": { "min": true, "special": true, "plus": true },
@@ -322,7 +328,9 @@
     "uc_sla": { "min": false, "special": false, "plus": false },
     "uc_turn_g": { "min": false, "special": false, "plus": false },
     "uc_place_g": { "min": false, "special": false, "plus": false },
-    "uc_claims": { "min": false, "special": false, "plus": false }
+    "uc_claims": { "min": false, "special": false, "plus": false },
+    "uc_term_offboard": { "min": false, "special": false, "plus": false },
+    "uc_sale_fee": { "min": false, "special": false, "plus": false }
   },
   "ucv": {
     "ps_screen": 0,
@@ -388,7 +396,9 @@
     "uc_sla": 0,
     "uc_turn_g": 0,
     "uc_place_g": 0,
-    "uc_claims": 0
+    "uc_claims": 0,
+    "uc_term_offboard": 0,
+    "uc_sale_fee": 0
   },
   "place": {
     "ps_screen": "scope",
@@ -454,7 +464,9 @@
     "uc_sla": "uc",
     "uc_turn_g": "uc",
     "uc_place_g": "uc",
-    "uc_claims": "uc"
+    "uc_claims": "uc",
+    "uc_term_offboard": "uc",
+    "uc_sale_fee": "uc"
   },
   "icat": {
     "ps_screen": "Leasing & Placement",
@@ -520,7 +532,9 @@
     "uc_sla": "Leasing & Placement",
     "uc_turn_g": "Maintenance",
     "uc_place_g": "Leasing & Placement",
-    "uc_claims": "Property Operations"
+    "uc_claims": "Property Operations",
+    "uc_term_offboard": "Owner Lifecycle",
+    "uc_sale_fee": "Owner Lifecycle"
   },
   "bd": {
     "pm": 0, "mc": 9.4, "pc": 0, "insp_mgmt": 0, "af": 0, "aptly": 0, "aptly_acc": 0,
@@ -544,7 +558,8 @@
     "uc_3d": 0, "uc_moen": 0, "uc_gutter": 0, "uc_strategy": 0, "uc_videos": 0,
     "uc_rent_g": 0, "uc_bundles": 0, "uc_dotw": 0, "uc_term": 0, "uc_smart": 0,
     "uc_staging": 0, "uc_flexpay": 0, "uc_capex_con": 0, "uc_events": 0, "uc_sla": 0,
-    "uc_turn_g": 0, "uc_place_g": 0, "uc_claims": 0
+    "uc_turn_g": 0, "uc_place_g": 0, "uc_claims": 0,
+    "uc_term_offboard": 0, "uc_sale_fee": 0
   },
   "ev": {
     "pm": 0, "mc": 0, "pc": 0, "insp_mgmt": 0, "af": 0, "aptly": 0, "aptly_acc": 0,
@@ -568,7 +583,8 @@
     "uc_3d": 0, "uc_moen": 0, "uc_gutter": 0, "uc_strategy": 0, "uc_videos": 0,
     "uc_rent_g": 0, "uc_bundles": 0, "uc_dotw": 0, "uc_term": 0, "uc_smart": 0,
     "uc_staging": 0, "uc_flexpay": 0, "uc_capex_con": 0, "uc_events": 0, "uc_sla": 0,
-    "uc_turn_g": 0, "uc_place_g": 0, "uc_claims": 0
+    "uc_turn_g": 0, "uc_place_g": 0, "uc_claims": 0,
+    "uc_term_offboard": 0, "uc_sale_fee": 0
   },
   "pbase": {
     "ps_screen": "door_yr", "ps_lease_coord": "door_yr", "ps_showings": "door_yr",
@@ -590,7 +606,8 @@
     "uc_videos": "door_yr", "uc_rent_g": "door_yr", "uc_bundles": "door_yr", "uc_dotw": "door_yr",
     "uc_term": "door_yr", "uc_smart": "door_yr", "uc_staging": "door_yr", "uc_flexpay": "door_yr",
     "uc_capex_con": "door_yr", "uc_events": "door_yr", "uc_sla": "door_yr", "uc_turn_g": "door_yr",
-    "uc_place_g": "door_yr", "uc_claims": "door_yr"
+    "uc_place_g": "door_yr", "uc_claims": "door_yr",
+    "uc_term_offboard": "claim", "uc_sale_fee": "claim"
   },
   "scopeOwner": {
     "ps_screen": "pm",
@@ -658,7 +675,9 @@
     "uc_sla": "scope::Leasing & Placement",
     "uc_turn_g": "cost::guar",
     "uc_place_g": "cost::guar",
-    "uc_claims": "scope::Property Operations"
+    "uc_claims": "scope::Property Operations",
+    "uc_term_offboard": "scope::Owner Lifecycle",
+    "uc_sale_fee": "scope::Owner Lifecycle"
   },
   "secView": {
     "staff": "direct",
@@ -781,7 +800,9 @@
         "uc_sla": { "min": false, "special": false, "plus": false },
         "uc_turn_g": { "min": false, "special": false, "plus": false },
         "uc_place_g": { "min": false, "special": false, "plus": false },
-        "uc_claims": { "min": false, "special": false, "plus": false }
+        "uc_claims": { "min": false, "special": false, "plus": false },
+        "uc_term_offboard": { "min": false, "special": false, "plus": false },
+        "uc_sale_fee": { "min": false, "special": false, "plus": false }
       },
       "psk": {
         "ps_screen": { "min": true, "special": true, "plus": true },
@@ -847,7 +868,9 @@
         "uc_sla": { "min": false, "special": false, "plus": false },
         "uc_turn_g": { "min": false, "special": false, "plus": false },
         "uc_place_g": { "min": false, "special": false, "plus": false },
-        "uc_claims": { "min": false, "special": false, "plus": false }
+        "uc_claims": { "min": false, "special": false, "plus": false },
+        "uc_term_offboard": { "min": false, "special": false, "plus": false },
+        "uc_sale_fee": { "min": false, "special": false, "plus": false }
       }
     }
   ],
@@ -908,6 +931,8 @@
     "uc_bundles": { "id": "uc_bundles", "n": "Raynor Group bundles", "dest": "cost::ops", "dp": "uc", "dc": "Owner Lifecycle", "dsv": 0, "dt": { "min": false, "special": false, "plus": false } },
     "uc_dotw": { "id": "uc_dotw", "n": "Deal of the Week newsletter", "dest": "cost::ops", "dp": "uc", "dc": "Communication & Support", "dsv": 0, "dt": { "min": false, "special": false, "plus": false } },
     "uc_term": { "id": "uc_term", "n": "Termination consultation", "dest": "scope::Owner Lifecycle", "dp": "uc", "dc": "Owner Lifecycle", "dsv": 150, "dt": { "min": false, "special": false, "plus": false } },
+    "uc_term_offboard": { "id": "uc_term_offboard", "n": "Termination offboarding", "d": "Final owner statement & fund disbursement, security deposit reconciliation, tenant notice of PM change, records/file transfer, vendor & utility account transition, key/access return.", "dest": "scope::Owner Lifecycle", "dp": "uc", "dc": "Owner Lifecycle", "dsv": 0, "dt": { "min": false, "special": false, "plus": false } },
+    "uc_sale_fee": { "id": "uc_sale_fee", "n": "Property sale coordination fee (0.5%)", "d": "Per the PMA: 0.5% of sale price, owed when the owner sells without listing through Raynor. Covers coordinating listing-agent access/showings, providing lease & financial documents to the buyer or buyer's agent, tenant estoppel certificate prep, rent/deposit proration at closing, and tenant notice of new ownership. Percentage-based -- compute the actual $ per deal, not represented as a fixed rate here.", "dest": "scope::Owner Lifecycle", "dp": "uc", "dc": "Owner Lifecycle", "dsv": 0, "dt": { "min": false, "special": false, "plus": false } },
     "uc_smart": { "id": "uc_smart", "n": "Smart home upgrades", "dest": "cost::ops", "dp": "uc", "dc": "Property Operations", "dsv": 0, "dt": { "min": false, "special": false, "plus": false } },
     "uc_staging": { "id": "uc_staging", "n": "Virtual staging / drone photography", "dest": "cost::turn", "dp": "uc", "dc": "Leasing & Placement", "dsv": 0, "dt": { "min": false, "special": false, "plus": false } },
     "uc_flexpay": { "id": "uc_flexpay", "n": "Flexible tenant payment schedules", "dest": "scope::Accounting & Finance", "dp": "uc", "dc": "Accounting & Finance", "dsv": 0, "dt": { "min": false, "special": false, "plus": false } },
