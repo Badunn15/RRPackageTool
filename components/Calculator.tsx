@@ -411,6 +411,8 @@ export default function Calculator({
           onRemoveGroup={(id) => update((d) => M.removeGroup(d, id))}
           onQuickAddGroup={() => update((d) => M.addGroup(d, "New group"))}
           onRenameGroup={(id, label) => update((d) => M.renameGroup(d, id, label))}
+          onDragServiceToCategory={(id, category) => update((d) => M.setServiceCategory(d, id, category))}
+          onDragServiceToOwner={(id, ownerId) => update((d) => M.setScopeOwner(d, id, ownerId))}
         />
       </main>
 

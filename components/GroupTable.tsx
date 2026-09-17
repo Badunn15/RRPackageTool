@@ -1,6 +1,17 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  MouseSensor,
+  TouchSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import { activeTemplate, cmo, formulaText, promotedRowsForGroup } from "@/lib/calc";
 import { Basis, CalcDoc, CostRow, CostView, TIERS } from "@/lib/types";
 import ScopeBundlePanel from "./ScopeBundlePanel";
@@ -39,6 +50,8 @@ export interface GroupTableHandlers {
   onRemoveGroup: (groupId: string) => void;
   onQuickAddGroup: () => void;
   onRenameGroup: (groupId: string, label: string) => void;
+  onDragServiceToCategory: (serviceId: string, category: string) => void;
+  onDragServiceToOwner: (serviceId: string, ownerRowId: string) => void;
 }
 
 export default function GroupTable({
@@ -49,6 +62,12 @@ export default function GroupTable({
   const ck = activeTemplate(doc).ck;
   const activeView = doc.cv;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [dragLabel, setDragLabel] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
+  );
 
   function toggleExpanded(rowId: string) {
     setExpanded((prev) => {
@@ -59,8 +78,31 @@ export default function GroupTable({
     });
   }
 
+  function handleDragStart(event: DragStartEvent) {
+    const activeId = String(event.active.id);
+    if (!activeId.startsWith("svc:")) return;
+    const serviceId = activeId.slice(4);
+    setDragLabel(doc.MASTER[serviceId]?.n ?? serviceId);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setDragLabel(null);
+    const { active, over } = event;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (!activeId.startsWith("svc:")) return;
+    const serviceId = activeId.slice(4);
+    if (overId.startsWith("category:")) {
+      h.onDragServiceToCategory(serviceId, overId.slice(9));
+    } else if (overId.startsWith("owner:")) {
+      h.onDragServiceToOwner(serviceId, overId.slice(6));
+    }
+  }
+
   return (
     <div className="overflow-x-auto rounded-md border border-gold/20">
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <table className="w-full min-w-[820px] border-collapse text-sm">
         <thead>
           <tr className="bg-card text-left text-xs uppercase tracking-wide text-gold/80">
@@ -212,6 +254,14 @@ export default function GroupTable({
           )}
         </tbody>
       </table>
+      <DragOverlay>
+        {dragLabel && (
+          <div className="rounded border border-gold bg-card px-3 py-1 text-xs text-cream shadow-lg">
+            {dragLabel}
+          </div>
+        )}
+      </DragOverlay>
+      </DndContext>
     </div>
   );
 }
@@ -252,9 +302,20 @@ function Row({
   const canExpand = hasSubConfig || hasScopePanel;
   const itemView = doc.itemView[row.id] as CostView | undefined;
 
+  // Bundle-owner rows (PM comp, Maintenance Coordinator, Accounting, ...)
+  // are drop targets for reassigning a scope service's owner, even when
+  // their "Included services" panel is collapsed.
+  const { setNodeRef: dropRef, isOver } = useDroppable({
+    id: `owner:${row.id}`,
+    disabled: !hasScopePanel,
+  });
+
   return (
     <>
-      <tr className="border-t border-gold/10 bg-card/20 hover:bg-card/40">
+      <tr
+        ref={hasScopePanel ? dropRef : undefined}
+        className={`border-t border-gold/10 hover:bg-card/40 ${isOver ? "bg-gold/20" : "bg-card/20"}`}
+      >
         <td className="px-3 py-1.5">
           <div className="flex items-center gap-1.5">
             {canExpand && (
@@ -279,6 +340,11 @@ function Row({
             {isPromoted && (
               <span className="rounded bg-gold/10 px-1.5 py-0.5 text-[10px] uppercase text-gold/60">
                 promoted
+              </span>
+            )}
+            {isOver && (
+              <span className="rounded bg-gold px-1.5 py-0.5 text-[10px] uppercase text-navy">
+                drop to reassign owner
               </span>
             )}
           </div>
