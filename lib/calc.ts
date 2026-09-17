@@ -131,7 +131,6 @@ function promotedRow(doc: CalcDoc, id: string): { row: CostRow; groupId: string 
 export interface CalcResult {
   totalByTier: Record<Tier, number>;
   perDoorByTier: Record<Tier, number>;
-  servicesByTier: Record<Tier, number>;
 }
 
 /**
@@ -144,7 +143,6 @@ export interface CalcResult {
  */
 export function calculate(doc: CalcDoc, view: CostView = doc.cv): CalcResult {
   const total: Record<Tier, number> = { min: 0, special: 0, plus: 0 };
-  const services: Record<Tier, number> = { min: 0, special: 0, plus: 0 };
   const ck = activeTemplate(doc).ck;
 
   function apply(row: CostRow, groupId: string) {
@@ -154,10 +152,7 @@ export function calculate(doc: CalcDoc, view: CostView = doc.cv): CalcResult {
     if (!flags) return;
     const monthly = cmo(row, doc);
     for (const t of TIERS) {
-      if (flags[t]) {
-        total[t] += monthly;
-        services[t] += 1;
-      }
+      if (flags[t]) total[t] += monthly;
     }
   }
 
@@ -176,7 +171,7 @@ export function calculate(doc: CalcDoc, view: CostView = doc.cv): CalcResult {
     plus: doc.G.doors ? total.plus / doc.G.doors : 0,
   };
 
-  return { totalByTier: total, perDoorByTier: perDoor, servicesByTier: services };
+  return { totalByTier: total, perDoorByTier: perDoor };
 }
 
 /** Convenience: per-door cost for every cost view, for the three tier readouts. */
@@ -253,7 +248,7 @@ export function scopeServiceValue(doc: CalcDoc, id: string, svc: MasterService):
   return doc.psv[id] ?? svc.dsv;
 }
 
-export interface ScopeServiceStats {
+export interface ServiceStats {
   included: number;
   total: number;
   /** Annualized $ NOT in this tier's total at this view — real cost-row dollars (hidden by view and/or unchecked for the tier) plus scope-catalog indicative value for unchecked services. A rough, non-authoritative gauge of what's being left out, not a hard number. */
@@ -297,23 +292,51 @@ function annualScopeValue(doc: CalcDoc, id: string, svc: MasterService): number 
 }
 
 /**
- * How many PM-scope services are included at a tier, and a rough indicative
- * annual value for what's NOT in this tier's total at the given cost view --
- * both real cost-row dollars (e.g. Guarantees, hidden entirely at "direct")
- * and scope-catalog indicative value, combined into one annualized figure.
+ * How many "services" are included at a tier, out of how many could apply
+ * at the given cost view -- one combined count spanning both real
+ * cost-group lines (Photography, Delinquency & collections once promoted,
+ * Guarantees, etc.) and PM-scope catalog items (Delinquency & collections,
+ * Renewal negotiation, etc. while still bundled under a role). The
+ * Staffing group's own rows (PM comp, Maintenance coordinator, Process
+ * coordinator, Accounting) are excluded from the count -- those are staff
+ * positions, not services being delivered -- though their dollars still
+ * count in calculate()'s totals as always.
+ *
+ * Also returns a rough indicative annual value for what's NOT in this
+ * tier's total at this view: real cost-row dollars (hidden by view and/or
+ * unchecked for the tier) plus scope-catalog indicative value for
+ * unchecked services.
  *
  * A scope-catalog service whose bundle owner isn't even shown at this view
  * (e.g. an owner row gated to "loaded" while looking at "direct") is left
  * out of the included/total counts entirely: nothing about that owner is
  * part of the picture at this view, so it isn't a meaningful exclusion at
- * this tier, just invisible at this view. Cost rows don't have this
- * distinction -- a hidden-by-view row is simply excluded value.
+ * this tier, just invisible at this view. A hidden-by-view cost row is
+ * treated the same way for the count (though it still lands in
+ * excludedValue, unlike an invisible-owner's scope services).
  */
-export function scopeServiceStats(doc: CalcDoc, tier: Tier, view: CostView = doc.cv): ScopeServiceStats {
+export function serviceStats(doc: CalcDoc, tier: Tier, view: CostView = doc.cv): ServiceStats {
+  const ck = activeTemplate(doc).ck;
   const psk = activeTemplate(doc).psk;
   let included = 0;
   let total = 0;
   let excludedValue = excludedCostRowValue(doc, tier, view);
+
+  function considerRow(row: CostRow, groupId: string) {
+    if (groupId === "staff") return;
+    if (!isVisible(rowView(doc, row.id, groupId), view)) return;
+    total += 1;
+    if (ck[row.id]?.[tier]) included += 1;
+  }
+
+  for (const group of doc.CG) {
+    for (const row of group.rows) considerRow(row, group.id);
+  }
+  for (const id of Object.keys(doc.place)) {
+    const promoted = promotedRow(doc, id);
+    if (promoted) considerRow(promoted.row, promoted.groupId);
+  }
+
   for (const [id, svc] of Object.entries(doc.MASTER)) {
     if (doc.place[id] !== "scope") continue;
     const ownerId = doc.scopeOwner[id];

@@ -7,7 +7,7 @@ import {
   ownerHourlyRate,
   scopeServiceValue,
   scopedServicesByOwner,
-  scopeServiceStats,
+  serviceStats,
 } from "./calc";
 import { migrate } from "./migrate";
 import { CalcDoc } from "./types";
@@ -129,32 +129,44 @@ describe("scope-service bundle ownership", () => {
   });
 });
 
-describe("scopeServiceStats", () => {
+describe("serviceStats", () => {
   it("counts every scope service as included by default (all dt flags true in the seed)", () => {
     // Min Mgmt is the exception: several scope services default to false
     // there (e.g. ps_pre_list, ps_renew_comp) -- Special/Plus include more.
-    const special = scopeServiceStats(migrated, "special");
-    const plus = scopeServiceStats(migrated, "plus");
+    // Use "loaded" so every group is visible -- avoids needing to replicate
+    // per-group view-gating here just to compute the expected total.
+    const special = serviceStats(migrated, "special", "loaded");
+    const plus = serviceStats(migrated, "plus", "loaded");
     expect(special.included).toBeGreaterThan(0);
     expect(special.total).toBe(plus.total);
-    expect(special.total).toBe(
-      Object.values(migrated.place).filter((p) => p === "scope").length
-    );
+
+    // total = every scope-catalog service, plus every cost-row/promoted-row
+    // outside the Staffing group (staff comp rows aren't "services").
+    const scopeCount = Object.values(migrated.place).filter((p) => p === "scope").length;
+    let rowCount = 0;
+    for (const group of migrated.CG) {
+      if (group.id === "staff") continue;
+      rowCount += group.rows.length;
+    }
+    const promotedCount = Object.values(migrated.place).filter(
+      (p) => typeof p === "string" && p.startsWith("cost:")
+    ).length;
+    expect(special.total).toBe(scopeCount + rowCount + promotedCount);
   });
 
   it("excludedValue sums psv only for services NOT checked at that tier", () => {
     // ps_proactive_rpt defaults to min:false, special:false, plus:true, dsv:16.
-    const min = scopeServiceStats(migrated, "min");
-    const plus = scopeServiceStats(migrated, "plus");
+    const min = serviceStats(migrated, "min");
+    const plus = serviceStats(migrated, "plus");
     expect(min.excludedValue).toBeGreaterThanOrEqual(16);
     expect(min.included).toBeLessThan(min.total);
     expect(plus.included).toBeGreaterThanOrEqual(min.included);
   });
 
   it("editing a service's psv value changes the excluded-value estimate, not the cost total", () => {
-    const before = scopeServiceStats(migrated, "min");
+    const before = serviceStats(migrated, "min");
     const edited: CalcDoc = { ...migrated, psv: { ...migrated.psv, ps_proactive_rpt: 500 } };
-    const after = scopeServiceStats(edited, "min");
+    const after = serviceStats(edited, "min");
     expect(after.excludedValue).toBeGreaterThan(before.excludedValue);
     // Scope services never contribute to cost -- only their bundle owner's rate does.
     expect(calculate(edited, "allocated").perDoorByTier.min).toBeCloseTo(
@@ -173,12 +185,48 @@ describe("scopeServiceStats", () => {
     expect(acctOwnedCount).toBeGreaterThan(0);
 
     const gated: CalcDoc = { ...migrated, itemView: { ...migrated.itemView, acct: "loaded" } };
-    const baseline = scopeServiceStats(migrated, "min", "direct");
-    const atDirect = scopeServiceStats(gated, "min", "direct");
-    const atLoaded = scopeServiceStats(gated, "min", "loaded");
 
-    expect(atDirect.total).toBe(baseline.total - acctOwnedCount);
-    expect(atLoaded.total).toBe(baseline.total);
+    // Compare gated vs ungated at the SAME view each time, so the (now
+    // combined) total's cost-row portion -- which varies by view on its
+    // own, independent of acct's gating -- doesn't confound the comparison.
+    const baselineAtDirect = serviceStats(migrated, "min", "direct");
+    const gatedAtDirect = serviceStats(gated, "min", "direct");
+    expect(gatedAtDirect.total).toBe(baselineAtDirect.total - acctOwnedCount);
+
+    const baselineAtLoaded = serviceStats(migrated, "min", "loaded");
+    const gatedAtLoaded = serviceStats(gated, "min", "loaded");
+    expect(gatedAtLoaded.total).toBe(baselineAtLoaded.total);
+  });
+
+  it("counts cost-group lines (e.g. Photography, Guarantees) as services, but never the Staffing group's own comp rows", () => {
+    const stats = serviceStats(migrated, "special", "loaded");
+
+    // Unchecking a non-staff cost-group row (Photography, in Turnover)
+    // drops "included" by exactly one but leaves "total" unchanged -- it's
+    // still counted as a service, just not one turned on for this tier.
+    const ckId = migrated.at;
+    const tpl = migrated.templates.find((t) => t.id === ckId)!;
+    expect(tpl.ck.photo?.special).toBe(true);
+    const withPhotoUnchecked: CalcDoc = {
+      ...migrated,
+      templates: migrated.templates.map((t) =>
+        t.id === ckId ? { ...t, ck: { ...t.ck, photo: { min: false, special: false, plus: false } } } : t
+      ),
+    };
+    const statsPhotoUnchecked = serviceStats(withPhotoUnchecked, "special", "loaded");
+    expect(statsPhotoUnchecked.total).toBe(stats.total);
+    expect(statsPhotoUnchecked.included).toBe(stats.included - 1);
+
+    // Staffing's own rows (PM comp, MC, Process coordinator, Accounting)
+    // never move the count at all -- removing the whole group changes
+    // nothing about "total" or "included".
+    const withoutStaffGroup: CalcDoc = {
+      ...migrated,
+      CG: migrated.CG.filter((g) => g.id !== "staff"),
+    };
+    const statsNoStaff = serviceStats(withoutStaffGroup, "special", "loaded");
+    expect(statsNoStaff.total).toBe(stats.total);
+    expect(statsNoStaff.included).toBe(stats.included);
   });
 
   it("the five 'Reporting & Proactive' items are event-based (claim), not door-scaled", () => {
@@ -197,9 +245,9 @@ describe("scopeServiceStats", () => {
 
   it("excludedValue for a claim-basis service is rate x events/yr, not just the raw rate", () => {
     // ps_proactive_rpt: dsv 16, excluded at min. Default ev is 1/yr from the seed.
-    const oneEventPerYear = scopeServiceStats(migrated, "min").excludedValue;
+    const oneEventPerYear = serviceStats(migrated, "min").excludedValue;
     const tripled: CalcDoc = { ...migrated, ev: { ...migrated.ev, ps_proactive_rpt: 3 } };
-    const threeEventsPerYear = scopeServiceStats(tripled, "min").excludedValue;
+    const threeEventsPerYear = serviceStats(tripled, "min").excludedValue;
     expect(threeEventsPerYear - oneEventPerYear).toBeCloseTo(16 * (3 - 1), 6);
   });
 });
@@ -228,20 +276,20 @@ describe("hours-mode scope value", () => {
     expect(scopeServiceValue(edited, "ps_pre_list", svc)).toBe(40);
   });
 
-  it("hours-mode value flows into scopeServiceStats' excluded-value estimate", () => {
+  it("hours-mode value flows into serviceStats' excluded-value estimate", () => {
     // ps_pre_list defaults to min:false -- excluded at min, so hours mode should show up there.
-    const before = scopeServiceStats(migrated, "min").excludedValue;
+    const before = serviceStats(migrated, "min").excludedValue;
     const withHours: CalcDoc = { ...migrated, psh: { ...migrated.psh, ps_pre_list: 2 } };
     const rate = ownerHourlyRate(withHours, withHours.scopeOwner.ps_pre_list);
-    const after = scopeServiceStats(withHours, "min").excludedValue;
+    const after = serviceStats(withHours, "min").excludedValue;
     expect(after - before).toBeCloseTo(rate * 2, 6);
   });
 });
 
 describe("excludedValue includes hidden-by-view cost rows, not just scope-catalog services", () => {
   it("Guarantees (gated to 'loaded') count as excluded at direct/allocated, but not once counted at loaded", () => {
-    const direct = scopeServiceStats(migrated, "min", "direct");
-    const loaded = scopeServiceStats(migrated, "min", "loaded");
+    const direct = serviceStats(migrated, "min", "direct");
+    const loaded = serviceStats(migrated, "min", "loaded");
     expect(direct.excludedValue).toBeGreaterThan(loaded.excludedValue);
 
     // The scope-catalog portion is identical at both views here (PM/MC/

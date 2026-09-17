@@ -1,13 +1,13 @@
 "use client";
 
-import { CalcResult, scopeServiceStats } from "@/lib/calc";
+import { CalcResult, serviceStats } from "@/lib/calc";
 import { CalcDoc, Tier, TIER_LABELS, TIERS } from "@/lib/types";
 
 export default function TierReadouts({ doc, result }: { doc: CalcDoc; result: CalcResult }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {TIERS.map((tier: Tier) => {
-        const scope = scopeServiceStats(doc, tier);
+        const stats = serviceStats(doc, tier);
         return (
           <div key={tier} className="rounded-md border border-gold/25 bg-card p-4">
             <div className="font-display text-sm uppercase tracking-wide text-gold">{TIER_LABELS[tier]}</div>
@@ -18,19 +18,17 @@ export default function TierReadouts({ doc, result }: { doc: CalcDoc; result: Ca
             <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-xs text-cream/60">
               <span>${result.totalByTier[tier].toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</span>
               <span className="text-cream/30">·</span>
-              <span>{result.servicesByTier[tier]} lines</span>
-              <span className="text-cream/30">·</span>
-              <span>
-                {scope.included} of {scope.total} services
+              <span title="Every checked line, cost-row or scope-catalog service, except staff comp rows themselves.">
+                {stats.included} of {stats.total} services
               </span>
-              {scope.excludedValue > 0 && (
+              {stats.excludedValue > 0 && (
                 <>
                   <span className="text-cream/30">·</span>
                   <span
                     className="text-cream/40"
                     title="Rough gauge, not a hard number: annualized $ not in this tier's total at the current view -- real cost-row dollars hidden by view or unchecked for this tier, plus indicative value for unchecked scope-catalog services."
                   >
-                    ${scope.excludedValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr excluded
+                    ${stats.excludedValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr excluded
                   </span>
                 </>
               )}
