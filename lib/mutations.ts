@@ -238,6 +238,14 @@ export function setScopeServiceHours(doc: CalcDoc, serviceId: string, hours: num
   return next;
 }
 
+/** Rename an existing PM-scope service (e.g. "Owner distributions (weekly)"). */
+export function renameScopeService(doc: CalcDoc, serviceId: string, name: string): CalcDoc {
+  const next = clone(doc);
+  const svc = next.MASTER[serviceId];
+  if (svc) svc.n = name;
+  return next;
+}
+
 /** Add a brand-new PM-scope service, owned by the given bundle row, in the given category. */
 export function addScopeService(
   doc: CalcDoc,

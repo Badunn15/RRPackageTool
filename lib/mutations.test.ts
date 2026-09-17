@@ -91,6 +91,23 @@ describe("addScopeService / removeScopeService", () => {
   });
 });
 
+describe("renameScopeService", () => {
+  it("updates the service's own name without touching its id, category, or owner", () => {
+    let doc = freshDoc();
+    doc = M.renameScopeService(doc, "ps_distributions", "Owner distributions (weekly, ACH)");
+    expect(doc.MASTER.ps_distributions.n).toBe("Owner distributions (weekly, ACH)");
+    expect(doc.MASTER.ps_distributions.id).toBe("ps_distributions");
+    expect(doc.icat.ps_distributions).toBe("Accounting & Finance");
+    expect(doc.scopeOwner.ps_distributions).toBe("acct");
+  });
+
+  it("is a no-op for an id that doesn't exist", () => {
+    let doc = freshDoc();
+    doc = M.renameScopeService(doc, "not_a_real_id", "whatever");
+    expect(doc.MASTER.not_a_real_id).toBeUndefined();
+  });
+});
+
 describe("renameCategory", () => {
   it("updates CATS and every service pointing at that category", () => {
     let doc = freshDoc();

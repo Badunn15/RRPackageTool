@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { activeTemplate, ownerHourlyRate, scopeServiceValue, scopedServicesByOwner } from "@/lib/calc";
 import { Basis, CalcDoc, MasterService, TIERS } from "@/lib/types";
@@ -19,27 +19,45 @@ export default function ScopeBundlePanel({
   doc,
   ownerRowId,
   colCount,
+  editMode,
   onToggleTier,
   onValueChange,
   onEventsChange,
   onHoursChange,
+  onRenameService,
   onBench,
+  onAddCategory,
+  onRemoveCategory,
+  onRenameCategory,
 }: {
   doc: CalcDoc;
   ownerRowId: string;
   colCount: number;
+  editMode: boolean;
   onToggleTier: (serviceId: string, tier: "min" | "special" | "plus") => void;
   onValueChange: (serviceId: string, value: number) => void;
   onEventsChange: (serviceId: string, value: number) => void;
   onHoursChange: (serviceId: string, hours: number) => void;
+  onRenameService: (serviceId: string, name: string) => void;
   onBench: (serviceId: string) => void;
+  onAddCategory: (name: string) => void;
+  onRemoveCategory: (name: string) => void;
+  onRenameCategory: (oldName: string, newName: string) => void;
 }) {
   const groups = scopedServicesByOwner(doc, ownerRowId);
   const psk = activeTemplate(doc).psk;
   const trailingCols = colCount - 9; // extra column(s) after Plus, e.g. edit-mode actions
   const hourlyRate = ownerHourlyRate(doc, ownerRowId);
+  // Categories just created via "+ add category" below, before any service
+  // has been dragged into them -- scopedServicesByOwner only returns
+  // categories that already have a service, so without this a brand-new
+  // category would have nowhere to render a droppable header to drop onto.
+  const [pendingCategories, setPendingCategories] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState("");
+  const shownCategories = new Set(groups.map((g) => g.category));
+  const emptyPending = pendingCategories.filter((c) => !shownCategories.has(c));
 
-  if (groups.length === 0) {
+  if (groups.length === 0 && emptyPending.length === 0 && !editMode) {
     return (
       <tr className="bg-navy/40">
         <td colSpan={colCount} className="px-6 py-3 text-xs text-cream/40">
@@ -52,9 +70,24 @@ export default function ScopeBundlePanel({
 
   return (
     <>
+      {groups.length === 0 && emptyPending.length === 0 && (
+        <tr className="bg-navy/40">
+          <td colSpan={colCount} className="px-6 py-3 text-xs text-cream/40">
+            No services are currently bundled under this line. Drag one in from another role or
+            category, or move one here from the Bench.
+          </td>
+        </tr>
+      )}
       {groups.map(({ category, services }) => (
         <Fragment key={category}>
-          <CategoryHeaderRow category={category} count={services.length} colCount={colCount} />
+          <CategoryHeaderRow
+            category={category}
+            count={services.length}
+            colCount={colCount}
+            editMode={editMode}
+            onRemove={() => onRemoveCategory(category)}
+            onRename={(next) => onRenameCategory(category, next)}
+          />
           {services.map((svc) => (
             <ServiceRow
               key={svc.id}
@@ -66,15 +99,62 @@ export default function ScopeBundlePanel({
               hourlyRate={hourlyRate}
               flags={psk[svc.id]}
               trailingCols={trailingCols}
+              editMode={editMode}
               onToggleTier={onToggleTier}
               onValueChange={onValueChange}
               onEventsChange={onEventsChange}
               onHoursChange={onHoursChange}
+              onRenameService={onRenameService}
               onBench={onBench}
             />
           ))}
         </Fragment>
       ))}
+      {emptyPending.map((category) => (
+        <CategoryHeaderRow
+          key={category}
+          category={category}
+          count={0}
+          colCount={colCount}
+          editMode={editMode}
+          onRemove={() => {
+            onRemoveCategory(category);
+            setPendingCategories((prev) => prev.filter((c) => c !== category));
+          }}
+          onRename={(next) => onRenameCategory(category, next)}
+        />
+      ))}
+      {editMode && (
+        <tr className="bg-navy/40">
+          <td colSpan={colCount} className="px-6 py-1.5">
+            <div className="flex items-center gap-1.5">
+              <input
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder="New category name"
+                className="w-48 rounded border border-gold/20 bg-navy px-2 py-0.5 text-xs text-cream"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const name = newCategory.trim();
+                  if (!name) return;
+                  onAddCategory(name);
+                  setPendingCategories((prev) => (prev.includes(name) ? prev : [...prev, name]));
+                  setNewCategory("");
+                }}
+                className="flex h-5 w-5 items-center justify-center rounded border border-gold/40 text-xs text-gold hover:bg-gold/10"
+                title="Add a new scope-service category"
+              >
+                +
+              </button>
+              <span className="text-[11px] text-cream/30">
+                drag a service onto the new category header to move it in
+              </span>
+            </div>
+          </td>
+        </tr>
+      )}
     </>
   );
 }
@@ -83,10 +163,16 @@ function CategoryHeaderRow({
   category,
   count,
   colCount,
+  editMode,
+  onRemove,
+  onRename,
 }: {
   category: string;
   count: number;
   colCount: number;
+  editMode: boolean;
+  onRemove: () => void;
+  onRename: (next: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `category:${category}` });
   return (
@@ -95,8 +181,32 @@ function CategoryHeaderRow({
         colSpan={colCount}
         className="px-6 pt-2 text-xs font-semibold uppercase tracking-wide text-gold/70"
       >
-        {category} <span className="text-cream/30">({count})</span>
-        {isOver && <span className="ml-2 normal-case text-gold">drop to move here</span>}
+        <div className="flex items-center gap-2">
+          {editMode ? (
+            <input
+              defaultValue={category}
+              onBlur={(e) => {
+                const next = e.target.value.trim();
+                if (next && next !== category) onRename(next);
+              }}
+              className="rounded border border-gold/20 bg-navy px-1.5 py-0.5 text-xs font-semibold normal-case text-gold"
+            />
+          ) : (
+            <span>{category}</span>
+          )}
+          <span className="text-cream/30">({count})</span>
+          {editMode && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="flex h-4 w-4 items-center justify-center rounded border border-red-400/40 text-[10px] normal-case text-red-300 hover:bg-red-400/10"
+              title="Remove this category"
+            >
+              −
+            </button>
+          )}
+          {isOver && <span className="normal-case text-gold">drop to move here</span>}
+        </div>
       </td>
     </tr>
   );
@@ -111,10 +221,12 @@ function ServiceRow({
   hourlyRate,
   flags,
   trailingCols,
+  editMode,
   onToggleTier,
   onValueChange,
   onEventsChange,
   onHoursChange,
+  onRenameService,
   onBench,
 }: {
   svc: MasterService;
@@ -125,10 +237,12 @@ function ServiceRow({
   hourlyRate: number;
   flags: { min: boolean; special: boolean; plus: boolean } | undefined;
   trailingCols: number;
+  editMode: boolean;
   onToggleTier: (serviceId: string, tier: "min" | "special" | "plus") => void;
   onValueChange: (serviceId: string, value: number) => void;
   onEventsChange: (serviceId: string, value: number) => void;
   onHoursChange: (serviceId: string, hours: number) => void;
+  onRenameService: (serviceId: string, name: string) => void;
   onBench: (serviceId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `svc:${svc.id}` });
@@ -148,7 +262,15 @@ function ServiceRow({
           >
             {"⋮⋮"}
           </span>
-          <span className="pl-1">{svc.n}</span>
+          {editMode ? (
+            <input
+              value={svc.n}
+              onChange={(e) => onRenameService(svc.id, e.target.value)}
+              className="ml-1 w-full rounded border border-gold/20 bg-navy px-1 py-0.5 text-cream"
+            />
+          ) : (
+            <span className="pl-1">{svc.n}</span>
+          )}
         </div>
       </td>
       <td className="px-3 py-1 text-right">
