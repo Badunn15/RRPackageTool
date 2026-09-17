@@ -217,3 +217,28 @@ export function benchedServices(doc: CalcDoc): MasterService[] {
     .filter(([id]) => doc.place[id] === "uc")
     .map(([, svc]) => svc);
 }
+
+export interface ScopeServiceStats {
+  included: number;
+  total: number;
+  /** Sum of `psv` ($/door/yr) for scope services NOT checked at this tier — a rough, non-authoritative gauge of what's being left out, not a hard number. */
+  excludedValue: number;
+}
+
+/** How many PM-scope services are included at a tier, and a rough indicative $/door/yr value for the ones that aren't. */
+export function scopeServiceStats(doc: CalcDoc, tier: Tier): ScopeServiceStats {
+  const psk = activeTemplate(doc).psk;
+  let included = 0;
+  let total = 0;
+  let excludedValue = 0;
+  for (const [id, svc] of Object.entries(doc.MASTER)) {
+    if (doc.place[id] !== "scope") continue;
+    total += 1;
+    if (psk[id]?.[tier]) {
+      included += 1;
+    } else {
+      excludedValue += doc.psv[id] ?? svc.dsv;
+    }
+  }
+  return { included, total, excludedValue };
+}

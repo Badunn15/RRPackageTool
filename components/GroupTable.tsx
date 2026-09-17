@@ -33,8 +33,7 @@ export interface GroupTableHandlers {
   onReorderRow: (groupId: string, rowId: string, direction: -1 | 1) => void;
   onMoveRowToGroup: (rowId: string, targetGroupId: string) => void;
   onToggleScopeTier: (serviceId: string, tier: "min" | "special" | "plus") => void;
-  onScopeOwnerChange: (serviceId: string, newOwnerId: string) => void;
-  onScopeCategoryChange: (serviceId: string, category: string) => void;
+  onScopeValueChange: (serviceId: string, value: number) => void;
   onBenchService: (serviceId: string) => void;
   onQuickAddRow: (groupId: string) => void;
   onRemoveGroup: (groupId: string) => void;
@@ -429,8 +428,7 @@ function Row({
           ownerRowId={row.id}
           colCount={editMode ? 10 : 9}
           onToggleTier={h.onToggleScopeTier}
-          onOwnerChange={h.onScopeOwnerChange}
-          onCategoryChange={h.onScopeCategoryChange}
+          onValueChange={h.onScopeValueChange}
           onBench={h.onBenchService}
         />
       )}

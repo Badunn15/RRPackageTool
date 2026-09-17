@@ -375,7 +375,7 @@ export default function Calculator({
       )}
 
       <main className="mx-auto max-w-6xl space-y-4 p-4">
-        <TierReadouts result={result} />
+        <TierReadouts doc={doc} result={result} />
 
         <AssumptionsDrawer
           doc={doc}
@@ -405,8 +405,7 @@ export default function Calculator({
           onReorderRow={(groupId, id, dir) => update((d) => M.reorderRow(d, groupId, id, dir))}
           onMoveRowToGroup={(id, targetGroupId) => update((d) => M.moveRowToGroup(d, id, targetGroupId))}
           onToggleScopeTier={(id, tier) => update((d) => M.togglePsk(d, id, tier))}
-          onScopeOwnerChange={(id, ownerId) => update((d) => M.setScopeOwner(d, id, ownerId))}
-          onScopeCategoryChange={(id, category) => update((d) => M.setServiceCategory(d, id, category))}
+          onScopeValueChange={(id, value) => update((d) => M.setScopeServiceValue(d, id, value))}
           onBenchService={(id) => update((d) => M.benchService(d, id))}
           onQuickAddRow={(groupId) => update((d) => M.addRow(d, groupId, "New line", "monthly", 0))}
           onRemoveGroup={(id) => update((d) => M.removeGroup(d, id))}

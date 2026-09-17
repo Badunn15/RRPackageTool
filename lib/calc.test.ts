@@ -5,6 +5,7 @@ import {
   calculateAllViews,
   cmo,
   scopedServicesByOwner,
+  scopeServiceStats,
 } from "./calc";
 import { migrate } from "./migrate";
 import { CalcDoc } from "./types";
@@ -123,5 +124,40 @@ describe("scope-service bundle ownership", () => {
     for (const id of scopeServiceIds) {
       expect(owners).toContain(migrated.scopeOwner[id]);
     }
+  });
+});
+
+describe("scopeServiceStats", () => {
+  it("counts every scope service as included by default (all dt flags true in the seed)", () => {
+    // Min Mgmt is the exception: several scope services default to false
+    // there (e.g. ps_pre_list, ps_renew_comp) -- Special/Plus include more.
+    const special = scopeServiceStats(migrated, "special");
+    const plus = scopeServiceStats(migrated, "plus");
+    expect(special.included).toBeGreaterThan(0);
+    expect(special.total).toBe(plus.total);
+    expect(special.total).toBe(
+      Object.values(migrated.place).filter((p) => p === "scope").length
+    );
+  });
+
+  it("excludedValue sums psv only for services NOT checked at that tier", () => {
+    // ps_proactive_rpt defaults to min:false, special:false, plus:true, dsv:16.
+    const min = scopeServiceStats(migrated, "min");
+    const plus = scopeServiceStats(migrated, "plus");
+    expect(min.excludedValue).toBeGreaterThanOrEqual(16);
+    expect(min.included).toBeLessThan(min.total);
+    expect(plus.included).toBeGreaterThanOrEqual(min.included);
+  });
+
+  it("editing a service's psv value changes the excluded-value estimate, not the cost total", () => {
+    const before = scopeServiceStats(migrated, "min");
+    const edited: CalcDoc = { ...migrated, psv: { ...migrated.psv, ps_proactive_rpt: 500 } };
+    const after = scopeServiceStats(edited, "min");
+    expect(after.excludedValue).toBeGreaterThan(before.excludedValue);
+    // Scope services never contribute to cost -- only their bundle owner's rate does.
+    expect(calculate(edited, "allocated").perDoorByTier.min).toBeCloseTo(
+      calculate(migrated, "allocated").perDoorByTier.min,
+      6
+    );
   });
 });

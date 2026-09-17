@@ -219,6 +219,13 @@ export function setServiceCategory(doc: CalcDoc, serviceId: string, category: st
   return next;
 }
 
+/** Edit a scope service's own $/door/yr value (`psv`) — the indicative worth used for the "value excluded" estimate. */
+export function setScopeServiceValue(doc: CalcDoc, serviceId: string, value: number): CalcDoc {
+  const next = clone(doc);
+  next.psv[serviceId] = value;
+  return next;
+}
+
 /** Add a brand-new PM-scope service, owned by the given bundle row, in the given category. */
 export function addScopeService(
   doc: CalcDoc,
