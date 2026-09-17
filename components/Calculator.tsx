@@ -206,7 +206,7 @@ export default function Calculator({
   return (
     <div className="min-h-screen bg-navy font-body text-cream">
       <div className="sticky top-0 z-40 bg-navy">
-      <header className="border-b border-gold/20 bg-navy/95 px-3 py-2 backdrop-blur">
+      <header className="relative z-10 border-b border-gold/20 bg-navy/95 px-3 py-2 backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <h1 className="whitespace-nowrap font-display text-base text-cream">Package Cost Calculator</h1>
 
