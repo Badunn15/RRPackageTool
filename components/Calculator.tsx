@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { benchedServices, calculate } from "@/lib/calc";
 import { api, ScenarioRow, ScenarioSummary } from "@/lib/api-client";
 import * as M from "@/lib/mutations";
@@ -16,8 +16,13 @@ import BenchOverlay from "./BenchOverlay";
 
 type ConflictState = { serverScenario: ScenarioRow; serverDoc: CalcDoc } | null;
 
-const AUTOSAVE_MS = 1500;
-
+/**
+ * Edits are local-only until explicitly saved. Nothing autosaves and
+ * nothing is written to the shared scenario until the user clicks "Save
+ * changes" and confirms — someone can tweak rates to test an idea, and as
+ * long as they don't save, nobody else is affected and reloading the page
+ * (or picking a different scenario) just drops those tweaks.
+ */
 export default function Calculator({
   userEmail,
   signOutAction,
@@ -29,7 +34,9 @@ export default function Calculator({
   const [scenario, setScenario] = useState<ScenarioRow | null>(null);
   const [doc, setDoc] = useState<CalcDoc | null>(null);
   const [rev, setRev] = useState<number>(0);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [conflict, setConflict] = useState<ConflictState>(null);
   const [editMode, setEditMode] = useState(false);
   const [overlay, setOverlay] = useState<"edit" | "versions" | "compare" | "bench" | null>(null);
@@ -39,36 +46,13 @@ export default function Calculator({
   const [initError, setInitError] = useState<string | null>(null);
   const [initAttempt, setInitAttempt] = useState(0);
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dirtyRef = useRef(false);
-
-  // Refs mirror the latest scenario/rev/doc so the autosave flush — which
-  // runs asynchronously, sometimes after further edits or even another
-  // autosave have already landed — always reads current values instead of
-  // ones captured in a stale closure. Reading `rev` from React state inside
-  // that async callback was the bug: a save scheduled while an earlier one
-  // was still in flight would fire with the rev from before that earlier
-  // save completed, so the server (correctly) saw a mismatch and reported a
-  // "someone else edited this" conflict — even with a single user, single
-  // tab. See scheduleSave/flushSave below.
-  const scenarioRef = useRef<ScenarioRow | null>(null);
-  const revRef = useRef(0);
-  const pendingDocRef = useRef<CalcDoc | null>(null);
-  const savingRef = useRef(false);
-
   const loadScenario = useCallback(async (id: string) => {
-    // Cancel any pending autosave for whatever scenario was open before —
-    // its doc belongs to that scenario, not this one.
-    if (saveTimer.current) clearTimeout(saveTimer.current);
     const { scenario: s, doc: d } = await api.get(id);
     setScenario(s);
     setDoc(d);
     setRev(s.rev);
+    setDirty(false);
     setStatus("idle");
-    dirtyRef.current = false;
-    scenarioRef.current = s;
-    revRef.current = s.rev;
-    pendingDocRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -92,27 +76,22 @@ export default function Calculator({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initAttempt]);
 
-  const flushSave = useCallback(async () => {
-    // Never let two saves race each other: if one is already in flight when
-    // the timer fires, wait for it and retry shortly instead of firing a
-    // second request that could land with an already-outdated rev.
-    if (savingRef.current) {
-      saveTimer.current = setTimeout(flushSave, 300);
-      return;
+  // Warn before closing/reloading the tab with unsaved tweaks.
+  useEffect(() => {
+    if (!dirty) return;
+    function handler(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = "";
     }
-    const nextDoc = pendingDocRef.current;
-    const currentScenario = scenarioRef.current;
-    if (!nextDoc || !currentScenario) return;
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
-    savingRef.current = true;
-    setStatus("saving");
-    const { ok, body } = await api.save(currentScenario.id, nextDoc, revRef.current);
-    savingRef.current = false;
-
-    // The user may have switched to a different scenario while this request
-    // was in flight. Its response no longer applies to what's on screen —
-    // applying it would clobber the newly-loaded scenario's state.
-    if (scenarioRef.current?.id !== currentScenario.id) return;
+  async function saveNow(revOverride?: number) {
+    if (!scenario || !doc || saving) return;
+    setSaving(true);
+    const { ok, body } = await api.save(scenario.id, doc, revOverride ?? rev);
+    setSaving(false);
 
     if (!ok && "error" in body) {
       setConflict({ serverScenario: body.scenario, serverDoc: body.doc });
@@ -120,32 +99,38 @@ export default function Calculator({
       return;
     }
     const saved = body as ScenarioRow;
-    revRef.current = saved.rev;
-    scenarioRef.current = saved;
     setRev(saved.rev);
     setScenario(saved);
-    dirtyRef.current = false;
-    pendingDocRef.current = null;
+    setDirty(false);
     setStatus("saved");
-  }, []);
+  }
 
-  const scheduleSave = useCallback(
-    (nextDoc: CalcDoc) => {
-      dirtyRef.current = true;
-      pendingDocRef.current = nextDoc;
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(flushSave, AUTOSAVE_MS);
-    },
-    [flushSave]
-  );
+  function handleSaveClick() {
+    if (
+      !window.confirm(
+        "Save your changes to this scenario? This updates it for everyone who opens it."
+      )
+    ) {
+      return;
+    }
+    saveNow();
+  }
+
+  function handleDiscardClick() {
+    if (!scenario) return;
+    if (!window.confirm("Discard your changes and reload the last saved version?")) return;
+    loadScenario(scenario.id);
+  }
+
+  /** Confirms losing unsaved edits before navigating away from them (switching/creating/archiving a scenario, restoring a version, importing). */
+  function confirmDiscardIfDirty(): boolean {
+    if (!dirty) return true;
+    return window.confirm("You have unsaved changes that will be lost. Continue anyway?");
+  }
 
   function update(mutator: (d: CalcDoc) => CalcDoc) {
-    setDoc((prev) => {
-      if (!prev) return prev;
-      const next = mutator(prev);
-      scheduleSave(next);
-      return next;
-    });
+    setDoc((prev) => (prev ? mutator(prev) : prev));
+    setDirty(true);
   }
 
   async function refreshList() {
@@ -193,7 +178,10 @@ export default function Calculator({
 
           <select
             value={scenario.id}
-            onChange={(e) => loadScenario(e.target.value)}
+            onChange={(e) => {
+              if (!confirmDiscardIfDirty()) return;
+              loadScenario(e.target.value);
+            }}
             className="rounded border border-gold/30 bg-card px-2 py-1 text-sm text-cream"
           >
             {scenarios.map((s) => (
@@ -206,6 +194,9 @@ export default function Calculator({
           <ScenarioMenu
             scenario={scenario}
             onCreate={async () => {
+              // Uses the current (possibly edited) doc as the new scenario's
+              // starting point, so this never discards anything — it's the
+              // "save this experiment as its own scenario" path.
               const name = window.prompt("New scenario name?", "New scenario");
               if (!name) return;
               const created = await api.create(name, doc);
@@ -213,6 +204,9 @@ export default function Calculator({
               await loadScenario(created.id);
             }}
             onDuplicate={async () => {
+              // Duplicates the last *saved* version server-side, not any
+              // local unsaved tweaks.
+              if (!confirmDiscardIfDirty()) return;
               const name = window.prompt("Name for the duplicate?", `${scenario.name} (copy)`);
               const created = await api.duplicate(scenario.id, name ?? undefined);
               await refreshList();
@@ -226,6 +220,7 @@ export default function Calculator({
               setScenario((s) => (s ? { ...s, name } : s));
             }}
             onDelete={async () => {
+              if (!confirmDiscardIfDirty()) return;
               if (!window.confirm(`Archive "${scenario.name}"? This can be restored by an admin later.`)) {
                 return;
               }
@@ -264,7 +259,27 @@ export default function Calculator({
           </label>
 
           <div className="ml-auto flex items-center gap-3 text-xs text-cream/50">
-            <SaveIndicator status={status} />
+            {dirty ? (
+              <>
+                <span className="text-gold">Unsaved changes</span>
+                <button
+                  onClick={handleDiscardClick}
+                  disabled={saving}
+                  className="rounded border border-gold/30 px-2 py-1 text-cream/70 hover:bg-gold/10 disabled:opacity-50"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={handleSaveClick}
+                  disabled={saving}
+                  className="rounded bg-gold px-3 py-1 font-semibold text-navy disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : "Save changes"}
+                </button>
+              </>
+            ) : (
+              <SaveIndicator status={status} />
+            )}
             <span>{userEmail}</span>
             <form action={signOutAction}>
               <button type="submit" className="text-gold hover:underline">
@@ -284,9 +299,7 @@ export default function Calculator({
               setDoc(conflict.serverDoc);
               setScenario(conflict.serverScenario);
               setRev(conflict.serverScenario.rev);
-              scenarioRef.current = conflict.serverScenario;
-              revRef.current = conflict.serverScenario.rev;
-              pendingDocRef.current = null;
+              setDirty(false);
               setConflict(null);
               setStatus("idle");
             }}
@@ -297,11 +310,9 @@ export default function Calculator({
           <button
             className="underline"
             onClick={() => {
-              setRev(conflict.serverScenario.rev);
-              scenarioRef.current = conflict.serverScenario;
-              revRef.current = conflict.serverScenario.rev;
+              const targetRev = conflict.serverScenario.rev;
               setConflict(null);
-              if (doc) scheduleSave(doc);
+              saveNow(targetRev);
             }}
           >
             keep mine and overwrite
@@ -363,6 +374,7 @@ export default function Calculator({
           onAddScopeService={(opts) => update((d) => M.addScopeService(d, opts))}
           onExport={() => window.open(api.exportUrl(scenario.id), "_blank")}
           onImport={async (file) => {
+            if (!confirmDiscardIfDirty()) return;
             const text = await file.text();
             const parsed = JSON.parse(text);
             const updated = await api.import(scenario.id, parsed);
@@ -376,6 +388,7 @@ export default function Calculator({
           versions={versions}
           onClose={() => setOverlay(null)}
           onRestore={async (rv) => {
+            if (!confirmDiscardIfDirty()) return;
             if (!window.confirm(`Restore rev ${rv}? This writes it forward as a new version.`)) return;
             await api.restore(scenario.id, rv);
             await loadScenario(scenario.id);
@@ -402,8 +415,7 @@ export default function Calculator({
   );
 }
 
-function SaveIndicator({ status }: { status: "idle" | "saving" | "saved" | "error" }) {
-  if (status === "saving") return <span>Saving…</span>;
+function SaveIndicator({ status }: { status: "idle" | "saved" | "error" }) {
   if (status === "saved") return <span className="text-gold">Saved</span>;
   if (status === "error") return <span className="text-red-300">Save conflict</span>;
   return <span>Up to date</span>;
