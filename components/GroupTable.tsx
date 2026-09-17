@@ -45,6 +45,7 @@ export interface GroupTableHandlers {
   onMoveRowToGroup: (rowId: string, targetGroupId: string) => void;
   onToggleScopeTier: (serviceId: string, tier: "min" | "special" | "plus") => void;
   onScopeValueChange: (serviceId: string, value: number) => void;
+  onScopeHoursChange: (serviceId: string, hours: number) => void;
   onBenchService: (serviceId: string) => void;
   onQuickAddRow: (groupId: string) => void;
   onRemoveGroup: (groupId: string) => void;
@@ -495,6 +496,8 @@ function Row({
           colCount={editMode ? 10 : 9}
           onToggleTier={h.onToggleScopeTier}
           onValueChange={h.onScopeValueChange}
+          onEventsChange={h.onEventsChange}
+          onHoursChange={h.onScopeHoursChange}
           onBench={h.onBenchService}
         />
       )}

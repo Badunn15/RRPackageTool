@@ -4,6 +4,8 @@ import {
   calculate,
   calculateAllViews,
   cmo,
+  ownerHourlyRate,
+  scopeServiceValue,
   scopedServicesByOwner,
   scopeServiceStats,
 } from "./calc";
@@ -159,5 +161,73 @@ describe("scopeServiceStats", () => {
       calculate(migrated, "allocated").perDoorByTier.min,
       6
     );
+  });
+
+  it("the five 'Reporting & Proactive' items are event-based (claim), not door-scaled", () => {
+    // These are things done once for an owner/portfolio/deal, not per door --
+    // door_yr would wrongly multiply their value by door count if ever promoted.
+    for (const id of [
+      "ps_portfolio_rpt",
+      "ps_annual_review",
+      "ps_budget_capex",
+      "ps_deal_analysis",
+      "ps_proactive_rpt",
+    ]) {
+      expect(migrated.pbase[id]).toBe("claim");
+    }
+  });
+
+  it("excludedValue for a claim-basis service is rate x events/yr, not just the raw rate", () => {
+    // ps_proactive_rpt: dsv 16, excluded at min. Default ev is 1/yr from the seed.
+    const oneEventPerYear = scopeServiceStats(migrated, "min").excludedValue;
+    const tripled: CalcDoc = { ...migrated, ev: { ...migrated.ev, ps_proactive_rpt: 3 } };
+    const threeEventsPerYear = scopeServiceStats(tripled, "min").excludedValue;
+    expect(threeEventsPerYear - oneEventPerYear).toBeCloseTo(16 * (3 - 1), 6);
+  });
+});
+
+describe("hours-mode scope value", () => {
+  it("ownerHourlyRate derives $/hr from the role's own annual cost / hoursYr", () => {
+    // PM comp: $27/door x 180 doors x 12mo = $58,320/yr, over 2,080 hrs/yr.
+    const rate = ownerHourlyRate(migrated, "pm");
+    expect(rate).toBeCloseTo(58320 / 2080, 6);
+  });
+
+  it("scopeServiceValue uses hours x hourly rate when psh is set, overriding psv", () => {
+    const withHours: CalcDoc = { ...migrated, psh: { ...migrated.psh, ps_pre_list: 2 } };
+    const svc = withHours.MASTER.ps_pre_list;
+    const rate = ownerHourlyRate(withHours, withHours.scopeOwner.ps_pre_list);
+    expect(scopeServiceValue(withHours, "ps_pre_list", svc)).toBeCloseTo(rate * 2, 6);
+  });
+
+  it("clearing psh back to 0 falls back to the manually-entered psv value", () => {
+    const edited: CalcDoc = {
+      ...migrated,
+      psv: { ...migrated.psv, ps_pre_list: 40 },
+      psh: { ...migrated.psh, ps_pre_list: 0 },
+    };
+    const svc = edited.MASTER.ps_pre_list;
+    expect(scopeServiceValue(edited, "ps_pre_list", svc)).toBe(40);
+  });
+
+  it("hours-mode value flows into scopeServiceStats' excluded-value estimate", () => {
+    // ps_pre_list defaults to min:false -- excluded at min, so hours mode should show up there.
+    const before = scopeServiceStats(migrated, "min").excludedValue;
+    const withHours: CalcDoc = { ...migrated, psh: { ...migrated.psh, ps_pre_list: 2 } };
+    const rate = ownerHourlyRate(withHours, withHours.scopeOwner.ps_pre_list);
+    const after = scopeServiceStats(withHours, "min").excludedValue;
+    expect(after - before).toBeCloseTo(rate * 2, 6);
+  });
+});
+
+describe("evict_filing hard cost", () => {
+  it("is a real cost row (claim basis) separate from the owner-facing evict_g guarantee", () => {
+    const row = migrated.CG.flatMap((g) => g.rows).find((r) => r.id === "evict_filing");
+    expect(row).toBeDefined();
+    expect(row!.e).toBe("claim");
+    // $126/event (court filing + 1 occupant) x events/yr, spread monthly -- not door-scaled directly.
+    const monthly = cmo(row!, migrated);
+    const ev = migrated.ev["evict_filing"] ?? row!.n_ev ?? 0;
+    expect(monthly).toBeCloseTo((126 * ev) / 12, 6);
   });
 });

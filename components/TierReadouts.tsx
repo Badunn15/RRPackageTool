@@ -21,7 +21,7 @@ export default function TierReadouts({ doc, result }: { doc: CalcDoc; result: Ca
             </div>
             <div
               className="mt-1 flex justify-between font-mono text-xs text-cream/40"
-              title="Rough gauge, not a hard number: sum of $/door/yr service value for scope services excluded at this tier."
+              title="Rough gauge, not a hard number: sum of annualized indicative value for scope services excluded at this tier."
             >
               <span>
                 {scope.included} of {scope.total} services

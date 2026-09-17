@@ -10,6 +10,7 @@ const FIELDS: { key: keyof CalcDoc["G"]; label: string }[] = [
   { key: "listings", label: "Listings" },
   { key: "tenancy", label: "Tenancy (yrs)" },
   { key: "wo", label: "Work orders/yr" },
+  { key: "hoursYr", label: "Work hours/yr" },
 ];
 
 export default function AssumptionsDrawer({

@@ -397,6 +397,7 @@ export default function Calculator({
           onMoveRowToGroup={(id, targetGroupId) => update((d) => M.moveRowToGroup(d, id, targetGroupId))}
           onToggleScopeTier={(id, tier) => update((d) => M.togglePsk(d, id, tier))}
           onScopeValueChange={(id, value) => update((d) => M.setScopeServiceValue(d, id, value))}
+          onScopeHoursChange={(id, hours) => update((d) => M.setScopeServiceHours(d, id, hours))}
           onBenchService={(id) => update((d) => M.benchService(d, id))}
           onQuickAddRow={(groupId) => update((d) => M.addRow(d, groupId, "New line", "monthly", 0))}
           onRemoveGroup={(id) => update((d) => M.removeGroup(d, id))}

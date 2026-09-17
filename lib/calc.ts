@@ -218,14 +218,47 @@ export function benchedServices(doc: CalcDoc): MasterService[] {
     .map(([, svc]) => svc);
 }
 
+/**
+ * A bundle-owner role's derived hourly rate: that row's own annual cost
+ * (its $/mo formula x 12, e.g. PM comp's $/door rate x doors) divided by the
+ * portfolio's assumed work-hours/yr. Lets a scope service's value be entered
+ * as "N hours of someone's time" instead of a dollar figure someone has to
+ * compute by hand — and keeps it live if comp rates or doors change later.
+ */
+export function ownerHourlyRate(doc: CalcDoc, ownerRowId: string): number {
+  const row = bundleOwnerRows(doc).find((r) => r.id === ownerRowId);
+  if (!row || !doc.G.hoursYr) return 0;
+  return (cmo(row, doc) * 12) / doc.G.hoursYr;
+}
+
+/**
+ * A scope service's own indicative value, in whatever unit its basis calls
+ * for ($/door/yr for "door_yr", $/event for "claim"): the live hours-mode
+ * calculation (`psh` x owner's hourly rate) when hours mode is set, else the
+ * manually-entered `psv` dollar figure.
+ */
+export function scopeServiceValue(doc: CalcDoc, id: string, svc: MasterService): number {
+  const hours = doc.psh[id];
+  if (hours) return ownerHourlyRate(doc, doc.scopeOwner[id]) * hours;
+  return doc.psv[id] ?? svc.dsv;
+}
+
 export interface ScopeServiceStats {
   included: number;
   total: number;
-  /** Sum of `psv` ($/door/yr) for scope services NOT checked at this tier — a rough, non-authoritative gauge of what's being left out, not a hard number. */
+  /** Annualized value of scope services NOT checked at this tier — a rough, non-authoritative gauge of what's being left out, not a hard number. */
   excludedValue: number;
 }
 
-/** How many PM-scope services are included at a tier, and a rough indicative $/door/yr value for the ones that aren't. */
+/** A scope service's own indicative annual value: $/event × events/yr for "claim"-basis services, or its raw indicative value for door-scaled ones. */
+function annualScopeValue(doc: CalcDoc, id: string, svc: MasterService): number {
+  const value = scopeServiceValue(doc, id, svc);
+  const basis = doc.pbase[id] ?? "door_yr";
+  if (basis === "claim") return value * (doc.ev[id] ?? 0);
+  return value;
+}
+
+/** How many PM-scope services are included at a tier, and a rough indicative annual value for the ones that aren't. */
 export function scopeServiceStats(doc: CalcDoc, tier: Tier): ScopeServiceStats {
   const psk = activeTemplate(doc).psk;
   let included = 0;
@@ -237,7 +270,7 @@ export function scopeServiceStats(doc: CalcDoc, tier: Tier): ScopeServiceStats {
     if (psk[id]?.[tier]) {
       included += 1;
     } else {
-      excludedValue += doc.psv[id] ?? svc.dsv;
+      excludedValue += annualScopeValue(doc, id, svc);
     }
   }
   return { included, total, excludedValue };

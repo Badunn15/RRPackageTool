@@ -62,6 +62,8 @@ export interface Globals {
   listings: number;
   tenancy: number;
   wo: number;
+  /** Annual work hours per staff person — used to derive an hourly rate from any bundle-owner's comp, for the scope-service "hours saved" calculator. */
+  hoursYr: number;
 }
 
 export interface AppFolioConfig {
@@ -108,6 +110,8 @@ export interface CalcDoc {
   /** Which `pmScope`-flagged cost row "owns" (bundles) each scope service — which staff role's expandable panel it shows up under. */
   scopeOwner: Record<string, string>;
   psv: Record<string, number>;
+  /** Hours-mode input for a scope service's indicative value: when set (>0), the value is computed live as hoursYr-derived hourly rate x psh, instead of the manually-entered `psv` dollar figure. */
+  psh: Record<string, number>;
   uck: Record<string, TierFlags>;
   ucv: Record<string, number>;
   secView: Record<string, CostView>;

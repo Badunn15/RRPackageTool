@@ -219,10 +219,22 @@ export function setServiceCategory(doc: CalcDoc, serviceId: string, category: st
   return next;
 }
 
-/** Edit a scope service's own $/door/yr value (`psv`) — the indicative worth used for the "value excluded" estimate. */
+/** Edit a scope service's own indicative value (`psv`) — $/door/yr or $/event depending on `pbase` — used for the "value excluded" estimate. */
 export function setScopeServiceValue(doc: CalcDoc, serviceId: string, value: number): CalcDoc {
   const next = clone(doc);
   next.psv[serviceId] = value;
+  return next;
+}
+
+/**
+ * Set a scope service's value via hours instead of a dollar figure: `hours`
+ * of the bundle owner's time, converted live using their derived hourly
+ * rate. Passing 0 clears hours mode and falls back to the manually-entered
+ * `psv` dollar figure.
+ */
+export function setScopeServiceHours(doc: CalcDoc, serviceId: string, hours: number): CalcDoc {
+  const next = clone(doc);
+  next.psh[serviceId] = hours;
   return next;
 }
 

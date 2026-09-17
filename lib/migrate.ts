@@ -10,7 +10,7 @@ import seedJson from "../data/seed-model.json";
  */
 const SHIPPED = seedJson as unknown as CalcDoc;
 
-export const CURRENT_SCHEMA = 3;
+export const CURRENT_SCHEMA = 4;
 
 /**
  * migrate(doc) -> doc
@@ -32,6 +32,7 @@ export function migrate(input: unknown): CalcDoc {
   doc = mergeShippedDefaults(doc);
   doc = backfillRowState(doc);
   doc = cleanupStaleNotes(doc);
+  doc = fixEventBasisScopeServices(doc);
   doc.schema = CURRENT_SCHEMA;
   if (!doc.savedAt) doc.savedAt = new Date().toISOString();
   return doc;
@@ -58,6 +59,32 @@ function cleanupStaleNotes(doc: CalcDoc): CalcDoc {
   return doc;
 }
 
+/**
+ * One-time correctness fix: these five "Reporting & Proactive" scope
+ * services shipped with pbase "door_yr" (a per-door annual rate) when
+ * they're really flat, per-event things done for an owner/portfolio/deal --
+ * not something that scales with door count. Force them onto the "claim"
+ * basis (rate x events/yr) so a future promotion into a real cost line
+ * doesn't wrongly multiply by doors, and give them a starting event count of
+ * 1/yr so their indicative "excluded value" doesn't silently drop to $0 for
+ * scenarios saved before this fix. Narrowly scoped to these known ids only
+ * -- never touches a basis or event count a user set some other way.
+ */
+const EVENT_BASIS_SCOPE_SERVICES = [
+  "ps_portfolio_rpt",
+  "ps_annual_review",
+  "ps_budget_capex",
+  "ps_deal_analysis",
+  "ps_proactive_rpt",
+];
+function fixEventBasisScopeServices(doc: CalcDoc): CalcDoc {
+  for (const id of EVENT_BASIS_SCOPE_SERVICES) {
+    if (doc.pbase[id] === "door_yr") doc.pbase[id] = "claim";
+    if (!doc.ev[id]) doc.ev[id] = 1;
+  }
+  return doc;
+}
+
 function emptyDocShape(): Omit<CalcDoc, "schema" | "savedAt" | "G" | "af"> {
   return {
     CG: [],
@@ -72,6 +99,7 @@ function emptyDocShape(): Omit<CalcDoc, "schema" | "savedAt" | "G" | "af"> {
     pbase: {},
     scopeOwner: {},
     psv: {},
+    psh: {},
     uck: {},
     ucv: {},
     secView: {},
@@ -169,6 +197,7 @@ function mergeShippedDefaults(doc: CalcDoc): CalcDoc {
   }
 
   if (!doc.G) doc.G = { ...SHIPPED.G };
+  if (doc.G.hoursYr === undefined) doc.G.hoursYr = SHIPPED.G.hoursYr;
   if (!doc.af) doc.af = { ...SHIPPED.af };
 
   return doc;
@@ -194,6 +223,7 @@ function backfillRowState(doc: CalcDoc): CalcDoc {
 
   for (const [id, svc] of Object.entries(doc.MASTER)) {
     if (doc.psv[id] === undefined) doc.psv[id] = svc.dsv;
+    if (doc.psh[id] === undefined) doc.psh[id] = 0;
     if (doc.uck[id] === undefined) doc.uck[id] = { ...svc.dt };
     if (doc.ucv[id] === undefined) doc.ucv[id] = svc.dsv;
     if (doc.pbase[id] === undefined) doc.pbase[id] = "door_yr";

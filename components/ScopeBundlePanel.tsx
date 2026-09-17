@@ -2,8 +2,8 @@
 
 import { Fragment } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { activeTemplate, scopedServicesByOwner } from "@/lib/calc";
-import { CalcDoc, MasterService, TIERS } from "@/lib/types";
+import { activeTemplate, ownerHourlyRate, scopeServiceValue, scopedServicesByOwner } from "@/lib/calc";
+import { Basis, CalcDoc, MasterService, TIERS } from "@/lib/types";
 
 /**
  * Renders as sibling <tr> rows in the same <table> as the main cost table
@@ -21,6 +21,8 @@ export default function ScopeBundlePanel({
   colCount,
   onToggleTier,
   onValueChange,
+  onEventsChange,
+  onHoursChange,
   onBench,
 }: {
   doc: CalcDoc;
@@ -28,11 +30,14 @@ export default function ScopeBundlePanel({
   colCount: number;
   onToggleTier: (serviceId: string, tier: "min" | "special" | "plus") => void;
   onValueChange: (serviceId: string, value: number) => void;
+  onEventsChange: (serviceId: string, value: number) => void;
+  onHoursChange: (serviceId: string, hours: number) => void;
   onBench: (serviceId: string) => void;
 }) {
   const groups = scopedServicesByOwner(doc, ownerRowId);
   const psk = activeTemplate(doc).psk;
   const trailingCols = colCount - 9; // extra column(s) after Plus, e.g. edit-mode actions
+  const hourlyRate = ownerHourlyRate(doc, ownerRowId);
 
   if (groups.length === 0) {
     return (
@@ -54,11 +59,17 @@ export default function ScopeBundlePanel({
             <ServiceRow
               key={svc.id}
               svc={svc}
-              value={doc.psv[svc.id] ?? svc.dsv}
+              value={scopeServiceValue(doc, svc.id, svc)}
+              basis={doc.pbase[svc.id] ?? "door_yr"}
+              events={doc.ev[svc.id] ?? 0}
+              hours={doc.psh[svc.id] ?? 0}
+              hourlyRate={hourlyRate}
               flags={psk[svc.id]}
               trailingCols={trailingCols}
               onToggleTier={onToggleTier}
               onValueChange={onValueChange}
+              onEventsChange={onEventsChange}
+              onHoursChange={onHoursChange}
               onBench={onBench}
             />
           ))}
@@ -94,21 +105,35 @@ function CategoryHeaderRow({
 function ServiceRow({
   svc,
   value,
+  basis,
+  events,
+  hours,
+  hourlyRate,
   flags,
   trailingCols,
   onToggleTier,
   onValueChange,
+  onEventsChange,
+  onHoursChange,
   onBench,
 }: {
   svc: MasterService;
   value: number;
+  basis: Basis;
+  events: number;
+  hours: number;
+  hourlyRate: number;
   flags: { min: boolean; special: boolean; plus: boolean } | undefined;
   trailingCols: number;
   onToggleTier: (serviceId: string, tier: "min" | "special" | "plus") => void;
   onValueChange: (serviceId: string, value: number) => void;
+  onEventsChange: (serviceId: string, value: number) => void;
+  onHoursChange: (serviceId: string, hours: number) => void;
   onBench: (serviceId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `svc:${svc.id}` });
+  const isEventBased = basis === "claim";
+  const isHoursMode = hours > 0;
 
   return (
     <tr className={`bg-navy/40 text-xs ${isDragging ? "opacity-30" : ""}`}>
@@ -127,15 +152,48 @@ function ServiceRow({
         </div>
       </td>
       <td className="px-3 py-1 text-right">
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => onValueChange(svc.id, Number(e.target.value))}
-          className="w-20 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream"
-          title="Indicative service value ($/door/yr) — used for the tier readouts' excluded-value estimate"
-        />
+        <div className="flex items-center justify-end gap-1">
+          <input
+            type="number"
+            value={hours || ""}
+            placeholder="hrs"
+            onChange={(e) => onHoursChange(svc.id, Number(e.target.value))}
+            className="w-10 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream placeholder:text-cream/30"
+            title={`Hours of ${svc.n.toLowerCase()} time — auto-converts to $ using this role's derived hourly rate (currently $${hourlyRate.toFixed(2)}/hr), no need to know the rate yourself`}
+          />
+          <input
+            type="number"
+            value={isHoursMode ? Math.round(value * 100) / 100 : value}
+            onChange={(e) => onValueChange(svc.id, Number(e.target.value))}
+            readOnly={isHoursMode}
+            className={`w-16 rounded border border-gold/20 px-1 py-0.5 text-right font-mono text-cream ${isHoursMode ? "bg-navy/60 text-cream/60" : "bg-navy"}`}
+            title={
+              isHoursMode
+                ? `Computed from ${hours} hr(s) × $${hourlyRate.toFixed(2)}/hr — clear the hrs field to enter a $ value directly`
+                : isEventBased
+                  ? "Indicative value per event — used for the tier readouts' excluded-value estimate"
+                  : "Indicative service value ($/door/yr) — used for the tier readouts' excluded-value estimate"
+            }
+          />
+        </div>
       </td>
-      <td className="px-3 py-1 font-mono text-[11px] text-cream/50">$/door/yr</td>
+      <td className="px-3 py-1 font-mono text-[11px] text-cream/50">
+        {isEventBased ? (
+          <span className="flex items-center gap-1">
+            $/event ×
+            <input
+              type="number"
+              value={events}
+              onChange={(e) => onEventsChange(svc.id, Number(e.target.value))}
+              className="w-12 rounded border border-gold/20 bg-navy px-1 py-0.5 text-right font-mono text-cream"
+              title="Events per year — used for the tier readouts' excluded-value estimate"
+            />
+            /yr
+          </span>
+        ) : (
+          "$/door/yr"
+        )}
+      </td>
       <td className="px-3 py-1">
         <button
           type="button"
