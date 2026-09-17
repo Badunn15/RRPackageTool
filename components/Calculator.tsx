@@ -14,9 +14,11 @@ import VersionHistoryOverlay from "./VersionHistoryOverlay";
 import CompareOverlay from "./CompareOverlay";
 import BenchOverlay from "./BenchOverlay";
 import PromptModal from "./PromptModal";
+import ScopeAddChoiceModal from "./ScopeAddChoiceModal";
 
 type ConflictState = { serverScenario: ScenarioRow; serverDoc: CalcDoc } | null;
 type PromptState = { kind: "create" | "duplicate" | "rename"; defaultValue: string } | null;
+type PendingScopeAdd = { name: string; category: string; ownerRowId: string; value?: number } | null;
 
 /**
  * Edits are local-only until explicitly saved. Nothing autosaves and
@@ -51,6 +53,8 @@ export default function Calculator({
   const [initError, setInitError] = useState<string | null>(null);
   const [initAttempt, setInitAttempt] = useState(0);
   const [promptState, setPromptState] = useState<PromptState>(null);
+  const [pendingScopeAdd, setPendingScopeAdd] = useState<PendingScopeAdd>(null);
+  const [bulkAdding, setBulkAdding] = useState(false);
 
   const loadScenario = useCallback(async (id: string) => {
     const { scenario: s, doc: d } = await api.get(id);
@@ -147,6 +151,33 @@ export default function Calculator({
 
   async function refreshList() {
     setScenarios(await api.list());
+  }
+
+  async function handleAddScopeToAllScenarios() {
+    if (!pendingScopeAdd || !scenario) return;
+    setBulkAdding(true);
+    setSaveError(null);
+    try {
+      const { updatedScenarios } = await api.bulkAddScopeService(pendingScopeAdd);
+      // The open scenario is one of the ones just written to the DB --
+      // mirror the same change into local state and adopt its new rev so
+      // this doesn't look like an unsaved edit (it's already persisted) and
+      // the next real Save doesn't false-conflict. Any other unsaved edits
+      // the user had are preserved, not discarded.
+      const mine = updatedScenarios.find((s) => s.id === scenario.id);
+      if (mine) {
+        setDoc((prev) => (prev ? M.addScopeService(prev, pendingScopeAdd) : prev));
+        setRev(mine.rev);
+      }
+      await refreshList();
+      setPendingScopeAdd(null);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Failed to add to all scenarios. Nothing was changed here."
+      );
+    } finally {
+      setBulkAdding(false);
+    }
   }
 
   if (!doc || !scenario) {
@@ -409,7 +440,7 @@ export default function Calculator({
           onAddCategory={(name) => update((d) => M.addCategory(d, name))}
           onRemoveCategory={(name) => update((d) => M.removeCategory(d, name))}
           onRenameCategory={(oldName, newName) => update((d) => M.renameCategory(d, oldName, newName))}
-          onAddScopeService={(opts) => update((d) => M.addScopeService(d, opts))}
+          onAddScopeService={(opts) => setPendingScopeAdd(opts)}
           onQuickAddRow={(groupId) => update((d) => M.addRow(d, groupId, "New line", "monthly", 0))}
           onRemoveGroup={(id) => update((d) => M.removeGroup(d, id))}
           onQuickAddGroup={() => update((d) => M.addGroup(d, "New group"))}
@@ -433,7 +464,7 @@ export default function Calculator({
           onAddCategory={(name) => update((d) => M.addCategory(d, name))}
           onRemoveCategory={(name) => update((d) => M.removeCategory(d, name))}
           onRenameCategory={(oldName, newName) => update((d) => M.renameCategory(d, oldName, newName))}
-          onAddScopeService={(opts) => update((d) => M.addScopeService(d, opts))}
+          onAddScopeService={(opts) => setPendingScopeAdd(opts)}
           onExport={() => window.open(api.exportUrl(scenario.id), "_blank")}
           onImport={async (file) => {
             if (!confirmDiscardIfDirty()) return;
@@ -504,6 +535,20 @@ export default function Calculator({
               setScenario((s) => (s ? { ...s, name } : s));
             }
           }}
+        />
+      )}
+
+      {pendingScopeAdd && (
+        <ScopeAddChoiceModal
+          name={pendingScopeAdd.name}
+          category={pendingScopeAdd.category}
+          busy={bulkAdding}
+          onCancel={() => setPendingScopeAdd(null)}
+          onJustThis={() => {
+            update((d) => M.addScopeService(d, pendingScopeAdd));
+            setPendingScopeAdd(null);
+          }}
+          onAllScenarios={handleAddScopeToAllScenarios}
         />
       )}
     </div>

@@ -90,4 +90,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ doc }),
     }).then((r) => asJson<ScenarioRow>(r)),
+
+  /** Adds a new scope service to every active scenario at once -- writes straight to the DB, bypassing the normal local-edit-then-Save flow. */
+  bulkAddScopeService: (opts: { name: string; category: string; ownerRowId: string; value?: number }) =>
+    fetch("/api/scenarios/bulk-add-scope-service", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts),
+    }).then((r) => asJson<{ updatedScenarios: { id: string; name: string; rev: number }[] }>(r)),
 };
