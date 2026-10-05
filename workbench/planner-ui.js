@@ -652,7 +652,7 @@
   }
 
   var FIELD_GROUPS = [
-    { title: "Portfolio size", fields: [
+    { title: "Residential", fields: [
       { id: "f-doors", label: "Long-term residential doors", get: function (d) { return d.G.doors; }, set: function (d, v) { d.G.doors = Math.max(1, Math.round(v)); d.af.rd = d.G.doors + (d.G.str || 0); }, step: 1, min: 1,
         help: "Doors on the three packages. Package revenue and margin are per one of these doors. STR and commercial units are set below." },
       { id: "f-rent", label: "Average rent", prefix: "$", get: function (d) { return d.G.rent; }, set: function (d, v) { d.G.rent = v; }, step: 25, min: 0,
