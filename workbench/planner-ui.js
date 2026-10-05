@@ -1773,14 +1773,14 @@
     var c = props.col, first = props.first, ui = props.ui, setUi = props.setUi;
     var groups = diffGroups(first.doc, c.doc);
     var total = groups.reduce(function (s, g) { return s + g.items.length; }, 0);
-    var shut = !!ui.pfShut["cmp:" + c.key];
+    var shut = !ui.pfShut["cmp:open:" + c.key];   // starts folded: the table above is the quick look
     var openMap = ui.cmpOpen || {};
     function isOpen(g) { var v = openMap[c.key + ":" + g.id]; return v == null ? g.items.length <= 8 : v; }
     function setAll(on) { setUi(function (u) { u.cmpOpen = u.cmpOpen || {}; groups.forEach(function (g) { u.cmpOpen[c.key + ":" + g.id] = on; }); }); }
     return html`<section class="panel">
       <div class="panel-h">
-        <h2 class="panel-h-btn-wrap"><button type="button" class="panel-h-btn" aria-expanded=${!shut} onClick=${function () { setUi(function (u) { u.pfShut["cmp:" + c.key] = !shut; }); }}>
-          <span class="caret-i" aria-hidden="true">${shut ? "▸" : "▾"}</span><span class="sec-name">${c.label}</span></button></h2>
+        <h2 class="panel-h-btn-wrap"><button type="button" class="panel-h-btn" aria-expanded=${!shut} onClick=${function () { setUi(function (u) { u.pfShut["cmp:open:" + c.key] = shut; }); }}>
+          <span class="caret-i" aria-hidden="true">${shut ? "▸" : "▾"}</span><span class="sec-name">What's different in ${c.short}</span></button></h2>
         <span class="small muted">vs ${first.label} · ${total ? total + " difference" + (total === 1 ? "" : "s") + " in " + groups.length + " area" + (groups.length === 1 ? "" : "s") : "same numbers"}</span>
       </div>
       ${shut ? null : total ? html`<div class="panel-b">
@@ -1849,7 +1849,7 @@
       return html`<td key=${c.key + t} class=${cls}>${r[1](c.m[t], c.doc, t)}${show ? html`<div class=${"cmp-gap " + tone}>${r[4](gap)}</div>` : null}</td>`;
     }
     return html`<div class="page">
-      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios at " + VIEW_NAMES[view] + " (change it in the Live margin panel). The first is the baseline: under each number in the others is the gap to it, green when it's better for Raynor and red when it's worse. The scenarios you pick are saved with the open scenario."} />
+      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios at " + VIEW_NAMES[view] + " (change it in the Live margin panel). The first is the baseline; the others show ▲ or ▼ against it. The scenarios you pick are saved with the open scenario."} />
       <section class="panel">
         <div class="panel-b compare-picks">
           ${picks.map(function (k, i) {
@@ -1866,25 +1866,24 @@
         </div>
       </section>
 
-      <div class="cmp-cards">${TIERS.map(function (t) {
-        return html`<section key=${t} class="panel cmp-card">
-          <div class="cmp-card-h">${TIER_NAMES[t]}</div>
-          ${cols.map(function (c, ci) {
-            var m = c.m[t], off = !sells(c.doc, t), base = cols[0].m[t], baseOff = !sells(cols[0].doc, t);
-            var gap = ci && !off && !baseOff ? m.marginPct - base.marginPct : 0;
-            return html`<div key=${c.key} class="cmp-card-row">
-              <span class="cmp-card-name">${dot(c)}<span>${c.short}</span></span>
-              ${off ? html`<span class="faint small">not offered</span>`
-                : html`<span class="cmp-card-v"><b class="mono">${pct(m.marginPct)}</b><span class="small muted mono">${money(m.margin, 2)}/door</span>
-                  ${ci && !baseOff && Math.abs(gap) >= 0.05 ? html`<span class=${"cmp-gap " + (gap > 0 ? "good" : "bad")}>${(gap > 0 ? "+" : "−") + Math.abs(gap).toFixed(1) + " pts"}</span>` : ci ? html`<span class="cmp-gap faint">${baseOff ? "" : "same"}</span>` : html`<span class="cmp-gap faint">baseline</span>`}</span>`}
-            </div>`;
-          })}
-        </section>`;
-      })}</div>
-
       <section class="panel">
-        <div class="panel-h"><h2>Side by side</h2><span class="small muted">each package's scenarios next to each other</span></div>
-        <div class="table-wrap"><table class="compare cmp-table">
+        <div class="table-wrap"><table class="compare cmp-simple">
+          <thead><tr><th>Margin</th>${cols.map(function (c, ci) {
+            return html`<th key=${c.key} title=${c.label}>${dot(c)}<span>${c.short}</span>${ci === 0 && n > 1 ? html`<span class="faint small"> · baseline</span>` : null}</th>`;
+          })}</tr></thead>
+          <tbody>${TIERS.map(function (t) {
+            return html`<tr key=${t}><td><b>${TIER_NAMES[t]}</b></td>${cols.map(function (c, ci) {
+              var m = c.m[t], off = !sells(c.doc, t), baseOff = !sells(cols[0].doc, t);
+              if (off) return html`<td key=${c.key} class="faint">not offered</td>`;
+              var gap = ci && !baseOff ? m.marginPct - cols[0].m[t].marginPct : 0;
+              return html`<td key=${c.key}><span class="cmp-big">${pct(m.marginPct)}</span> <span class="small muted">${money(m.margin, 2)}/door</span>
+                ${ci && !baseOff ? html`<span class=${"cmp-pill " + (Math.abs(gap) < 0.05 ? "same" : gap > 0 ? "up" : "down")}>${Math.abs(gap) < 0.05 ? "same" : (gap > 0 ? "▲ " : "▼ ") + Math.abs(gap).toFixed(1) + " pts"}</span>` : null}</td>`;
+            })}</tr>`;
+          })}</tbody>
+        </table></div>
+        <div class="panel-b"><button type="button" class="link small" aria-expanded=${!!props.ui.pfShut["cmp:more"]} onClick=${function () { props.setUi(function (u) { u.pfShut["cmp:more"] = !u.pfShut["cmp:more"]; }); }}>
+          ${props.ui.pfShut["cmp:more"] ? "▾ Hide prices, revenue and cost" : "▸ Show prices, revenue and cost"}</button></div>
+        ${props.ui.pfShut["cmp:more"] ? html`<div class="table-wrap"><table class="compare cmp-table">
           <thead>
             <tr><th></th>${TIERS.map(function (t) { return html`<th key=${t} colspan=${n} class="cmp-tstart cmp-th-tier">${TIER_NAMES[t]}</th>`; })}</tr>
             <tr><th></th>${TIERS.map(function (t) { return cols.map(function (c, ci) {
@@ -1898,7 +1897,7 @@
                 ${TIERS.map(function (t) { return cols.map(function (c, ci) { return cell(r, c, ci, t); }); })}</tr>
             </${React.Fragment}>`;
           })}</tbody>
-        </table></div>
+        </table></div>` : null}
       </section>
       ${cols.slice(1).map(function (c) { return html`<${CompareDiff} key=${c.key} col=${c} first=${cols[0]} ui=${props.ui} setUi=${props.setUi} />`; })}
     </div>`;
