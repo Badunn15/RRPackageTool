@@ -1814,15 +1814,17 @@
       return { key: k, label: o.label, doc: d, m: m };
     });
     function setPick(i, k) { props.setUi(function (u) { var p = picks.slice(); if (k) p[i] = k; else p.splice(i, 1); u.comparePicks = p; }); }
+    // [label, shown value, number to compare, +1 when higher is better / -1 when lower is better, how to show a difference]
+    var dMoney = function (x) { return (x > 0 ? "+" : "−") + money(Math.abs(x), 2); };
     var rowsDef = [
-      ["Revenue / door / mo", function (m) { return money(m.revenue, 2); }],
-      ["Cost / door / mo", function (m) { return money(m.cost, 2); }],
-      ["Margin / door / mo", function (m) { return money(m.margin, 2); }],
-      ["Margin %", function (m) { return pct(m.marginPct); }],
-      ["Margin / yr, all doors", function (m) { return money(m.portfolioMo * 12); }]
+      ["Revenue / door / mo", function (m) { return money(m.revenue, 2); }, function (m) { return m.revenue; }, 1, dMoney],
+      ["Cost / door / mo", function (m) { return money(m.cost, 2); }, function (m) { return m.cost; }, -1, dMoney],
+      ["Margin / door / mo", function (m) { return money(m.margin, 2); }, function (m) { return m.margin; }, 1, dMoney],
+      ["Margin %", function (m) { return pct(m.marginPct); }, function (m) { return m.marginPct; }, 1, function (x) { return (x > 0 ? "+" : "−") + Math.abs(x).toFixed(1) + " pts"; }],
+      ["Margin / yr, all doors", function (m) { return money(m.portfolioMo * 12); }, function (m) { return m.portfolioMo * 12; }, 1, function (x) { return (x > 0 ? "+" : "−") + money(Math.abs(x)); }]
     ];
     return html`<div class="page">
-      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios side by side at " + VIEW_NAMES[view] + " (change it in the Live margin panel). Under the table, everything that differs from the first one, grouped by area. Click a heading to collapse it."} />
+      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios side by side at " + VIEW_NAMES[view] + " (change it in the Live margin panel). In the table, green is the best of the scenarios for that package and red is the worst; the small number under each is its gap to the first. Under the table, everything that differs from the first one, grouped by area. Click a heading to collapse it."} />
       <section class="panel">
         <div class="panel-b compare-picks">
           ${picks.map(function (k, i) {
@@ -1843,8 +1845,13 @@
             return html`<tr key=${r[0]} class=${r[0].indexOf("Margin") === 0 ? "total" : ""}><td>${r[0]}</td>
               ${cols.map(function (c, ci) {
                 return TIERS.map(function (t) {
-                  var v = c.m[t], cls = r[0].indexOf("Margin") === 0 ? verdict(v, c.doc.pricing.targetPct).cls : "";
-                  return html`<td key=${c.key + t} class=${cls + (t === "min" && ci ? " colstart" : "")}>${r[1](v)}</td>`;
+                  // Per package, across the scenarios: green = the best of them, red = the worst, and each one's gap to the first.
+                  var vals = cols.map(function (x) { return Math.round(r[2](x.m[t]) * 100) / 100; });
+                  var mine = vals[ci], best = r[3] > 0 ? Math.max.apply(null, vals) : Math.min.apply(null, vals), worst = r[3] > 0 ? Math.min.apply(null, vals) : Math.max.apply(null, vals);
+                  var tone = cols.length < 2 || best === worst ? "" : mine === best ? " cmp-best" : mine === worst ? " cmp-worst" : "";
+                  var gap = ci ? mine - vals[0] : 0;
+                  return html`<td key=${c.key + t} class=${(t === "min" && ci ? "colstart" : "") + tone}>${r[1](c.m[t])}
+                    ${ci && Math.abs(gap) >= 0.005 ? html`<div class=${"tiny " + (gap * r[3] > 0 ? "good" : "bad")}>${r[4](gap)}</div>` : null}</td>`;
                 });
               })}</tr>`;
           })}</tbody>
