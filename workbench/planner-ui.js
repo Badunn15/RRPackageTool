@@ -1437,16 +1437,74 @@
       </div>`;
     }
     var flagMC = r.doorsAfter > 500 && G.doors <= 500;
+    var snap = ui.acqView === "snap";
+    function setMode(m) { props.setUi(function (u) { u.acqView = m; }); }
+    var modeSw = html`<div class="seg" role="group" aria-label="Acquisitions view">
+      <button type="button" aria-pressed=${!snap} onClick=${function () { setMode("full"); }}>Full analysis</button>
+      <button type="button" aria-pressed=${snap} onClick=${function () { setMode("snap"); }}>Quick snapshot</button>
+    </div>`;
+    /* The quick snapshot: what the book does to the margins and what it takes to run it. No price, payback or what the book earns. */
+    var snapView = null;
+    if (snap) {
+      var A = r.afterDoc.G;
+      var rough = function (n) { return fmtNum(Math.round(n)); };
+      var pmLo = Math.ceil(r.doorsAfter / 300), pmHi = Math.ceil(r.doorsAfter / 200);
+      snapView = html`<div class="acq-grid">
+        <section class="panel">
+          <div class="panel-h"><h2>The book</h2></div>
+          <div class="panel-b fieldset">
+            ${num("doors", "Doors", { step: 5, help: "Units in the book." })}
+            ${num("rent", "Average rent", { prefix: "$", step: 25, help: "Their average monthly rent." })}
+            ${num("tenancy", "Average tenancy", { suffix: "yrs", step: 0.5, help: "How long their tenants stay." })}
+            <div class="frow acq-row"><label>Package mix <span class="faint small">(share of their owners)</span></label>
+              <div class="acq-mix">${TIERS.map(function (t) {
+                return html`<label key=${t} class="acq-mix-t" for=${"acq-mix-" + t}><span class="small">${TIER_SHORT[t]}</span>
+                  <${Affix} id=${"acq-mix-" + t} suffix="%" cls="w-sm" step=${5} min=${0} max=${100} label=${TIER_SHORT[t] + " share"} value=${deal.mix[t] || 0}
+                    onChange=${function (v) { edit(function (x) { x.mix[t] = Math.min(100, v); }, TIER_SHORT[t] + " share"); }} /></label>`;
+              })}</div>
+              <div class=${"help" + (Math.abs(mixLeft) > 0.01 ? " warn" : "")}>${Math.abs(mixLeft) < 0.01 ? "Adds up to 100%." : "Adds up to " + (100 - mixLeft) + "%. The math scales it to 100%."}</div>
+            </div>
+            ${num("lost", "Owners lost in year one", { suffix: "%", step: 5, max: 100, help: "Owners who leave after the switch." })}
+          </div>
+        </section>
+        <div class="acq-results">
+          <section class="panel">
+            <div class="panel-h"><h2>What it does to our margins</h2><span class="small muted">per door per month</span></div>
+            <div class="table-wrap"><table class="compare">
+              <thead><tr><th>Package</th><th>Cost today</th><th>Cost after</th><th>Margin today</th><th>Margin after</th><th>Change</th></tr></thead>
+              <tbody>${TIERS.map(function (t) {
+                var x = r.tiers[t], d = x.after.marginPct - x.today.marginPct;
+                return html`<tr key=${t}><td><b>${TIER_NAMES[t]}</b></td>
+                  <td>${money(x.today.cost, 2)}</td><td>${money(x.after.cost, 2)}</td>
+                  <td>${pct(x.today.marginPct)}</td><td>${pct(x.after.marginPct)}</td>
+                  <td class=${Math.abs(d) < 0.05 ? "faint" : d > 0 ? "good" : "bad"}>${Math.abs(d) < 0.05 ? "—" : (d > 0 ? "+" : "−") + Math.abs(d).toFixed(1) + " pts"}</td></tr>`;
+              })}</tbody>
+            </table></div>
+            <p class="note" style=${{ padding: "0 14px 12px" }}>Your fixed costs (salaries, flat software, overhead) spread over more doors, so cost per door usually falls as the portfolio grows.</p>
+          </section>
+          <section class="panel">
+            <div class="panel-h"><h2>What it takes</h2></div>
+            <div class="panel-b acq-kpis">
+              <div><span class="small muted">Doors after</span><b class="mono">${rough(r.doorsAfter)}</b><span class="tiny faint">${fmtNum(G.doors)} today + ${rough(r.kept)}</span></div>
+              <div><span class="small muted">Work orders</span><b class="mono">${rough(A.wo)}/yr</b><span class="tiny faint">${rough(G.wo)} today</span></div>
+              <div><span class="small muted">Evictions</span><b class="mono">${rough(A.evictions)}/yr</b><span class="tiny faint">${rough(G.evictions)} today</span></div>
+              <div><span class="small muted">Active listings</span><b class="mono">${rough(A.listings)}</b><span class="tiny faint">${rough(G.listings)} today</span></div>
+            </div>
+            <p class="note" style=${{ padding: "0 14px 12px" }}>Rough capacity: a property manager handles 200–300 doors, so ${pmLo === pmHi ? pmLo : pmLo + " to " + pmHi} at ${rough(r.doorsAfter)} doors. A maintenance coordinator handles about 500.${flagMC ? html` <span class="warn">At this size you would likely need a second one.</span>` : ""}</p>
+          </section>
+        </div>
+      </div>`;
+    }
     return html`<div class="page">
-      <${PageHead} kicker="What if" title="Acquisitions" lead="Size up a book of business you're thinking about buying: what it does to each package's margin, what its doors would earn, and how fast the deal pays back. Shown at the headline cost view, with today's prices and package contents."
-        right=${html`<div class="toolbar">
+      <${PageHead} kicker="What if" title="Acquisitions" lead=${snap ? "A quick look at what a book of business does to our margins and what it takes to run it. Shown at the headline cost view, with today's prices and package contents." : "Size up a book of business you're thinking about buying: what it does to each package's margin, what its doors would earn, and how fast the deal pays back. Shown at the headline cost view, with today's prices and package contents."}
+        right=${html`<div class="toolbar">${modeSw}
           <select id="acq-pick" aria-label="Deal" value=${deal.id} onChange=${function (e) { var v = e.target.value; props.setUi(function (u) { u.acqSel = v; }); }}>
             ${deals.map(function (x) { return html`<option key=${x.id} value=${x.id}>${x.name}</option>`; })}
           </select>
           <button type="button" class="btn sm" onClick=${add}>+ Add a deal</button>
         </div>`} />
 
-      <div class="acq-grid">
+      ${snap ? snapView : html`<div class="acq-grid">
         <section class="panel">
           <div class="panel-h"><input type="text" class="txt acq-name" id="acq-name" aria-label="Deal name" value=${deal.name}
             onChange=${function (e) { var v = e.target.value; edit(function (x) { x.name = v; }, "renamed"); }} /></div>
@@ -1513,7 +1571,7 @@
           </section>
           <p class="note">Prices, package contents and add-ons are today's. ${flagMC ? html`<span class="warn">At ${fmtNum(Math.round(r.doorsAfter))} doors you'd likely need a second maintenance coordinator. Put that cost in "Added staff or overhead" if so.</span>` : "Staffing beyond what you enter in Added staff or overhead stays at today's level."}</p>
         </div>
-      </div>
+      </div>`}
     </div>`;
   }
 
