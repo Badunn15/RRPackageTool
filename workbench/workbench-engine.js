@@ -87,7 +87,13 @@ function guaranteedEvictionsYr(doc) {
 }
 function billedEvictionsYr(doc, tier) {
   if (!evictionHandled(doc, tier)) return 0;
-  return evictionGuaranteed(doc, tier) ? ((doc.G.evictions || 0) * (doc.G.evictNotPlacedPct || 0)) / 100 : doc.G.evictions || 0;
+  if (evictionGuaranteed(doc, tier)) return ((doc.G.evictions || 0) * (doc.G.evictNotPlacedPct || 0)) / 100;
+  // A tier that sells the eviction guarantee as an add-on: owners who buy it aren't billed for evictions of tenants Raynor placed.
+  var n = doc.G.evictions || 0;
+  (doc.addons || []).forEach(function (a) {
+    if (a.svc === "evict_g" && addonState(a, tier) === "charged") n -= guaranteedEvictionsYr(doc) * Math.min(1, (a.uptake || 0) / 100);
+  });
+  return n;
 }
 
 /* What one owner benefits package costs Raynor, and is worth à la carte, per door per year. */
@@ -797,5 +803,5 @@ function validDoc(d) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }
