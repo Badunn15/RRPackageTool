@@ -203,10 +203,10 @@ function leaseBreakMo(doc, tier) {
  * turns the Eviction service on, and turning the service off turns the guarantee off.
  */
 function syncLinked(doc, tp, kind, id, tier) {
-  // A service sold as an add-on: a tier that includes the service doesn't also sell it, a tier that leaves it out can.
-  if (kind === "psk") (doc.addons || []).forEach(function (a) {
+  // A service or cost line sold as an add-on: a tier that includes it doesn't also sell it, a tier that leaves it out can.
+  if (kind === "psk" || kind === "ck") (doc.addons || []).forEach(function (a) {
     if (a.svc !== id || !a.tiers) return;
-    var inTier = !!(tp.psk[id] && tp.psk[id][tier]);
+    var inTier = !!(tp[kind][id] && tp[kind][id][tier]);
     if (inTier) a.tiers[tier] = "off";
     else if (a.tiers[tier] === "off") a.tiers[tier] = "charged";
   });

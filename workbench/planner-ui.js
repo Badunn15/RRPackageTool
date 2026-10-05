@@ -433,13 +433,14 @@
       <div class="math">${formulaLines(r, doc, g.id, doc.cv).map(function (l, i) { return html`<div key=${i}>${l}</div>`; })}</div>
       <${Impact} head="Cost/door/mo" vals=${vals} C=${props.C} costLike=${true} />
       ${r.id === "evict_g" ? html`<p class="note">Linked: turning this on for a tier also turns on its Eviction service (Services). Every eviction this line doesn't cover is billed to the owner under Add-on fees.</p>` : null}
+      ${calc || isAf ? null : html`<${SellAddon} doc=${doc} update=${update} id=${r.id} name=${name} kind="ck" defaultCost=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v} />`}
       <button type="button" class="btn sm danger" style=${{ alignSelf: "flex-start" }} onClick=${function () {
         update(function (d) {
           if (r.promoted) { d.place[r.id] = "uc"; return; }
           var gg = d.CG.find(function (x) { return x.id === g.id; });
           gg.rows = gg.rows.filter(function (x) { return x.id !== r.id; });
           d.templates.forEach(function (tp) { delete tp.ck[r.id]; });
-          d.removed[r.id] = true;
+          d.removed[r.id] = true; d.addons = d.addons.filter(function (x) { return x.svc !== r.id; });
         }, "Removed " + name);
         props.setUi(function (u) { u.sel = null; });
       }}>${r.promoted ? "Send back to bench" : "Remove line"}</button>
@@ -466,6 +467,32 @@
         d.templates.forEach(function (tp) { if (!tp.ck[id]) tp.ck[id] = Object.assign({}, dt); });
       }
     }, (dest === "addon" ? "Made " + svc.n + " an add-on" : "Offered " + svc.n));
+  }
+
+  /* "Also sell as an add-on" for a service (kind "psk") or a cost line (kind "ck"): sold to the tiers that leave it out. */
+  function SellAddon(props) {
+    var doc = props.doc, update = props.update, id = props.id, name = props.name, kind = props.kind;
+    var ad = doc.addons.find(function (a) { return a.svc === id; });
+    function edit(fn, label) { update(function (d) { var x = d.addons.find(function (y) { return y.svc === id; }); if (x) fn(x); }, name + " add-on: " + label); }
+    if (!ad) return html`<div><button type="button" class="btn sm" title="Owners in a tier that leaves this out can still buy it as an extra" onClick=${function () {
+      update(function (d) {
+        var flags = activeTemplate(d)[kind][id] || {};
+        var tiers = {};
+        TIERS.forEach(function (t) { tiers[t] = flags[t] ? "off" : "charged"; });
+        d.addons.push({ id: "addon_sell_" + id, name: name, price: 0, cost: props.defaultCost || 0, basis: "optional", kind: "addon", freq: 1, uptake: 0, svc: id, tiers: tiers });
+      }, "Selling " + name + " as an add-on");
+    }}>Also sell as an add-on</button></div>`;
+    return html`<div style=${{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid var(--rule-soft)", paddingTop: "10px" }}>
+      <div class="tiny faint">Sold as an add-on to tiers that leave it out</div>
+      <div class="kv">
+        <span>Owner pays</span><${Affix} id=${"i-ap-" + id} prefix="$" cls="w-lg" min=${0} label="Owner price" value=${ad.price || 0} onChange=${function (v) { edit(function (x) { x.price = v; }, "owner price"); }} />
+        <span>Your cost</span><${Affix} id=${"i-ac-" + id} prefix="$" cls="w-lg" min=${0} label="Your cost each time" value=${ad.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
+        <span>Times a year</span><${Affix} id=${"i-af-" + id} cls="w-sm" min=${0} step=${0.25} suffix="/door" label="Times a year per door" value=${ad.freq || 0} onChange=${function (v) { edit(function (x) { x.freq = v; }, "times a year"); }} />
+        <span>Owners who buy</span><${Affix} id=${"i-au-" + id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label="Share of owners who buy" value=${ad.uptake || 0} onChange=${function (v) { edit(function (x) { x.uptake = Math.min(100, v); }, "owners who buy"); }} />
+      </div>
+      <p class="note">For sale in: ${TIERS.filter(function (t) { return ad.tiers[t] !== "off"; }).map(function (t) { return TIER_SHORT[t]; }).join(", ") || "no tier"}. Tiers that include it don't sell it. Fine-tune on the Add-ons page.</p>
+      <button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () { update(function (d) { d.addons = d.addons.filter(function (x) { return x.svc !== id; }); }, "Stopped selling " + name + " as an add-on"); }}>Stop selling as an add-on</button>
+    </div>`;
   }
 
   function BenchInspector(props) {
@@ -543,29 +570,7 @@
       <${Impact} head="Freed/door/mo" vals=${vals} C=${props.C} costLike=${false} />
       <p class="note">${doc.pricing.scopeSavings ? "Freed capacity is taken off cost (Portfolio → Model settings), so leaving this out raises that tier's margin as shown." : "Freed capacity is shown but not taken off cost. Turn it on under Portfolio → Model settings to count it."}</p>
       ${id === EVICT_SVC ? html`<p class="note">Linked: turning this off for a tier also removes its Eviction guarantee (Costs), and nothing is billed for evictions there.</p>` : null}
-      ${(function () {
-        var ad = doc.addons.find(function (a) { return a.svc === id; });
-        function edit(fn, label) { update(function (d) { var x = d.addons.find(function (y) { return y.svc === id; }); if (x) fn(x); }, svc.n + " add-on: " + label); }
-        if (!ad) return html`<div><button type="button" class="btn sm" title="Owners in a tier that leaves this out can still buy it as an extra" onClick=${function () {
-          update(function (d) {
-            var psk = activeTemplate(d).psk[id] || {};
-            var tiers = {};
-            TIERS.forEach(function (t) { tiers[t] = psk[t] ? "off" : "charged"; });
-            d.addons.push({ id: "addon_sell_" + id, name: svc.n, price: 0, cost: 0, basis: "optional", kind: "addon", freq: 1, uptake: 0, svc: id, tiers: tiers });
-          }, "Selling " + svc.n + " as an add-on");
-        }}>Also sell as an add-on</button></div>`;
-        return html`<div style=${{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid var(--rule-soft)", paddingTop: "10px" }}>
-          <div class="tiny faint">Sold as an add-on to tiers that leave it out</div>
-          <div class="kv">
-            <span>Owner pays</span><${Affix} id=${"i-ap-" + id} prefix="$" cls="w-lg" min=${0} label="Owner price" value=${ad.price || 0} onChange=${function (v) { edit(function (x) { x.price = v; }, "owner price"); }} />
-            <span>Your cost</span><${Affix} id=${"i-ac-" + id} prefix="$" cls="w-lg" min=${0} label="Your cost each time" value=${ad.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
-            <span>Times a year</span><${Affix} id=${"i-af-" + id} cls="w-sm" min=${0} step=${0.25} suffix="/door" label="Times a year per door" value=${ad.freq || 0} onChange=${function (v) { edit(function (x) { x.freq = v; }, "times a year"); }} />
-            <span>Owners who buy</span><${Affix} id=${"i-au-" + id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label="Share of owners who buy" value=${ad.uptake || 0} onChange=${function (v) { edit(function (x) { x.uptake = Math.min(100, v); }, "owners who buy"); }} />
-          </div>
-          <p class="note">For sale in: ${TIERS.filter(function (t) { return ad.tiers[t] !== "off"; }).map(function (t) { return TIER_SHORT[t]; }).join(", ") || "no tier"}. Tiers that include the service don't sell it. Fine-tune on the Add-ons page.</p>
-          <button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () { update(function (d) { d.addons = d.addons.filter(function (a) { return a.svc !== id; }); }, "Stopped selling " + svc.n + " as an add-on"); }}>Stop selling as an add-on</button>
-        </div>`;
-      })()}
+      <${SellAddon} doc=${doc} update=${update} id=${id} name=${svc.n} kind="psk" defaultCost=${0} />
       <button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () {
         update(function (d) { d.place[id] = "uc"; }, "Benched " + svc.n);
         props.setUi(function (u) { u.sel = null; });
@@ -882,7 +887,7 @@
                     <input type="text" class="txt" id=${"n-" + r.id} aria-label="Line name" value=${name}
                       onChange=${function (e) { var val = e.target.value; update(function (d) { if (r.promoted) d.MASTER[r.id].n = val; else d.CG.find(function (x) { return x.id === g.id; }).rows.find(function (x) { return x.id === r.id; }).name = val; }, "Renamed a line"); }} />
                     ${r.promoted ? html`<span class="tag">service</span>` : null}${r.pmScope ? html`<span class="tag">does scope work</span>` : null}
-                    ${calc ? html`<span class="tag link">linked</span>` : null}${vt ? html`<span class="tag">${vt}</span>` : null}
+                    ${calc ? html`<span class="tag link">linked</span>` : null}${doc.addons.some(function (x) { return x.svc === r.id; }) ? html`<span class="tag" title="Also sold as an add-on to tiers that leave it out">add-on</span>` : null}${vt ? html`<span class="tag">${vt}</span>` : null}
                   </td>
                   <td>${isAf ? html`<span class="small faint">AppFolio rates</span>` : isLb ? html`<span class="small faint">tier's leasing fee</span>`
                     : html`<${Affix} id=${"v-" + r.id} prefix="$" label=${"Amount for " + name} value=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v}
