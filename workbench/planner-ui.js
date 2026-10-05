@@ -1768,6 +1768,35 @@
     return groups.filter(function (g) { return g.items.length; });
   }
 
+  /* One compared scenario's differences: the whole panel collapses, and so does each area inside it. */
+  function CompareDiff(props) {
+    var c = props.col, first = props.first, ui = props.ui, setUi = props.setUi;
+    var groups = diffGroups(first.doc, c.doc);
+    var total = groups.reduce(function (s, g) { return s + g.items.length; }, 0);
+    var shut = !!ui.pfShut["cmp:" + c.key];
+    var openMap = ui.cmpOpen || {};
+    function isOpen(g) { var v = openMap[c.key + ":" + g.id]; return v == null ? g.items.length <= 8 : v; }
+    function setAll(on) { setUi(function (u) { u.cmpOpen = u.cmpOpen || {}; groups.forEach(function (g) { u.cmpOpen[c.key + ":" + g.id] = on; }); }); }
+    return html`<section class="panel">
+      <div class="panel-h">
+        <h2 class="panel-h-btn-wrap"><button type="button" class="panel-h-btn" aria-expanded=${!shut} onClick=${function () { setUi(function (u) { u.pfShut["cmp:" + c.key] = !shut; }); }}>
+          <span class="caret-i" aria-hidden="true">${shut ? "▸" : "▾"}</span><span class="sec-name">${c.label}</span></button></h2>
+        <span class="small muted">vs ${first.label} · ${total ? total + " difference" + (total === 1 ? "" : "s") + " in " + groups.length + " area" + (groups.length === 1 ? "" : "s") : "same numbers"}</span>
+      </div>
+      ${shut ? null : total ? html`<div class="panel-b">
+        ${groups.length > 1 ? html`<div class="cmp-all small"><button type="button" class="link" onClick=${function () { setAll(true); }}>Expand all</button> · <button type="button" class="link" onClick=${function () { setAll(false); }}>Collapse all</button></div>` : null}
+        ${groups.map(function (g) {
+          var on = isOpen(g);
+          return html`<div key=${g.id} class="cmp-g">
+            <button type="button" class="cmp-gh" aria-expanded=${on} onClick=${function () { setUi(function (u) { u.cmpOpen = u.cmpOpen || {}; u.cmpOpen[c.key + ":" + g.id] = !on; }); }}>
+              <span class="caret-i" aria-hidden="true">${on ? "▾" : "▸"}</span><b>${g.title}</b><span class="faint small">${g.items.length}</span></button>
+            ${on ? html`<ul class="diff-list">${g.items.map(function (x, i) { return html`<li key=${i}>${x}</li>`; })}</ul>` : null}
+          </div>`;
+        })}
+      </div>` : html`<p class="note" style=${{ padding: "0 14px 14px" }}>Same numbers.</p>`}
+    </section>`;
+  }
+
   function Compare(props) {
     var doc = props.doc, cloud = props.cloud, lists = props.lists, names = props.names;
     var options = [{ key: "current", label: "Open now: " + props.scen.name + (props.dirty ? " (unsaved)" : ""), doc: doc }];
@@ -1797,7 +1826,7 @@
       ["Margin / yr, all doors", function (m) { return money(m.portfolioMo * 12); }, function (m) { return m.portfolioMo * 12; }, 1]
     ];
     return html`<div class="page">
-      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios side by side at " + VIEW_NAMES[view] + " (change it in the Live margin panel). Numbers in green are better for Raynor than the first scenario, red are worse. Under the table, everything that differs from the first one."} />
+      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios side by side at " + VIEW_NAMES[view] + " (change it in the Live margin panel). On each package, green marks the scenario that's ahead for Raynor. Under the table, everything that differs from the first one."} />
       <section class="panel">
         <div class="panel-b compare-picks">
           ${picks.map(function (k, i) {
@@ -1819,11 +1848,13 @@
               ${cols.map(function (c, ci) {
                 return TIERS.map(function (t) {
                   var v = c.m[t], cls = "";
-                  // Against the first scenario: green when better for Raynor, red when worse. A package a scenario doesn't sell is greyed out.
+                  // Green marks whichever scenario is ahead for Raynor on this package (higher revenue and margin, lower cost).
+                  // Packages a scenario doesn't sell are greyed out and left out of the comparison.
                   if (!sells(c.doc, t)) cls = "faint";
-                  else if (ci && sells(cols[0].doc, t)) {
-                    var gap = r[2](v) - r[2](cols[0].m[t]);
-                    cls = Math.abs(gap) < 0.005 ? "" : gap * r[3] > 0 ? "good" : "bad";
+                  else if (cols.length > 1) {
+                    var vals = cols.filter(function (x) { return sells(x.doc, t); }).map(function (x) { return Math.round(r[2](x.m[t]) * 100) * r[3]; });
+                    var best = Math.max.apply(null, vals), mine = Math.round(r[2](v) * 100) * r[3];
+                    if (vals.length > 1 && mine === best && vals.some(function (x) { return x !== best; })) cls = "good";
                   }
                   return html`<td key=${c.key + t} class=${cls + (t === "min" && ci ? " colstart" : "")}>${r[1](v)}</td>`;
                 });
@@ -1831,17 +1862,7 @@
           })}</tbody>
         </table></div>
       </section>
-      ${cols.slice(1).map(function (c) {
-        var d = diffGroups(cols[0].doc, c.doc).reduce(function (all, g) { return all.concat(g.items); }, []);
-        var shut = !!props.ui.pfShut["cmpd:" + c.key];
-        return html`<section key=${c.key} class="panel">
-          <div class="panel-h"><h2 class="panel-h-btn-wrap"><button type="button" class="panel-h-btn" style=${{ padding: 0 }} aria-expanded=${!shut}
-            onClick=${function () { props.setUi(function (u) { u.pfShut["cmpd:" + c.key] = !shut; }); }}>
-            <span class="caret-i" aria-hidden="true">${shut ? "▸" : "▾"}</span><span class="sec-name">${c.label}</span></button></h2>
-            <span class="small muted">vs ${cols[0].label} · ${d.length} difference${d.length === 1 ? "" : "s"}</span></div>
-          ${shut ? null : html`<div class="panel-b">${d.length ? html`<ul class="diff-list">${d.map(function (x, i) { return html`<li key=${i}>${x}</li>`; })}</ul>` : html`<p class="note">Same numbers.</p>`}</div>`}
-        </section>`;
-      })}
+      ${cols.slice(1).map(function (c) { return html`<${CompareDiff} key=${c.key} col=${c} first=${cols[0]} ui=${props.ui} setUi=${props.setUi} />`; })}
     </div>`;
   }
 
