@@ -1,4 +1,4 @@
-<title>Package Margin Planner</title>
+<title>Raynor Realty Bottom Line</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
   /* Layout: one step bar across the top, one working page at a time on the left, a live margin rail pinned on the right. */
@@ -6,6 +6,7 @@
     --bg:#eceff1; --panel:#ffffff; --panel-2:#f5f7f8; --rule:#d5dce1; --rule-soft:#e5eaed;
     --ink:#15212c; --ink-2:#4a5864; --ink-3:#7a8792;
     --accent:#2b5a9e; --accent-ink:#1f477f; --accent-tint:#e3ebf7; --accent-line:#b9cbe6;
+    --gold:#8f6428; --gold-line:#d2ad6c;
     --good:#1b7a4c; --good-bg:#e1f2e8; --warn:#985900; --warn-bg:#fbeed6; --bad:#b1352b; --bad-bg:#fae3df;
     --font-display:"Newsreader", "Iowan Old Style", Georgia, serif;
     --font-ui:"Schibsted Grotesk", "Segoe UI", system-ui, sans-serif;
@@ -19,6 +20,7 @@
       --bg:#0e141a; --panel:#161e26; --panel-2:#1c2630; --rule:#2c3945; --rule-soft:#222d37;
       --ink:#e5eaee; --ink-2:#a6b2bc; --ink-3:#71808c;
       --accent:#7ba6e8; --accent-ink:#a3c2f2; --accent-tint:#1c2b40; --accent-line:#34507a;
+      --gold:#dfb469; --gold-line:#7d6236;
       --good:#55cf95; --good-bg:#12301f; --warn:#e3a13c; --warn-bg:#382713; --bad:#ea7063; --bad-bg:#3a1b17;
       --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 22px -10px rgba(0,0,0,.6);
     }
@@ -28,6 +30,7 @@
     --bg:#0e141a; --panel:#161e26; --panel-2:#1c2630; --rule:#2c3945; --rule-soft:#222d37;
     --ink:#e5eaee; --ink-2:#a6b2bc; --ink-3:#71808c;
     --accent:#7ba6e8; --accent-ink:#a3c2f2; --accent-tint:#1c2b40; --accent-line:#34507a;
+      --gold:#dfb469; --gold-line:#7d6236;
     --good:#55cf95; --good-bg:#12301f; --warn:#e3a13c; --warn-bg:#382713; --bad:#ea7063; --bad-bg:#3a1b17;
     --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 22px -10px rgba(0,0,0,.6);
   }
@@ -44,19 +47,19 @@
   .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 
   /* ---------- top bar ---------- */
-  .bar{ position:sticky; top:env(safe-area-inset-top,0px); z-index:30; height:var(--bar-h); display:flex; align-items:center; gap:10px;
+  .bar{ position:sticky; top:env(safe-area-inset-top,0px); z-index:30; height:var(--bar-h); display:flex; align-items:center; gap:10px; box-shadow:inset 0 -1px 0 var(--gold-line);
     padding-inline:16px; background:var(--panel); border-bottom:1px solid var(--rule); }
   .brand{ display:flex; align-items:center; gap:9px; line-height:1.1; white-space:nowrap; }
-  .brand img{ width:34px; height:34px; border-radius:50%; flex:0 0 34px; display:block; box-shadow:0 0 0 1px var(--rule); }
+  .brand img{ width:34px; height:34px; border-radius:50%; flex:0 0 34px; display:block; box-shadow:0 0 0 1px var(--gold-line); }
   .brand-t{ display:flex; flex-direction:column; }
   .brand b{ font-family:var(--font-display); font-weight:600; font-size:16px; letter-spacing:-.005em; }
-  .brand span{ font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .brand span{ font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); font-weight:700; }
   .steps{ display:flex; gap:2px; overflow-x:auto; scrollbar-width:none; flex:1 1 auto; min-width:0; }
   .steps::-webkit-scrollbar{ display:none; }
   .step{ display:flex; align-items:center; gap:5px; padding:7px 6px; border:none; background:none; border-radius:8px; cursor:pointer;
     font-weight:600; font-size:13px; color:var(--ink-2); white-space:nowrap; }
   .step:hover{ background:var(--panel-2); color:var(--ink); }
-  .step[aria-current="page"]{ background:var(--accent-tint); color:var(--accent-ink); }
+  .step[aria-current="page"]{ background:var(--accent-tint); color:var(--accent-ink); box-shadow:inset 0 -2px 0 var(--gold); }
   .step .n{ width:19px; height:19px; border-radius:50%; display:inline-grid; place-items:center; font-family:var(--font-data); font-size:10.5px;
     border:1.5px solid currentColor; }
   .step .dot{ width:7px; height:7px; border-radius:50%; background:var(--warn); }
@@ -92,7 +95,7 @@
 
   .page-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; }
   .page-head h1{ font-family:var(--font-display); font-weight:600; font-size:26px; margin:0; letter-spacing:-.01em; text-wrap:balance; }
-  .page-head .kicker{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; color:var(--accent-ink); }
+  .page-head .kicker{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:var(--gold); }
   .lead{ margin:4px 0 0; max-width:78ch; color:var(--ink-2); line-height:1.5; }
   .panel{ background:var(--panel); border:1px solid var(--rule); border-radius:12px; }
   .panel-h{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:12px 14px 8px; }
@@ -229,7 +232,7 @@
   .pcard{ background:var(--panel); border:1px solid var(--rule); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; min-width:0; }
   .pcard.focus{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
   .pcard h3{ margin:0; font-size:15px; font-weight:700; }
-  .pcard .sub-h{ font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); margin-top:4px; }
+  .pcard .sub-h{ font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); margin-top:4px; }
   .row-b{ display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
   .track{ position:relative; height:22px; display:flex; align-items:center; }
   input[type="range"]{ -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; margin:0; cursor:pointer; position:relative; z-index:1;
@@ -259,7 +262,7 @@
   /* ---------- rail ---------- */
   .rail-box{ background:var(--panel); border:1px solid var(--rule); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
   .rail-h{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
-  .rail-h h2{ margin:0; font-size:11px; letter-spacing:.09em; text-transform:uppercase; font-weight:700; color:var(--ink-3); }
+  .rail-h h2{ margin:0; font-size:11px; letter-spacing:.09em; text-transform:uppercase; font-weight:700; color:var(--gold); }
   .rail-toggle{ display:flex; align-items:center; gap:6px; background:none; border:none; padding:0; cursor:pointer; color:inherit; }
   .rail-toggle:hover h2{ color:var(--accent-ink); }
   .rail-hide{ align-self:flex-end; background:none; border:none; padding:0 2px; font-size:11.5px; font-weight:600; color:var(--ink-3); cursor:pointer; }
@@ -326,7 +329,7 @@
   .bench li > span{ min-width:0; }
 
   /* ---------- add-ons and benefits packages ---------- */
-  .sub-h{ font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); }
+  .sub-h{ font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); }
   .tier-nets{ display:flex; gap:10px; font-size:11.5px; color:var(--ink-2); white-space:nowrap; }
   .bundles{ display:flex; flex-direction:column; gap:12px; }
   .bundle{ border:1px solid var(--rule); border-radius:10px; overflow:hidden; }

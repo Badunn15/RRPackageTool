@@ -1921,7 +1921,7 @@
 
     return html`<div class="app">
       <header class="bar">
-        <div class="brand"><img src=${LOGO} alt="Raynor Realty, property management since 1987" width="38" height="38" /><div class="brand-t"><span>Raynor Realty</span><b>Package Margin Planner</b></div></div>
+        <div class="brand"><img src=${LOGO} alt="Raynor Realty, property management since 1987" width="38" height="38" /><div class="brand-t"><span>Raynor Realty</span><b>Bottom Line</b></div></div>
         <nav class="steps" aria-label="Pages">
           ${PAGES.map(function (p, i) {
             var n = todo.filter(function (x) { return x.page === p.id; }).length;
