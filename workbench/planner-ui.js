@@ -1409,8 +1409,8 @@
           ${list.length < 3 ? html`<button type="button" class="btn sm" onClick=${function () { setList(function (l) { l.push(Math.round((Math.max.apply(null, l) * 2) / 10) * 10 || 500); }); }}>+ Add a door count</button>` : null}
         </div>
         <div class="table-wrap"><table class="compare growth-table">
-          <thead><tr><th>Package</th><th>Today · ${fmtNum(today)} doors</th>
-            ${list.map(function (n, i) { return html`<th key=${i}>${fmtNum(n)} doors</th>`; })}</tr></thead>
+          <thead><tr><th>Package</th><th>Today · <span class="door-n">${fmtNum(today)} doors</span></th>
+            ${list.map(function (n, i) { return html`<th key=${i}><span class="door-n">${fmtNum(n)} doors</span></th>`; })}</tr></thead>
           <tbody>${TIERS.map(function (t) {
             var a = C.margins[t];
             return html`<tr key=${t}><td><b class="pkg-name">${TIER_NAMES[t]}</b></td>
