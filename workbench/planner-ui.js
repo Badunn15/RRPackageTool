@@ -1437,7 +1437,7 @@
       </div>`;
     }
     var flagMC = r.doorsAfter > 500 && G.doors <= 500;
-    var snap = ui.acqView === "snap";
+    var snap = ui.acqView !== "full";
     function setMode(m) { props.setUi(function (u) { u.acqView = m; }); }
     var modeSw = html`<div class="seg" role="group" aria-label="Acquisitions view">
       <button type="button" aria-pressed=${!snap} onClick=${function () { setMode("full"); }}>Full analysis</button>
