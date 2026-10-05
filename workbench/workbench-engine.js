@@ -150,7 +150,7 @@ function addonPerDoor(doc, tier, view) {
     if (state === "off" || !doors) return;
     if (a.view && !isVisible(a.view, view)) return;
     var eventsYr = addonEventsYr(doc, a, tier);
-    var perDoorMo = eventsYr / 12 / doors;
+    var perDoorMo = eventsYr / 12 / (ADDON_POOL[a.basis] === "wo" ? allUnits(doc) : doors);
     var rev = state === "charged" ? (a.price || 0) * perDoorMo : 0;
     var cost = addonCostEach(doc, a, state) * perDoorMo;
     if (a.basis === "bundle") {
@@ -213,6 +213,28 @@ function syncLinked(doc, tp, kind, id, tier) {
   }
 }
 
+/*
+ * Units. G.doors = long-term residential doors, the ones on the three packages. G.str (short-term rentals) and
+ * G.comm (commercial) are other units Raynor manages. Costs that come with every unit (salaries, flat software,
+ * overhead, per-unit software) are spread over all of them, so STR and commercial lower the cost per package door.
+ * Turnovers and guarantees only happen on package doors, so they stay on those doors.
+ */
+function otherUnits(doc) { return (doc.G.str || 0) + (doc.G.comm || 0); }
+function allUnits(doc) { return (doc.G.doors || 0) + otherUnits(doc); }
+function residentialOnly(row, gid) { return row.e === "event" || gid === "guar"; }
+function linePerDoor(doc, mo, row, gid) {
+  if (!doc.G.doors) return 0;
+  return residentialOnly(row, gid) ? mo / doc.G.doors : mo / allUnits(doc);
+}
+
+/* What STR and commercial bring in each month: STR at a % of income received, commercial at a % of rent plus other fees. */
+function otherRevenueMo(doc) {
+  var G = doc.G;
+  var str = (G.str || 0) * (G.strIncome || 0) * (G.strPct || 0) / 100;
+  var comm = (G.comm || 0) * ((G.commRent || 0) * (G.commPct || 0) / 100 + (G.commOtherYr || 0) / 12);
+  return { str: str, comm: comm, total: str + comm };
+}
+
 function activeTemplate(doc) {
   return doc.templates.find(function (t) { return t.id === doc.at; }) || doc.templates[0];
 }
@@ -228,8 +250,8 @@ function cmo(row, doc) {
   switch (row.e) {
     case "annual": return (v * (1 + bd / 100)) / 12;
     case "monthly": return v;
-    case "door": return v * G.doors;
-    case "door_yr": return (v * G.doors) / 12;
+    case "door": return v * allUnits(doc);
+    case "door_yr": return (v * allUnits(doc)) / 12;
     case "seat": return v * G.seats;
     case "listing": return v * G.listings;
     case "event": return G.tenancy > 0 ? (v * G.doors) / (G.tenancy * 12) : 0;
@@ -314,12 +336,14 @@ function tierCost(doc, view) {
   var tp = activeTemplate(doc), ck = tp.ck, psk = tp.psk, ign = tp.exclIgnore || {};
   var total = { min: 0, special: 0, plus: 0 }, freed = { min: 0, special: 0, plus: 0 }, freedCount = { min: 0, special: 0, plus: 0 };
   var included = { min: 0, special: 0, plus: 0 }, possible = 0;
+  var shared = { min: 0, special: 0, plus: 0 }, sharedAny = 0;
   forEachCostRow(doc, function (row, gid) {
     if (!isVisible(rowView(doc, row.id, gid), view)) return;
-    var m = cmo(row, doc), f = ck[row.id] || {};
+    var m = cmo(row, doc), f = ck[row.id] || {}, res = residentialOnly(row, gid);
     if (gid !== "staff") possible++;
+    if (!res && TIERS.some(function (t) { return f[t]; })) sharedAny += m;
     TIERS.forEach(function (t) {
-      if (f[t]) { total[t] += m; if (gid !== "staff") included[t]++; }
+      if (f[t]) { total[t] += m; if (!res) shared[t] += m; if (gid !== "staff") included[t]++; }
     });
   });
   scopeIds(doc).forEach(function (id) {
@@ -332,13 +356,17 @@ function tierCost(doc, view) {
       else if (!(ign[id] && ign[id][t]) && pd > 0) { freed[t] += pd; freedCount[t]++; }
     });
   });
-  var doors = doc.G.doors || 0, perDoor = {}, base = {};
+  var doors = doc.G.doors || 0, units = allUnits(doc), perDoor = {}, base = {};
   var useSavings = doc.pricing && doc.pricing.scopeSavings;
   TIERS.forEach(function (t) {
-    base[t] = doors ? total[t] / doors : 0;
+    base[t] = doors ? shared[t] / units + (total[t] - shared[t]) / doors : 0;
     perDoor[t] = base[t] - (useSavings ? freed[t] : 0);
   });
-  return { totalMo: total, base: base, perDoor: perDoor, freed: freed, freedCount: freedCount, included: included, possible: possible };
+  // STR and commercial carry their share of the costs every unit comes with.
+  var other = otherUnits(doc), rev = otherRevenueMo(doc), otherCost = units ? sharedAny / units * other : 0;
+  return { totalMo: total, base: base, perDoor: perDoor, freed: freed, freedCount: freedCount, included: included, possible: possible,
+    units: units, sharedPerUnit: units ? sharedAny / units : 0,
+    other: { units: other, revenueMo: rev.total, strRevenueMo: rev.str, commRevenueMo: rev.comm, costMo: otherCost, contributionMo: rev.total - otherCost } };
 }
 
 /* ---------- price side: owner fee choice ---------- */
@@ -456,7 +484,7 @@ function scaleToDoors(doc, n) {
   forEachCostRow(d, function (r) { if (r.e === "claim" && d.ev[r.id] == null && r.n_ev != null) d.ev[r.id] = r.n_ev; });
   Object.keys(d.ev).forEach(function (k) { d.ev[k] = (d.ev[k] || 0) * f; });
   (d.addons || []).forEach(function (a) { if (a.basis === "events") a.amount = (a.amount || 0) * f; });
-  d.af.rd = Math.max(0, n - (d.af.cd || 0));
+  d.af.rd = n + (d.G.str || 0);
   return d;
 }
 
@@ -487,8 +515,9 @@ function acquiredDoc(doc, deal, forBook) {
   d.G.wo = (doc.G.wo || 0) + dealCount(doc, deal, 'wo') * keep;
   d.G.evictions = (doc.G.evictions || 0) + dealCount(doc, deal, 'evictions') * keep;
   d.G.listings = (doc.G.listings || 0) + dealCount(doc, deal, 'listings') * keep;
-  d.af.cd = (doc.af.cd || 0) + (deal.comm || 0) * keep;
-  d.af.rd = Math.max(0, d.G.doors - d.af.cd);
+  d.G.comm = (doc.G.comm || 0) + (deal.comm || 0) * keep;
+  d.af.cd = d.G.comm;
+  d.af.rd = d.G.doors + (d.G.str || 0);
   if (deal.staffYr) {
     var g = d.CG.find(function (x) { return x.id === "staff"; }) || d.CG[0];
     g.rows.push({ id: "acq_staff", name: "Added staff or overhead from the deal", e: "annual", v: deal.staffYr });
@@ -531,8 +560,9 @@ function usd(n) { return (n < 0 ? "-$" : "$") + fmtN(Math.abs(n)); }
 
 function formulaLines(row, doc, groupId, view) {
   var v = doc.vl[row.id] != null ? doc.vl[row.id] : row.v;
-  var G = doc.G, mo = cmo(row, doc), perDoor = G.doors ? mo / G.doors : 0;
-  var tail = " = " + usd(mo) + "/mo → " + usd(perDoor) + "/door/mo";
+  var G = doc.G, mo = cmo(row, doc), resOnly = residentialOnly(row, groupId);
+  var perDoor = linePerDoor(doc, mo, row, groupId);
+  var tail = " = " + usd(mo) + "/mo → " + usd(perDoor) + "/door/mo" + (otherUnits(doc) ? (resOnly ? " (package doors only)" : " (spread over " + fmtN(allUnits(doc)) + " units)") : "");
   var lines = [];
   if (CALC_ROWS[row.id]) return calcRowLines(row, doc, groupId, view);
   switch (row.e) {
@@ -541,8 +571,8 @@ function formulaLines(row, doc, groupId, view) {
       lines.push(bd ? usd(v) + "/yr + " + fmtN(bd) + "% burden = " + usd(v * (1 + bd / 100)) + "/yr ÷ 12" + tail : usd(v) + "/yr ÷ 12" + tail);
       break;
     case "monthly": lines.push(usd(v) + "/mo" + tail); break;
-    case "door": lines.push(usd(v) + "/door/mo × " + fmtN(G.doors) + " doors" + tail); break;
-    case "door_yr": lines.push(usd(v) + "/door/yr × " + fmtN(G.doors) + " doors ÷ 12" + tail); break;
+    case "door": lines.push(usd(v) + "/unit/mo × " + fmtN(allUnits(doc)) + " units" + tail); break;
+    case "door_yr": lines.push(usd(v) + "/unit/yr × " + fmtN(allUnits(doc)) + " units ÷ 12" + tail); break;
     case "seat": lines.push(usd(v) + "/seat/mo × " + fmtN(G.seats) + " seats" + tail); break;
     case "listing": lines.push(usd(v) + "/listing/mo × " + fmtN(G.listings) + " listings" + tail); break;
     case "event":
@@ -699,17 +729,29 @@ function normalizeDoc(raw) {
       g.rows.forEach(function (x) { if (x.id === "lease_brk") { delete x.d; x.name = "Lease break waiver"; } });
     });
   }
+  if (ver < 6 && d.G.comm == null) {
+    d.G.comm = d.af.cd || 0;
+    d.G.doors = Math.max(1, (d.G.doors || 0) - d.G.comm);
+  }
+  if (d.G.str == null) d.G.str = 0;
+  if (d.G.comm == null) d.G.comm = 0;
+  if (d.G.strIncome == null) d.G.strIncome = 0;
+  if (d.G.strPct == null) d.G.strPct = 25;
+  if (d.G.commRent == null) d.G.commRent = 0;
+  if (d.G.commPct == null) d.G.commPct = 6;
+  if (d.G.commOtherYr == null) d.G.commOtherYr = 0;
   if (d.G.courtFee == null) d.G.courtFee = 126;
   if (d.G.evictNotPlacedPct == null) d.G.evictNotPlacedPct = 0;
   if (!d.addons.some(function (a) { return a.basis === "evict_billed"; })) d.addons.push(EVICTION_ADDON());
   d.addons.forEach(function (a) { if (a.basis === "evict_billed") { a.tiers = { min: "charged", special: "charged", plus: "charged" }; delete a.view; } });
 
-  // AppFolio bills per door: residential units are the doors that aren't commercial.
-  d.af.rd = Math.max(0, (d.G.doors || 0) - (d.af.cd || 0));
+  // AppFolio bills per unit: STR counts as residential, commercial at its own rate.
+  d.af.rd = (d.G.doors || 0) + (d.G.str || 0);
+  d.af.cd = d.G.comm || 0;
   // v1 defaulted vacancy to 4% (an owner-side assumption from the fee-choice pricing file). Raynor only collects fees once a renter is placed, so v2 defaults it to 0.
   var vacancy = P.vacancyPct != null && (P.v || 1) >= 2 ? P.vacancyPct : (P.vacancyPct != null && P.vacancyPct !== 4 ? P.vacancyPct : DEFAULT_PRICING.vacancyPct);
   d.pricing = {
-    v: 5,
+    v: 6,
     term: P.term != null ? P.term : DEFAULT_PRICING.term,
     vacancyPct: vacancy,
     targetPct: P.targetPct != null ? P.targetPct : DEFAULT_PRICING.targetPct,
@@ -727,5 +769,5 @@ function validDoc(d) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }

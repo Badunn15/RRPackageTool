@@ -108,7 +108,7 @@
     var f = activeTemplate(doc).ck[r.id] || {};
     if (!f[t] || !isVisible(rowView(doc, r.id, gid), view) || !doc.G.doors) return 0;
     if (r.id === "lease_brk") return leaseBreakMo(doc, t) / doc.G.doors;
-    return cmo(r, doc) / doc.G.doors;
+    return linePerDoor(doc, cmo(r, doc), r, gid);
   }
   function viewTag(doc, rid, gid) {
     var rv = rowView(doc, rid, gid);
@@ -544,6 +544,8 @@
     if (sp && !sp.amount) out.push({ page: "services", sel: { kind: "fee", id: sp.id }, title: "Special-circumstance coordination happens 0% of the time", text: "Set the share of work orders billed at $" + fmtNum(sp.price || 0) + " instead of the regular fee." });
     var rl = findCostRow(doc, "rentloss");
     if (rl && !(doc.vl.rentloss != null ? doc.vl.rentloss : rl.row.v)) out.push({ page: "costs", sel: { kind: "cost", id: "rentloss" }, title: "Rent-loss guarantee has no cost yet", text: "Left at $0 on purpose for now." });
+    if (doc.G.str && !doc.G.strIncome) out.push({ page: "portfolio", field: "f-strincome", title: "STR income per unit is $0", text: "STR units share costs but bring in nothing until this is set." });
+    if (doc.G.comm && !doc.G.commRent) out.push({ page: "portfolio", field: "f-commrent", title: "Commercial rent per unit is $0", text: "Commercial units share costs but bring in nothing until this is set." });
     if (doc.pricing.targetPct === 20) out.push({ page: "portfolio", field: "f-target", title: "Target margin is the 20% placeholder", text: "It sets the green mark on every price slider and the On target / Below target labels." });
     var units = scopeIds(doc).filter(function (id) { return (doc.pbase[id] || "door_yr") === "door_yr" && scopeValue(doc, id) >= 200; });
     if (units.length) out.push({ page: "services", sel: { kind: "svc", id: units[0] }, title: units.length + " service" + (units.length > 1 ? "s look" : " looks") + " like a price per event entered per door", text: "Flagged \"check unit\" on the Services page." });
@@ -609,7 +611,7 @@
               ${P.scopeSavings ? row("Less freed PM capacity", function (t) { return "−" + money(C.cost.freed[t], 2); }, "sub", ["Services a tier leaves out, valued at the PM time they free."]) : null}
               ${row("Margin", function (t) { return html`<span class=${verdict(C.margins[t], P.targetPct).cls}>${money(C.margins[t].margin, 2)}</span>`; }, "total big")}
               ${row("Margin %", function (t) { return html`<span class=${verdict(C.margins[t], P.targetPct).cls}>${pct(C.margins[t].marginPct)}</span>`; }, "total")}
-              ${row("Portfolio margin / yr", function (t) { return money(C.margins[t].portfolioMo * 12); }, "sub", ["Margin per door × " + fmtNum(G.doors) + " doors × 12, as if every door were on this tier."])}
+              ${row("Portfolio margin / yr", function (t) { return money(C.margins[t].portfolioMo * 12); }, "sub", ["Margin per door × " + fmtNum(G.doors) + " long-term residential doors × 12, as if every one were on this tier. STR and commercial are counted separately."])}
               ${row("Worst to best owner pick", function (t) { var r = ownerChoiceRange(doc, t, C.cost.perDoor[t]); return pct(r.lo.marginPct, 0) + " to " + pct(r.hi.marginPct, 0); }, "sub", ["Margin % across every monthly fee an owner can pick. Prices page explains it."])}
               ${VIEWS.map(function (vw) {
                 return html`<${React.Fragment} key=${vw}>${row("At " + VIEW_NAMES[vw], function (t) {
@@ -621,6 +623,22 @@
           </table></div>
         </section>
 
+        <div style=${{ display: "flex", flexDirection: "column", gap: "14px" }}>
+        ${C.cost.other.units ? html`<section class="panel">
+          <div class="panel-h"><h2>STR and commercial</h2><span class="small muted">${fmtNum(doc.G.str || 0)} STR · ${fmtNum(doc.G.comm || 0)} commercial · ${VIEW_NAMES[doc.cv]}</span></div>
+          <div class="table-wrap"><table class="compare">
+            <tbody>
+              <tr><td>Brings in / mo<${Info} plain=${true} lines=${["STR: units × income per unit × " + fmtNum(doc.G.strPct || 0) + "%. Commercial: units × (rent per unit × " + fmtNum(doc.G.commPct || 0) + "% + other fees ÷ 12).", "Set them under Portfolio → STR and commercial."]} /></td>
+                <td>${money(C.cost.other.revenueMo)}</td></tr>
+              <tr class="sub"><td>STR</td><td>${money(C.cost.other.strRevenueMo)}</td></tr>
+              <tr class="sub"><td>Commercial</td><td>${money(C.cost.other.commRevenueMo)}</td></tr>
+              <tr><td>Their share of costs / mo<${Info} plain=${true} lines=${["The costs every unit comes with (staff, software, overhead) are spread over all " + fmtNum(C.cost.units) + " units: " + money(C.cost.sharedPerUnit, 2) + " per unit per month at " + VIEW_NAMES[doc.cv] + ". These " + fmtNum(C.cost.other.units) + " units carry that share, which is what lowers the cost per package door.", "Turnovers and guarantees stay on the package doors."]} /></td>
+                <td>−${money(C.cost.other.costMo)}</td></tr>
+              <tr class="total"><td>Contributes / mo</td><td class=${C.cost.other.contributionMo < 0 ? "bad" : "good"}>${money(C.cost.other.contributionMo)}</td></tr>
+              <tr class="sub"><td>Per year</td><td>${money(C.cost.other.contributionMo * 12)}</td></tr>
+            </tbody>
+          </table></div>
+        </section>` : null}
         <section class="panel">
           <div class="panel-h"><h2>Needs your numbers</h2><span class="small muted">${todo.length ? todo.length + " open" : "all set"}</span></div>
           ${todo.length ? html`<ul class="todo">${todo.map(function (x, i) {
@@ -628,20 +646,37 @@
               <button type="button" class="btn sm" onClick=${function () { props.jump(x); }}>${x.page === "data" ? "Open Data" : "Fix"}</button></li>`;
           })}</ul>` : html`<p class="note" style=${{ padding: "0 14px 14px" }}>Nothing flagged. Every placeholder has a number.</p>`}
         </section>
+        </div>
       </div>
     </div>`;
   }
 
   var FIELD_GROUPS = [
     { title: "Portfolio size", fields: [
-      { id: "f-doors", label: "Doors", get: function (d) { return d.G.doors; }, set: function (d, v) { d.G.doors = Math.max(1, Math.round(v)); d.af.rd = Math.max(0, d.G.doors - (d.af.cd || 0)); }, step: 1, min: 1,
-        help: "Units you manage today. Every per-door cost and figure uses it, and AppFolio's residential units follow it." },
+      { id: "f-doors", label: "Long-term residential doors", get: function (d) { return d.G.doors; }, set: function (d, v) { d.G.doors = Math.max(1, Math.round(v)); d.af.rd = d.G.doors + (d.G.str || 0); }, step: 1, min: 1,
+        help: "Doors on the three packages. Package revenue and margin are per one of these doors. STR and commercial units are set below." },
       { id: "f-rent", label: "Average rent", prefix: "$", get: function (d) { return d.G.rent; }, set: function (d, v) { d.G.rent = v; }, step: 25, min: 0,
         help: "Average monthly rent across managed units. Every percentage fee (monthly and leasing) is figured on this." },
       { id: "f-tenancy", label: "Average tenancy", suffix: "yrs", get: function (d) { return d.G.tenancy; }, set: function (d, v) { d.G.tenancy = v; }, step: 0.5, min: 0.25,
         help: "How long a tenant stays. Sets how often units turn over (leasing fees and turnover costs) and how many renewals happen." },
       { id: "f-listings", label: "Active listings", get: function (d) { return d.G.listings; }, set: function (d, v) { d.G.listings = v; }, step: 1, min: 0,
         help: "Units listed for rent at a typical moment. Per-listing costs multiply by this." }
+    ] },
+    { title: "STR and commercial", fields: [
+      { id: "f-str", label: "Short-term rental units", get: function (d) { return d.G.str; }, set: function (d, v) { d.G.str = Math.max(0, Math.round(v)); d.af.rd = d.G.doors + d.G.str; }, step: 1, min: 0,
+        help: "They share the costs every unit comes with, which lowers the cost per package door. AppFolio bills them as residential." },
+      { id: "f-strincome", label: "STR income per unit", prefix: "$", suffix: "/mo", get: function (d) { return d.G.strIncome; }, set: function (d, v) { d.G.strIncome = v; }, step: 100, min: 0,
+        help: "Average monthly income an STR unit brings in. Raynor's fee is a share of it." },
+      { id: "f-strpct", label: "STR fee", suffix: "%", get: function (d) { return d.G.strPct; }, set: function (d, v) { d.G.strPct = Math.min(100, v); }, step: 1, min: 0, max: 100,
+        help: "Share of income received that Raynor keeps." },
+      { id: "f-comm", label: "Commercial units", get: function (d) { return d.G.comm; }, set: function (d, v) { d.G.comm = Math.max(0, Math.round(v)); d.af.cd = d.G.comm; }, step: 1, min: 0,
+        help: "They share the costs every unit comes with. AppFolio bills them at its commercial rate." },
+      { id: "f-commrent", label: "Commercial rent per unit", prefix: "$", suffix: "/mo", get: function (d) { return d.G.commRent; }, set: function (d, v) { d.G.commRent = v; }, step: 100, min: 0,
+        help: "Average monthly rent on a commercial unit." },
+      { id: "f-commpct", label: "Commercial monthly fee", suffix: "%", get: function (d) { return d.G.commPct; }, set: function (d, v) { d.G.commPct = Math.min(100, v); }, step: 0.5, min: 0, max: 100,
+        help: "Share of monthly rent Raynor keeps." },
+      { id: "f-commother", label: "Other commercial fees", prefix: "$", suffix: "/unit/yr", get: function (d) { return d.G.commOtherYr; }, set: function (d, v) { d.G.commOtherYr = v; }, step: 50, min: 0,
+        help: "A rough yearly figure per unit for renewal fees and leasing commissions until those get their own setup." }
     ] },
     { title: "Leases", fields: [
       { id: "f-term", label: "Lease term", suffix: "mo", get: function (d) { return d.pricing.term; }, set: function (d, v) { d.pricing.term = Math.max(1, v); }, step: 1, min: 1,
@@ -669,9 +704,9 @@
       { id: "f-afrr", label: "Residential rate", prefix: "$", suffix: "/unit", get: function (d) { return d.af.rr; }, set: function (d, v) { d.af.rr = v; }, step: 0.01, min: 0,
         help: "What AppFolio charges per residential unit each month." },
       { id: "f-afrd", label: "Residential units", readonly: function (d) { return fmtNum(d.af.rd); },
-        help: "Doors minus commercial units. Updates on its own." },
-      { id: "f-afcd", label: "Commercial units", get: function (d) { return d.af.cd; }, set: function (d, v) { d.af.cd = Math.min(v, d.G.doors); d.af.rd = Math.max(0, d.G.doors - d.af.cd); }, step: 1, min: 0,
-        help: "Units billed at AppFolio's commercial rate." },
+        help: "Long-term residential doors plus STR units. Updates on its own." },
+      { id: "f-afcd", label: "Commercial units", readonly: function (d) { return fmtNum(d.af.cd); },
+        help: "From STR and commercial above. Updates on its own." },
       { id: "f-afcr", label: "Commercial rate", prefix: "$", suffix: "/unit", get: function (d) { return d.af.cr; }, set: function (d, v) { d.af.cr = v; }, step: 0.01, min: 0,
         help: "What AppFolio charges per commercial unit each month. Only counted when commercial units are included below." },
       { id: "f-afic", label: "Include commercial", toggle: function (d) { return !!d.af.ic; }, setToggle: function (d, on) { d.af.ic = on ? 1 : 0; },
@@ -788,7 +823,7 @@
             var gView = doc.secView[g.id] || "direct", gHidden = !isVisible(gView, view);
             var isCollapsed = !!ui.groups[g.id];
             var ids = rows.map(function (r) { return r.id; });
-            var gDoor = doc.G.doors ? rows.reduce(function (s, r) { return s + (isVisible(rowView(doc, r.id, g.id), view) ? (r.id === "lease_brk" ? 0 : cmo(r, doc)) : 0); }, 0) / doc.G.doors : 0;
+            var gDoor = rows.reduce(function (s, r) { return s + (isVisible(rowView(doc, r.id, g.id), view) && r.id !== "lease_brk" ? linePerDoor(doc, cmo(r, doc), r, g.id) : 0); }, 0);
             return html`<tbody key=${g.id}>
               <tr class="grp">
                 <td class="l" colspan="3">
@@ -816,7 +851,7 @@
               ${isCollapsed ? null : (filtering ? G.keep : rows).map(function (r) {
                 var vis = isVisible(rowView(doc, r.id, g.id), view), f = ck[r.id] || {}, name = rowName(doc, r);
                 var isAf = r.e === "af", calc = !!CALC_ROWS[r.id], isLb = r.id === "lease_brk";
-                var perDoor = isLb ? null : doc.G.doors ? cmo(r, doc) / doc.G.doors : 0;
+                var perDoor = isLb ? null : linePerDoor(doc, cmo(r, doc), r, g.id);
                 var lbText = null;
                 if (isLb) {
                   var vals = TIERS.filter(function (t) { return f[t]; }).map(function (t) { return leaseBreakMo(doc, t) / (doc.G.doors || 1); });
