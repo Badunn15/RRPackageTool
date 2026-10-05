@@ -471,13 +471,14 @@
     }, (dest === "addon" ? "Made " + svc.n + " an add-on" : "Offered " + svc.n));
   }
 
+  var ADDON_PER_SHORT = { door_yr: "/door/yr", turnover: "/turnover", month: "/door/mo", portfolio_yr: "/yr, all doors" };
   /* How often an optional add-on happens: a number and a unit (see ADDON_PER in the engine). */
   function OftenCell(props) {
     var a = props.a, name = props.name, idp = props.idp, per = a.per || "door_yr";
     return html`<span style=${{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
       <${Affix} id=${idp + "-n"} cls="w-sm" min=${0} step=${0.25} label=${"How often " + name} value=${a.freq || 0} onChange=${function (v) { props.edit(function (x) { x.freq = v; }, "how often"); }} />
       <select id=${idp + "-u"} aria-label=${"How often unit for " + name} value=${per} onChange=${function (e) { var v = e.target.value; props.edit(function (x) { x.per = v; }, "how often"); }}>
-        ${Object.keys(ADDON_PER).map(function (k) { return html`<option key=${k} value=${k}>${ADDON_PER[k]}</option>`; })}
+        ${Object.keys(ADDON_PER).map(function (k) { return html`<option key=${k} value=${k} title=${ADDON_PER[k]}>${ADDON_PER_SHORT[k]}</option>`; })}
       </select></span>`;
   }
 
@@ -982,7 +983,7 @@
             if (!B.ids.length || (filtering && !catNames.length)) return null;
             var oCollapsed = !!ui.owners[o.id];
             return html`<tbody key=${o.id}>
-              <tr class="grp"><td class="l" colspan=${6 + TIERS.length}>
+              <tr class="grp"><td class="l" colspan=${7 + TIERS.length}>
                 <button type="button" class="caret" aria-expanded=${!oCollapsed} aria-label=${(oCollapsed ? "Expand " : "Collapse ") + o.name}
                   onClick=${function () { props.setUi(function (u) { u.owners[o.id] = !oCollapsed; }); }}>${oCollapsed ? "▸" : "▾"}</button>
                 ${o.name} <span class="muted small" style=${{ fontWeight: 400 }}>· ${B.ids.length} services · ${money(ownerHourlyRate(doc, o.id), 2)}/hr</span>
@@ -1174,12 +1175,14 @@
 
       <section class="panel">
         <div class="panel-h"><h2>Optional add-ons</h2><span class="small muted">Sold: owners can buy it. Included: every door in the tier gets it. Off: not offered.</span></div>
-        <div class="table-wrap"><table class="grid">
-          <thead><tr>
-            <th class="l">Add-on</th><th>Owner pays</th><th>Your cost</th><th>How often</th><th>Owners who buy</th>
-            <${TierHeads} focus=${focus} />
-            <th></th>
-          </tr></thead>
+        <div class="table-wrap"><table class="grid addons-grid">
+          <thead>
+            <tr>
+              <th class="l" rowSpan="2">Add-on</th><th rowSpan="2">Price</th><th rowSpan="2">Cost</th><th rowSpan="2">How often</th><th rowSpan="2">% who buy</th>
+              <th class="c grp" colSpan="3">Sold in</th><th rowSpan="2" title="What Raynor keeps per door each month, in a tier that sells it">Keeps / door / mo</th><th rowSpan="2"></th>
+            </tr>
+            <tr><${TierHeads} focus=${focus} /></tr>
+          </thead>
           <tbody>
             ${adds.map(function (a) {
               return html`<tr key=${a.id}>
@@ -1190,22 +1193,26 @@
                 <td><${OftenCell} a=${a} name=${a.name} idp=${"af-" + a.id} edit=${function (fn, label) { edit(a.id, fn, a.name + ": " + label); }} /></td>
                 <td><${Affix} id=${"au-" + a.id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label=${"Share of owners who buy " + a.name} value=${a.uptake || 0} onChange=${function (v) { edit(a.id, function (x) { x.uptake = Math.min(100, v); }, a.name + ": owners who buy"); }} /></td>
                 ${TIERS.map(function (t) {
-                  var n = netFor(a, t);
-                  return html`<td key=${t} class=${"c tcol-wide" + (focus === t ? " focus" : "")}>${stateCell(a, t)}
-                    <div class=${"tiny mono " + (n == null ? "faint" : n < 0 ? "bad" : "muted")} title="What Raynor keeps per door per month in this tier">${n == null ? "—" : (n >= 0 ? "+" : "") + money(n, 2) + "/door"}</div></td>`;
+                  return html`<td key=${t} class=${"c tcol-wide" + (focus === t ? " focus" : "")}>${stateCell(a, t)}</td>`;
                 })}
+                ${(function () {
+                  // The same in every tier that sells it, so show it once: the focused tier if it sells it, else the first that does.
+                  var t = focus !== "all" && a.tiers[focus] !== "off" ? focus : TIERS.find(function (x) { return a.tiers[x] !== "off"; });
+                  var n = t ? netFor(a, t) : null;
+                  return html`<td class=${"c mono small " + (n == null ? "faint" : n < 0 ? "bad" : "")} title="What Raynor keeps per door per month in a tier that sells it">${n == null ? "—" : (n >= 0 ? "+" : "") + money(n, 2)}</td>`;
+                })()}
                 <td class="c nowrap"><button type="button" class="mini" title="Not offering it after all: move it back to the bench on the Services page" onClick=${function () { toBench(a); }}>Bench</button>
                   <button type="button" class="x" title="Delete add-on" aria-label=${"Delete " + a.name} onClick=${function () { remove(a); }}>×</button></td>
               </tr>`;
             })}
-            ${adds.length ? null : html`<tr><td class="l muted small" colspan=${6 + TIERS.length}>No add-ons yet. Add one here, or offer a bench item as an add-on from the Services page.</td></tr>`}
-            <tr class="add"><td class="l" colspan=${6 + TIERS.length}><button type="button" class="link small" onClick=${function () {
+            ${adds.length ? null : html`<tr><td class="l muted small" colspan=${7 + TIERS.length}>No add-ons yet. Add one here, or offer a bench item as an add-on from the Services page.</td></tr>`}
+            <tr class="add"><td class="l" colspan=${7 + TIERS.length}><button type="button" class="link small" onClick=${function () {
               var id = "addon_" + Date.now().toString(36);
               update(function (d) { d.addons.push({ id: id, name: "New add-on", price: 0, cost: 0, basis: "optional", kind: "addon", freq: 1, uptake: 0, tiers: { min: "charged", special: "charged", plus: "charged" } }); }, "Added an add-on");
             }}>+ Add an add-on</button></td></tr>
           </tbody>
         </table></div>
-        <p class="note" style=${{ padding: "8px 14px 12px" }}>Price and cost are per time it's done. The amount under each tier is what Raynor keeps per door each month across all doors in that tier: price minus cost, times how often, times the share of owners who buy (or every door when it's included).</p>
+        <p class="note" style=${{ padding: "8px 14px 12px" }}>Price and cost are per time it's done. "Keeps / door / mo" is what Raynor keeps per door each month across all doors in a tier that sells it: price minus cost, times how often, times the share of owners who buy (or every door when it's included).</p>
       </section>
 
       <section class="panel">
