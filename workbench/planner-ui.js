@@ -899,7 +899,7 @@
                     <input type="text" class="txt" id=${"n-" + r.id} aria-label="Line name" value=${name}
                       onChange=${function (e) { var val = e.target.value; update(function (d) { if (r.promoted) d.MASTER[r.id].n = val; else d.CG.find(function (x) { return x.id === g.id; }).rows.find(function (x) { return x.id === r.id; }).name = val; }, "Renamed a line"); }} />
                     ${r.promoted ? html`<span class="tag">service</span>` : null}${r.pmScope ? html`<span class="tag">does scope work</span>` : null}
-                    ${calc ? html`<span class="tag link">linked</span>` : null}${doc.addons.some(function (x) { return x.svc === r.id; }) ? html`<span class="tag" title="Also sold as an add-on to tiers that leave it out">add-on</span>` : null}${vt ? html`<span class="tag">${vt}</span>` : null}
+                    ${calc ? html`<span class="tag link">linked</span>` : null}${vt ? html`<span class="tag">${vt}</span>` : null}
                   </td>
                   <td>${isAf ? html`<span class="small faint">AppFolio rates</span>` : isLb ? html`<span class="small faint">tier's leasing fee</span>`
                     : html`<${Affix} id=${"v-" + r.id} prefix="$" label=${"Amount for " + name} value=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v}
@@ -1007,7 +1007,6 @@
                       <td class="l name-cell"><input type="text" class="txt" id=${"sn-" + id} aria-label="Service name" value=${svc.n}
                         onChange=${function (e) { var val = e.target.value; update(function (d) { d.MASTER[id].n = val; }, "Renamed a service"); }} />
                         ${basis === "door_yr" && scopeValue(doc, id) >= 200 ? html`<span class="tag warn" title=${money(scopeValue(doc, id)) + " per door per year is large. If it's a price per event, switch the unit to per event."}>check unit</span>` : null}
-                        ${doc.addons.some(function (a) { return a.svc === id; }) ? html`<span class="tag" title="Also sold as an add-on to tiers that leave it out">add-on</span>` : null}
                         ${id === EVICT_SVC ? html`<span class="tag link">linked</span>` : null}</td>
                       <td>${hrs ? html`<span class="mono muted">${money(scopeValue(doc, id), 2)}</span>` : html`<${Affix} id=${"sv-" + id} prefix="$" min=${0} label=${"Value of " + svc.n}
                         value=${doc.psv[id] != null ? doc.psv[id] : svc.dsv} onChange=${function (val) { update(function (d) { d.psv[id] = val; }, svc.n + ": value"); }} />`}</td>
