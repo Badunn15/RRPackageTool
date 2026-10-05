@@ -383,6 +383,26 @@
   .compare-picks{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding-top:12px; }
   .compare-picks select{ max-width:320px; }
   .compare td.colstart, .compare th[colspan]{ border-left:1px solid var(--rule); }
+  .cmp-pick{ display:inline-flex; align-items:center; gap:6px; }
+  .cmp-dot{ width:10px; height:10px; border-radius:50%; display:inline-block; flex:0 0 10px; }
+  .cmp-cards{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; }
+  @media (max-width:900px){ .cmp-cards{ grid-template-columns:minmax(0,1fr); } }
+  .cmp-card{ padding:12px 14px; }
+  .cmp-card-h{ font-family:var(--font-display); font-size:17px; font-weight:600; margin-bottom:6px; }
+  .cmp-card-row{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:7px 0; border-top:1px solid var(--rule-soft); }
+  .cmp-card-row{ flex-wrap:wrap; }
+  .cmp-card-name{ display:flex; align-items:center; gap:7px; min-width:0; flex:1 1 110px; font-size:12.5px; color:var(--ink-2); }
+  .cmp-card-v{ margin-left:auto; }
+  .cmp-card-name > span:last-child{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cmp-card-v{ display:flex; align-items:baseline; gap:8px; white-space:nowrap; }
+  .cmp-card-v b{ font-size:18px; }
+  .cmp-card-v .cmp-gap{ min-width:62px; text-align:right; }
+  .cmp-table th.cmp-tstart, .cmp-table td.cmp-tstart{ border-left:1px solid var(--rule); }
+  .cmp-table td.cmp-base{ color:var(--ink-2); }
+  .cmp-table th.cmp-th-tier{ text-align:center; font-family:var(--font-display); font-size:14px; }
+  .cmp-table th.cmp-th-scen{ font-size:11.5px; font-weight:600; max-width:150px; overflow:hidden; text-overflow:ellipsis; }
+  .cmp-table th.cmp-th-scen .cmp-dot{ margin-right:5px; vertical-align:0; }
+  .cmp-table tr.cmp-sec td{ font-family:var(--font-ui); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); padding-top:14px; border-bottom:1px solid var(--rule-soft); }
   .compare .cmp-gap{ font-size:11.5px; font-weight:600; margin-top:1px; }
   .cmp-gh .caret-i, .panel-h-btn .caret-i{ font-size:13px; color:var(--ink-2); }
   .cmp-all{ margin:0 0 6px; }
