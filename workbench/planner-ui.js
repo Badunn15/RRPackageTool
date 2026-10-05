@@ -61,7 +61,7 @@
         ui.groups = s.groups || {}; ui.owners = s.owners || {}; ui.cats = s.cats || {};
         ui.compareDoors = typeof s.compareDoors === "number" ? s.compareDoors : null;
         ui.compareList = Array.isArray(s.compareList) ? s.compareList.filter(function (n) { return typeof n === "number" && n > 0; }).slice(0, 3) : null;
-        ui.pfShut = s.pfShut || {}; ui.railShut = s.railShut || {}; ui.railHidden = !!s.railHidden;
+        ui.pfShut = s.pfShut || {}; ui.railShut = s.railShut || {}; ui.railHidden = !!s.railHidden; ui.hideSaveHint = !!s.hideSaveHint;
       }
     } catch (e) {}
     try {
@@ -1844,6 +1844,10 @@
     function makeOfficial() {
       var b = scenBody("Official numbers", cloud.uid);
       cloud.db.doc("official/default").set(b).then(function () {
+        if (scen.kind === "local" || scen.kind === "new") {
+          setScen({ kind: "official", id: "default", name: "Official numbers", by: cloud.uid || null, savedAt: b.savedAt });
+          setDirty(false); setSource("Scenario: Official numbers");
+        }
         setMsg({ kind: "good", text: "These are now the official numbers. New scenarios start from them." }); setMenu(false);
       }, fail("set the official numbers"));
     }
@@ -1972,8 +1976,13 @@
           ${newer ? html`<div class="banner warn" role="status"><span>${byName(cloud, names, newer.by) === "you" ? "You" : byName(cloud, names, newer.by)} saved a newer version of ${newer.name || "this scenario"} ${ago(newer.savedAt)}.</span>
             <span class="banner-actions"><button type="button" class="btn sm" onClick=${function () { loadScenario(scen.kind, newer); }}>Load it (drops your edits)</button>
             <button type="button" class="link" onClick=${function () { setNewer(null); }}>Keep mine</button></span></div>` : null}
-          ${cloud.db && scen.kind === "local" && !pending ? html`<div class="banner tip-b" role="status"><span>These numbers are only saved in this browser. Save them as a scenario to keep them on every device and share them.</span>
-            <button type="button" class="btn sm primary" onClick=${function () { setMenu("scen"); }}>Save as a scenario…</button></div>` : null}
+          ${cloud.db && scen.kind === "local" && !pending && !ui.hideSaveHint ? html`<div class="banner tip-b" role="status">
+            <span>${lists.official ? "You're working on numbers saved only in this browser. Open the official numbers, or save these as a scenario." : "These numbers are only saved in this browser. Save them as a scenario to keep them on every device and share them."}</span>
+            <span class="banner-actions">
+              ${lists.official ? html`<button type="button" class="btn sm primary" onClick=${function () { openScen("official", lists.official); }}>Open the official numbers</button>` : null}
+              <button type="button" class=${"btn sm" + (lists.official ? "" : " primary")} onClick=${function () { setMenu("scen"); }}>Save as a scenario…</button>
+              <button type="button" class="link" onClick=${function () { setUi(function (u) { u.hideSaveHint = true; }); }}>Not now</button>
+            </span></div>` : null}
           ${msg ? html`<div class=${"banner " + msg.kind} role="status"><span>${msg.text}</span>
             <button type="button" class="link" onClick=${function () { setMsg(null); }}>Dismiss</button></div>` : null}
           ${jsonOut ? html`<section class="panel json-out"><div class="panel-h"><h2>Scenario JSON</h2>
