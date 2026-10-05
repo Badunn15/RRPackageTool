@@ -113,15 +113,38 @@ function addonTimesPerDoorYr(doc, a) {
   return n;
 }
 function bundleCostPerDoorYr(doc, b) {
-  return bundleItems(doc, b).reduce(function (s, a) { return s + (a.cost || 0) * addonTimesPerDoorYr(doc, a); }, 0);
+  return bundleItems(doc, b).reduce(function (s, a) { return s + addonFixedCost(doc, a) * addonTimesPerDoorYr(doc, a); }, 0);
 }
 function bundleValuePerDoorYr(doc, b) {
   return bundleItems(doc, b).reduce(function (s, a) { return s + (a.price || 0) * addonTimesPerDoorYr(doc, a); }, 0);
 }
 
+/*
+ * What one occurrence of an add-on sold from a service or cost line costs, read live from that source:
+ * a service's value (its hours x the owner's rate, or its set value), a cost line's amount, and for the
+ * guarantees their expected cost per door a month (eviction: the line's cost spread over doors; lease break:
+ * Minimum's leasing fee x lease breaks a year, spread over doors). null when the source is gone.
+ */
+function linkedAddonCost(doc, a) {
+  var id = a.svc;
+  if (!id) return null;
+  var doors = doc.G.doors || 0;
+  if (doc.place[id] === "scope") return scopeValue(doc, id);
+  if (id === "evict_g") { var g = findRow(doc, id); return g && doors ? cmo(g, doc) / doors : 0; }
+  if (id === "lease_brk") return doors ? leaseBreakMo(doc, "min") / doors : 0;
+  var r = findRow(doc, id);
+  if (r) return doc.vl[id] != null ? doc.vl[id] : r.v;
+  if (typeof doc.place[id] === "string" && doc.place[id].indexOf("cost:") === 0) return doc.vl[id] || 0;
+  return null;
+}
+/* Does this add-on's cost follow its source? Yes unless someone typed their own (costOwn). */
+function addonCostLinked(doc, a) { return !!a.svc && !a.costOwn && linkedAddonCost(doc, a) != null; }
+
 /* Raynor's fixed cost per occurrence. The billed eviction's is the court fee from Assumptions, shared with the guarantee line. */
 function addonFixedCost(doc, a) {
-  return a.basis === "evict_billed" ? doc.G.courtFee || 0 : a.cost || 0;
+  if (a.basis === "evict_billed") return doc.G.courtFee || 0;
+  if (addonCostLinked(doc, a)) return linkedAddonCost(doc, a);
+  return a.cost || 0;
 }
 
 /* What one occurrence costs Raynor: its fixed cost, plus the PM's split of whatever the fee leaves after that cost (only when billed). */
@@ -795,6 +818,12 @@ function normalizeDoc(raw) {
   TIERS.forEach(function (t) {
     d.pricing.tiers[t] = Object.assign({}, DEFAULT_PRICING.tiers[t], (P.tiers && P.tiers[t]) || {});
   });
+  // Add-ons sold from a service or cost line follow its cost. Ones saved before that keep a cost that was changed by hand.
+  d.addons.forEach(function (a) {
+    if (!a.svc || a.costOwn != null) return;
+    var lv = linkedAddonCost(d, a);
+    a.costOwn = lv != null && Math.abs((a.cost || 0) - lv) > 0.5;   // costs were saved rounded to the dollar
+  });
   return d;
 }
 
@@ -803,5 +832,5 @@ function validDoc(d) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }

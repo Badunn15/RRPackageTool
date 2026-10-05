@@ -483,6 +483,16 @@
       </select></span>`;
   }
 
+  /* An add-on's cost: follows its service or cost line unless someone sets their own. */
+  function AddonCost(props) {
+    var doc = props.doc, a = props.a, edit = props.edit, linked = addonCostLinked(doc, a), lv = a.svc ? linkedAddonCost(doc, a) : null;
+    if (linked) return html`<span class="addon-cost" title="Follows its service or cost line, so it updates when that changes">
+      <span class="mono">${money(lv, lv > 0 && lv < 1 ? 3 : 2)}</span>${props.compact ? null : html` <span class="tiny faint">follows the line</span>
+      <button type="button" class="link tiny" onClick=${function () { edit(function (x) { x.costOwn = true; x.cost = Math.round(lv * 1000) / 1000; }, "own cost"); }}>Use my own</button>`}</span>`;
+    return html`<span class="addon-cost"><${Affix} id=${props.id} prefix="$" min=${0} cls=${props.cls} label="Your cost each time" value=${a.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
+      ${lv != null && !props.compact ? html` <button type="button" class="link tiny" title=${"Follow the source again: " + money(lv, 2)} onClick=${function () { edit(function (x) { x.costOwn = false; }, "cost linked"); }}>Follow the line</button>` : null}</span>`;
+  }
+
   /* "Also sell as an add-on" for a service (kind "psk") or a cost line (kind "ck"): sold to the tiers that leave it out. */
   function SellAddon(props) {
     var doc = props.doc, update = props.update, id = props.id, name = props.name, kind = props.kind;
@@ -493,14 +503,14 @@
         var flags = activeTemplate(d)[kind][id] || {};
         var tiers = {};
         TIERS.forEach(function (t) { tiers[t] = flags[t] ? "off" : "charged"; });
-        d.addons.push({ id: "addon_sell_" + id, name: name, price: 0, cost: props.defaultCost || 0, basis: "optional", kind: "addon", freq: 1, per: props.defaultPer || "door_yr", uptake: 0, svc: id, tiers: tiers });
+        d.addons.push({ id: "addon_sell_" + id, name: name, price: 0, cost: props.defaultCost || 0, costOwn: false, basis: "optional", kind: "addon", freq: 1, per: props.defaultPer || "door_yr", uptake: 0, svc: id, tiers: tiers });
       }, "Selling " + name + " as an add-on");
     }}>Also sell as an add-on</button></div>`;
     return html`<div style=${{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid var(--rule-soft)", paddingTop: "10px" }}>
       <div class="tiny faint">Sold as an add-on to tiers that leave it out</div>
       <div class="kv">
         <span>Owner pays</span><${Affix} id=${"i-ap-" + id} prefix="$" cls="w-lg" min=${0} label="Owner price" value=${ad.price || 0} onChange=${function (v) { edit(function (x) { x.price = v; }, "owner price"); }} />
-        <span>Your cost</span><${Affix} id=${"i-ac-" + id} prefix="$" cls="w-lg" min=${0} label="Your cost each time" value=${ad.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
+        <span>Your cost</span><${AddonCost} doc=${doc} a=${ad} id=${"i-ac-" + id} cls="w-lg" edit=${edit} />
         <span>How often</span><${OftenCell} a=${ad} name=${name} idp=${"i-af-" + id} edit=${edit} />
         <span>Owners who buy</span><${Affix} id=${"i-au-" + id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label="Share of owners who buy" value=${ad.uptake || 0} onChange=${function (v) { edit(function (x) { x.uptake = Math.min(100, v); }, "owners who buy"); }} />
       </div>
@@ -537,7 +547,9 @@
     function done() { props.setUi(function (u) { u.sel = null; }); }
     return html`<div class="inspector" style=${{ display: "flex", flexDirection: "column", gap: "10px" }}>
       <div><div class="tiny faint">Optional add-on</div><h3>${a.name}</h3></div>
-      ${link ? html`<p class="note">Sold from "${link}". The tiers that include it don't sell it, and ticking or unticking a tier there changes where it's sold.</p>` : null}
+      ${link ? html`<p class="note">Sold from "${link}". The tiers that include it don't sell it, and ticking or unticking a tier there changes where it's sold.</p>
+      <div class="kv"><span>Your cost</span><${AddonCost} doc=${doc} a=${a} id=${"i-adc-" + a.id} cls="w-lg"
+        edit=${function (fn, label) { update(function (d) { var x = d.addons.find(function (y) { return y.id === a.id; }); if (x) fn(x); }, a.name + ": " + label); }} /></div>` : null}
       <div style=${{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
         <button type="button" class="btn sm" title=${a.svc ? "Stop selling it as an add-on. The service or cost line stays." : "Not offering it after all: move it back to the bench on the Services page"}
           onClick=${function () { benchAddon(update, a); done(); }}>${a.svc ? "Stop selling as an add-on" : "Move to bench"}</button>
@@ -1210,7 +1222,7 @@
                 <td class="l name-cell"><input type="text" class="txt" id=${"an-" + a.id} aria-label="Add-on name" value=${a.name}
                   onChange=${function (e) { var v = e.target.value; edit(a.id, function (x) { x.name = v; }, "Renamed an add-on"); }} /></td>
                 <td><${Affix} id=${"ap-" + a.id} prefix="$" min=${0} label=${"Owner price for " + a.name} value=${a.price || 0} onChange=${function (v) { edit(a.id, function (x) { x.price = v; }, a.name + ": owner price"); }} /></td>
-                <td><${Affix} id=${"ac-" + a.id} prefix="$" min=${0} label=${"Your cost for " + a.name} value=${a.cost || 0} onChange=${function (v) { edit(a.id, function (x) { x.cost = v; }, a.name + ": your cost"); }} /></td>
+                <td><${AddonCost} doc=${doc} a=${a} id=${"ac-" + a.id} compact=${true} edit=${function (fn, label) { edit(a.id, fn, a.name + ": " + label); }} /></td>
                 <td><${OftenCell} a=${a} name=${a.name} idp=${"af-" + a.id} edit=${function (fn, label) { edit(a.id, fn, a.name + ": " + label); }} /></td>
                 <td><${Affix} id=${"au-" + a.id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label=${"Share of owners who buy " + a.name} value=${a.uptake || 0} onChange=${function (v) { edit(a.id, function (x) { x.uptake = Math.min(100, v); }, a.name + ": owners who buy"); }} /></td>
                 ${TIERS.map(function (t) {
