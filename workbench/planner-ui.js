@@ -433,7 +433,9 @@
       <div class="math">${formulaLines(r, doc, g.id, doc.cv).map(function (l, i) { return html`<div key=${i}>${l}</div>`; })}</div>
       <${Impact} head="Cost/door/mo" vals=${vals} C=${props.C} costLike=${true} />
       ${r.id === "evict_g" ? html`<p class="note">Linked: turning this on for a tier also turns on its Eviction service (Services). Every eviction this line doesn't cover is billed to the owner under Add-on fees.</p>` : null}
-      ${calc || isAf ? null : html`<${SellAddon} doc=${doc} update=${update} id=${r.id} name=${name} kind="ck" defaultCost=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v} />`}
+      ${isAf ? null : html`<${SellAddon} doc=${doc} update=${update} id=${r.id} name=${name} kind="ck"
+        defaultPer=${calc ? "month" : "door_yr"}
+        defaultCost=${r.id === "evict_g" ? Math.round(cmo(r, doc) / (doc.G.doors || 1) * 1000) / 1000 : r.id === "lease_brk" ? Math.round(leaseBreakMo(doc, "min") / (doc.G.doors || 1) * 1000) / 1000 : (doc.vl[r.id] != null ? doc.vl[r.id] : r.v)} />`}
       <button type="button" class="btn sm danger" style=${{ alignSelf: "flex-start" }} onClick=${function () {
         update(function (d) {
           if (r.promoted) { d.place[r.id] = "uc"; return; }
@@ -489,7 +491,7 @@
         var flags = activeTemplate(d)[kind][id] || {};
         var tiers = {};
         TIERS.forEach(function (t) { tiers[t] = flags[t] ? "off" : "charged"; });
-        d.addons.push({ id: "addon_sell_" + id, name: name, price: 0, cost: props.defaultCost || 0, basis: "optional", kind: "addon", freq: 1, uptake: 0, svc: id, tiers: tiers });
+        d.addons.push({ id: "addon_sell_" + id, name: name, price: 0, cost: props.defaultCost || 0, basis: "optional", kind: "addon", freq: 1, per: props.defaultPer || "door_yr", uptake: 0, svc: id, tiers: tiers });
       }, "Selling " + name + " as an add-on");
     }}>Also sell as an add-on</button></div>`;
     return html`<div style=${{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid var(--rule-soft)", paddingTop: "10px" }}>
