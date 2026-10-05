@@ -319,9 +319,10 @@
             <span class="tn">${TIER_NAMES[t]}</span>
             <span class="tp">${pct(m.marginPct)}</span>
             <span class="td">${money(m.margin, 2)}/door · ${money(m.portfolioMo * 12)}/yr · ${v.label}</span>
+            ${P.scopeSavings && C.cost.freed[t] > 0.004 ? html`<span class="td freed" title="Count freed PM capacity is on (Portfolio → Model settings). Without it this tier's margin would be ${money(m.margin - C.cost.freed[t], 2)}/door, ${pct(m.revenue ? (m.margin - C.cost.freed[t]) / m.revenue * 100 : 0)}.">Includes ${money(C.cost.freed[t], 2)} freed PM capacity · +${(m.revenue ? C.cost.freed[t] / m.revenue * 100 : 0).toFixed(1)} pts</span>` : null}
           </button>`;
         })}
-        <p class="tiny faint" style=${{ margin: 0 }}>${VIEW_NAMES[doc.cv]} · ${fmtNum(doc.G.doors)} doors · ${P.targetPct}% target. Click a tier to focus it.</p>
+        <p class="tiny faint" style=${{ margin: 0 }}>${VIEW_NAMES[doc.cv]} · ${fmtNum(doc.G.doors)} doors · ${P.targetPct}% target${P.scopeSavings ? " · freed PM capacity counted" : ""}. Click a tier to focus it.</p>
         </${React.Fragment}>`}
       </section>
 
