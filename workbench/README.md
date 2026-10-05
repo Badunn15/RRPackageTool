@@ -2,8 +2,8 @@
 
 Raynor Realty Bottom Line (formerly the Package Margin Planner) is the internal tool for Raynor Realty's three management packages (Minimum, Raynor Special, Protection Plus). It shows each package's revenue, cost and margin from the full cost model. Published as a claude.ai artifact:
 
-- **Planner (the one to use):** https://claude.ai/artifact/TonYb72K2VP3zghjfr3FrS
-- Retired earlier versions, same math, no cloud saving: Workbench (https://claude.ai/artifact/34G3F1isF5dAdB5jv68AQR), Sheet (https://claude.ai/artifact/GcHJRHVejJoWxR6C4e8Vtz)
+- **Bottom Line:** https://claude.ai/artifact/TonYb72K2VP3zghjfr3FrS
+- The earlier Workbench, Sheet and Margin Ledger artifacts were deleted on 2026-10-05; their source stays here for reference.
 
 ## Files
 
