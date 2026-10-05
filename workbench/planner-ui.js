@@ -1407,6 +1407,8 @@
   function Acquisitions(props) {
     var doc = props.doc, update = props.update, ui = props.ui, P = doc.pricing, G = doc.G;
     var deals = doc.acq || [];
+    // Each visit to the page opens on the quick snapshot; the switch only lasts while you're on the page.
+    var _av = useState("snap"), acqMode = _av[0], setAcqMode = _av[1];
     var deal = deals.find(function (x) { return x.id === ui.acqSel; }) || deals[0];
     function edit(fn, label) { update(function (d) { var x = d.acq.find(function (y) { return y.id === deal.id; }); if (x) fn(x); }, deal.name + ": " + label); }
     function add() {
@@ -1437,8 +1439,8 @@
       </div>`;
     }
     var flagMC = r.doorsAfter > 500 && G.doors <= 500;
-    var snap = ui.acqView !== "full";
-    function setMode(m) { props.setUi(function (u) { u.acqView = m; }); }
+    var snap = acqMode === "snap";
+    function setMode(m) { setAcqMode(m); }
     var modeSw = html`<div class="seg" role="group" aria-label="Acquisitions view">
       <button type="button" aria-pressed=${!snap} onClick=${function () { setMode("full"); }}>Full analysis</button>
       <button type="button" aria-pressed=${snap} onClick=${function () { setMode("snap"); }}>Quick snapshot</button>
@@ -1451,7 +1453,8 @@
       var pmLo = Math.ceil(r.doorsAfter / 300), pmHi = Math.ceil(r.doorsAfter / 200);
       snapView = html`<div class="acq-grid">
         <section class="panel">
-          <div class="panel-h"><h2>The book</h2></div>
+          <div class="panel-h"><input type="text" class="txt acq-name" id="acq-name" aria-label="Deal name" value=${deal.name}
+            onChange=${function (e) { var v = e.target.value; edit(function (x) { x.name = v; }, "renamed"); }} /></div>
           <div class="panel-b fieldset">
             ${num("doors", "Doors", { step: 5, help: "Units in the book." })}
             ${num("rent", "Average rent", { prefix: "$", step: 25, help: "Their average monthly rent." })}
@@ -1466,6 +1469,11 @@
             </div>
             ${num("lost", "Churn", { suffix: "%", step: 5, max: 100, help: "Share of owners who leave in year one." })}
           </div>
+          <div class="panel-b"><button type="button" class="link small danger-link" onClick=${function () {
+            var id = deal.id;
+            update(function (d) { d.acq = d.acq.filter(function (x) { return x.id !== id; }); }, "Deleted deal " + deal.name);
+            props.setUi(function (u) { u.acqSel = null; });
+          }}>Delete this deal</button></div>
         </section>
         <div class="acq-results">
           <section class="panel">
