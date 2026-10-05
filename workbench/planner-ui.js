@@ -1711,49 +1711,90 @@
     </div>`;
   }
 
-  /* Up to three scenarios side by side, at one cost view, with what's different between them. */
-  function diffLines(a, b) {
-    var out = [];
-    function num(label, x, y, fmt) { if (Math.abs((x || 0) - (y || 0)) > 1e-9) out.push(label + ": " + fmt(x || 0) + " → " + fmt(y || 0)); }
+  /* Up to three scenarios side by side, at one cost view, with what's different between them, grouped by area. */
+  function diffGroups(a, b) {
+    var groups = [], cur = null;
+    function open(id, title) { cur = { id: id, title: title, items: [] }; groups.push(cur); }
+    function put(s) { cur.items.push(s); }
+    function num(label, x, y, fmt) { if (Math.abs((x || 0) - (y || 0)) > 1e-9) put(label + ": " + fmt(x || 0) + " → " + fmt(y || 0)); }
+    // One line per item: "Quo: off for Minimum, Plus" rather than a line for each tier.
+    function tiersLine(name, fa, fb) {
+      var on = [], off = [];
+      TIERS.forEach(function (t) { if (!!fa[t] !== !!fb[t]) (fb[t] ? on : off).push(TIER_SHORT[t]); });
+      if (!on.length && !off.length) return;
+      put(name + ": " + (off.length ? "off for " + off.join(", ") : "") + (on.length && off.length ? "; " : "") + (on.length ? "on for " + on.join(", ") : ""));
+    }
+    open("prices", "Prices");
     TIERS.forEach(function (t) {
       var pa = a.pricing.tiers[t], pb = b.pricing.tiers[t];
       num(TIER_SHORT[t] + " monthly fee", pa.monthlyPct, pb.monthlyPct, function (v) { return pct(v, 2); });
       num(TIER_SHORT[t] + " leasing fee", pa.leasePct, pb.leasePct, function (v) { return pct(v, 0); });
       num(TIER_SHORT[t] + " renewal fee", pa.renewal, pb.renewal, function (v) { return money(v); });
     });
+    open("portfolio", "Portfolio and settings");
     FIELD_GROUPS.forEach(function (g) { g.fields.forEach(function (f) {
       if (f.get) num(f.label, f.get(a), f.get(b), fmtNum);
-      if (f.toggle && f.toggle(a) !== f.toggle(b)) out.push(f.label + ": " + (f.toggle(a) ? "on" : "off") + " → " + (f.toggle(b) ? "on" : "off"));
+      if (f.toggle && f.toggle(a) !== f.toggle(b)) put(f.label + ": " + (f.toggle(a) ? "on" : "off") + " → " + (f.toggle(b) ? "on" : "off"));
     }); });
     var ca = activeTemplate(a), cb = activeTemplate(b);
     var rowsA = {}, rowsB = {};
     forEachCostRow(a, function (r) { rowsA[r.id] = r; });
     forEachCostRow(b, function (r) { rowsB[r.id] = r; });
+    open("costs", "Cost lines");
     Object.keys(rowsB).forEach(function (id) {
       var ra = rowsA[id], rb = rowsB[id], nm = rowName(b, rb);
-      if (!ra) { out.push("Added cost line: " + nm); return; }
+      if (!ra) { put("Added: " + nm); return; }
       var va = a.vl[id] != null ? a.vl[id] : ra.v, vb = b.vl[id] != null ? b.vl[id] : rb.v;
-      if (va !== vb) out.push(nm + ": " + money(va || 0, 2) + " → " + money(vb || 0, 2));
-      var fa = ca.ck[id] || {}, fb = cb.ck[id] || {};
-      TIERS.forEach(function (t) { if (!!fa[t] !== !!fb[t]) out.push(nm + (fb[t] ? " added to " : " removed from ") + TIER_SHORT[t]); });
+      if (va !== vb) put(nm + ": " + money(va || 0, 2) + " → " + money(vb || 0, 2));
+      tiersLine(nm, ca.ck[id] || {}, cb.ck[id] || {});
     });
-    Object.keys(rowsA).forEach(function (id) { if (!rowsB[id]) out.push("Removed cost line: " + rowName(a, rowsA[id])); });
-    scopeIds(b).forEach(function (id) {
-      var fa = ca.psk[id] || {}, fb = cb.psk[id] || {};
-      TIERS.forEach(function (t) { if (!!fa[t] !== !!fb[t]) out.push(b.MASTER[id].n + (fb[t] ? " added to " : " removed from ") + TIER_SHORT[t]); });
-    });
+    Object.keys(rowsA).forEach(function (id) { if (!rowsB[id]) put("Removed: " + rowName(a, rowsA[id])); });
+    open("services", "Services");
+    scopeIds(b).forEach(function (id) { tiersLine(b.MASTER[id].n, ca.psk[id] || {}, cb.psk[id] || {}); });
+    open("addons", "Add-ons and fees");
     var adA = {}; a.addons.forEach(function (x) { adA[x.id] = x; });
     b.addons.forEach(function (x) {
       var y = adA[x.id];
-      if (!y) { out.push("Added " + (x.kind === "bundle" ? "package" : x.kind === "addon" ? "add-on" : "fee") + ": " + x.name); return; }
-      if ((y.price || 0) !== (x.price || 0)) out.push(x.name + " price: " + money(y.price || 0) + " → " + money(x.price || 0));
-      if ((y.cost || 0) !== (x.cost || 0)) out.push(x.name + " cost: " + money(y.cost || 0) + " → " + money(x.cost || 0));
-      if ((y.uptake || 0) !== (x.uptake || 0)) out.push(x.name + " owners who buy: " + pct(y.uptake || 0, 0) + " → " + pct(x.uptake || 0, 0));
-      if ((y.amount || 0) !== (x.amount || 0)) out.push(x.name + " how often: " + fmtNum(y.amount || 0) + " → " + fmtNum(x.amount || 0));
-      TIERS.forEach(function (t) { if (y.tiers[t] !== x.tiers[t]) out.push(x.name + " in " + TIER_SHORT[t] + ": " + y.tiers[t] + " → " + x.tiers[t]); });
+      if (!y) { put("Added " + (x.kind === "bundle" ? "package" : x.kind === "addon" ? "add-on" : "fee") + ": " + x.name); return; }
+      if ((y.price || 0) !== (x.price || 0)) put(x.name + " price: " + money(y.price || 0) + " → " + money(x.price || 0));
+      if ((y.cost || 0) !== (x.cost || 0)) put(x.name + " cost: " + money(y.cost || 0) + " → " + money(x.cost || 0));
+      if ((y.uptake || 0) !== (x.uptake || 0)) put(x.name + " owners who buy: " + pct(y.uptake || 0, 0) + " → " + pct(x.uptake || 0, 0));
+      if ((y.amount || 0) !== (x.amount || 0)) put(x.name + " how often: " + fmtNum(y.amount || 0) + " → " + fmtNum(x.amount || 0));
+      if ((y.freq || 0) !== (x.freq || 0) || (y.per || "door_yr") !== (x.per || "door_yr")) put(x.name + " how often: " + fmtNum(y.freq || 0) + " " + ADDON_PER[y.per || "door_yr"] + " → " + fmtNum(x.freq || 0) + " " + ADDON_PER[x.per || "door_yr"]);
+      var chg = TIERS.filter(function (t) { return y.tiers[t] !== x.tiers[t]; });
+      if (chg.length) put(x.name + ": " + chg.map(function (t) { return TIER_SHORT[t] + " " + y.tiers[t] + " → " + x.tiers[t]; }).join(", "));
     });
-    a.addons.forEach(function (y) { if (!b.addons.some(function (x) { return x.id === y.id; })) out.push("Removed: " + y.name); });
-    return out;
+    a.addons.forEach(function (y) { if (!b.addons.some(function (x) { return x.id === y.id; })) put("Removed: " + y.name); });
+    return groups.filter(function (g) { return g.items.length; });
+  }
+
+  /* One compared scenario's differences: the whole panel collapses, and so does each area inside it. */
+  function CompareDiff(props) {
+    var c = props.col, first = props.first, ui = props.ui, setUi = props.setUi;
+    var groups = diffGroups(first.doc, c.doc);
+    var total = groups.reduce(function (s, g) { return s + g.items.length; }, 0);
+    var shut = !!ui.pfShut["cmp:" + c.key];
+    var openMap = ui.cmpOpen || {};
+    function isOpen(g) { var v = openMap[c.key + ":" + g.id]; return v == null ? g.items.length <= 8 : v; }
+    function setAll(on) { setUi(function (u) { u.cmpOpen = u.cmpOpen || {}; groups.forEach(function (g) { u.cmpOpen[c.key + ":" + g.id] = on; }); }); }
+    return html`<section class="panel">
+      <div class="panel-h">
+        <h2 class="panel-h-btn-wrap"><button type="button" class="panel-h-btn" aria-expanded=${!shut} onClick=${function () { setUi(function (u) { u.pfShut["cmp:" + c.key] = !shut; }); }}>
+          <span class="caret-i" aria-hidden="true">${shut ? "▸" : "▾"}</span><span class="sec-name">${c.label}</span></button></h2>
+        <span class="small muted">vs ${first.label} · ${total ? total + " difference" + (total === 1 ? "" : "s") + " in " + groups.length + " area" + (groups.length === 1 ? "" : "s") : "same numbers"}</span>
+      </div>
+      ${shut ? null : total ? html`<div class="panel-b">
+        ${groups.length > 1 ? html`<div class="cmp-all small"><button type="button" class="link" onClick=${function () { setAll(true); }}>Expand all</button> · <button type="button" class="link" onClick=${function () { setAll(false); }}>Collapse all</button></div>` : null}
+        ${groups.map(function (g) {
+          var on = isOpen(g);
+          return html`<div key=${g.id} class="cmp-g">
+            <button type="button" class="cmp-gh" aria-expanded=${on} onClick=${function () { setUi(function (u) { u.cmpOpen = u.cmpOpen || {}; u.cmpOpen[c.key + ":" + g.id] = !on; }); }}>
+              <span class="caret-i" aria-hidden="true">${on ? "▾" : "▸"}</span><b>${g.title}</b><span class="faint small">${g.items.length}</span></button>
+            ${on ? html`<ul class="diff-list">${g.items.map(function (x, i) { return html`<li key=${i}>${x}</li>`; })}</ul>` : null}
+          </div>`;
+        })}
+      </div>` : html`<p class="note" style=${{ padding: "0 14px 14px" }}>Same numbers.</p>`}
+    </section>`;
   }
 
   function Compare(props) {
@@ -1781,7 +1822,7 @@
       ["Margin / yr, all doors", function (m) { return money(m.portfolioMo * 12); }]
     ];
     return html`<div class="page">
-      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios side by side at " + VIEW_NAMES[view] + " (change it in the Live margin panel). Under the table, everything that differs from the first one."} />
+      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios side by side at " + VIEW_NAMES[view] + " (change it in the Live margin panel). Under the table, everything that differs from the first one, grouped by area. Click a heading to collapse it."} />
       <section class="panel">
         <div class="panel-b compare-picks">
           ${picks.map(function (k, i) {
@@ -1809,12 +1850,7 @@
           })}</tbody>
         </table></div>
       </section>
-      ${cols.slice(1).map(function (c) {
-        var d = diffLines(cols[0].doc, c.doc);
-        return html`<section key=${c.key} class="panel"><div class="panel-h"><h2>${c.label}</h2><span class="small muted">vs ${cols[0].label} · ${d.length} difference${d.length === 1 ? "" : "s"}</span></div>
-          <div class="panel-b">${d.length ? html`<ul class="diff-list">${d.slice(0, 60).map(function (x, i) { return html`<li key=${i}>${x}</li>`; })}</ul>` : html`<p class="note">Same numbers.</p>`}
-          ${d.length > 60 ? html`<p class="note">…and ${d.length - 60} more.</p>` : null}</div></section>`;
-      })}
+      ${cols.slice(1).map(function (c) { return html`<${CompareDiff} key=${c.key} col=${c} first=${cols[0]} ui=${props.ui} setUi=${props.setUi} />`; })}
     </div>`;
   }
 
