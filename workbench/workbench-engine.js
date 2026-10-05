@@ -219,6 +219,8 @@ function syncLinked(doc, tp, kind, id, tier) {
  * overhead, per-unit software) are spread over all of them, so STR and commercial lower the cost per package door.
  * Turnovers, active listings and guarantees only happen on package doors, so they stay on those doors.
  */
+/* AppFolio's residential units: package doors, plus STR when it's switched on (AppFolio bills STR as residential). */
+function afResUnits(doc) { return (doc.G.doors || 0) + (doc.af.istr ? doc.G.str || 0 : 0); }
 function otherUnits(doc) { return (doc.G.str || 0) + (doc.G.comm || 0); }
 function allUnits(doc) { return (doc.G.doors || 0) + otherUnits(doc); }
 /* Costs only package doors cause: turnovers, active listings (cameras and the like) and guarantees. */
@@ -485,7 +487,7 @@ function scaleToDoors(doc, n) {
   forEachCostRow(d, function (r) { if (r.e === "claim" && d.ev[r.id] == null && r.n_ev != null) d.ev[r.id] = r.n_ev; });
   Object.keys(d.ev).forEach(function (k) { d.ev[k] = (d.ev[k] || 0) * f; });
   (d.addons || []).forEach(function (a) { if (a.basis === "events") a.amount = (a.amount || 0) * f; });
-  d.af.rd = n + (d.G.str || 0);
+  d.af.rd = afResUnits(d);
   return d;
 }
 
@@ -518,7 +520,7 @@ function acquiredDoc(doc, deal, forBook) {
   d.G.listings = (doc.G.listings || 0) + dealCount(doc, deal, 'listings') * keep;
   d.G.comm = (doc.G.comm || 0) + (deal.comm || 0) * keep;
   d.af.cd = d.G.comm;
-  d.af.rd = d.G.doors + (d.G.str || 0);
+  d.af.rd = afResUnits(d);
   if (deal.staffYr) {
     var g = d.CG.find(function (x) { return x.id === "staff"; }) || d.CG[0];
     g.rows.push({ id: "acq_staff", name: "Added staff or overhead from the deal", e: "annual", v: deal.staffYr });
@@ -587,7 +589,7 @@ function formulaLines(row, doc, groupId, view) {
       break;
     case "af":
       var af = doc.af;
-      lines.push("Residential " + usd(af.rr) + " × " + fmtN(af.rd) + " units" + (af.ic ? " + commercial " + usd(af.cr) + " × " + fmtN(af.cd) + " units" : " (commercial not included)") + tail);
+      lines.push("Residential " + usd(af.rr) + " × " + fmtN(af.rd) + " units" + (af.istr ? "" : " (STR not included)") + (af.ic ? " + commercial " + usd(af.cr) + " × " + fmtN(af.cd) + " units" : " (commercial not included)") + tail);
       break;
   }
   var rv = rowView(doc, row.id, groupId);
@@ -747,7 +749,8 @@ function normalizeDoc(raw) {
   d.addons.forEach(function (a) { if (a.basis === "evict_billed") { a.tiers = { min: "charged", special: "charged", plus: "charged" }; delete a.view; } });
 
   // AppFolio bills per unit: STR counts as residential, commercial at its own rate.
-  d.af.rd = (d.G.doors || 0) + (d.G.str || 0);
+  if (d.af.istr == null) d.af.istr = 1;
+  d.af.rd = afResUnits(d);
   d.af.cd = d.G.comm || 0;
   // v1 defaulted vacancy to 4% (an owner-side assumption from the fee-choice pricing file). Raynor only collects fees once a renter is placed, so v2 defaults it to 0.
   var vacancy = P.vacancyPct != null && (P.v || 1) >= 2 ? P.vacancyPct : (P.vacancyPct != null && P.vacancyPct !== 4 ? P.vacancyPct : DEFAULT_PRICING.vacancyPct);
@@ -770,5 +773,5 @@ function validDoc(d) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }
