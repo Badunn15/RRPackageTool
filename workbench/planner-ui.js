@@ -1842,7 +1842,7 @@
         </div>
         <div class="table-wrap"><table class="compare">
           <thead><tr><th></th>${cols.map(function (c) { return html`<th key=${c.key} colspan="3">${c.label}</th>`; })}</tr>
-            <tr><th></th>${cols.map(function (c) { return TIERS.map(function (t) { return html`<th key=${c.key + t} class="small faint">${TIER_SHORT[t]}</th>`; }); })}</tr></thead>
+            <tr><th></th>${cols.map(function (c) { return TIERS.map(function (t) { return html`<th key=${c.key + t} class="small cmp-pkg">${TIER_SHORT[t]}</th>`; }); })}</tr></thead>
           <tbody>${rowsDef.map(function (r) {
             return html`<tr key=${r[0]} class=${r[0].indexOf("Margin") === 0 ? "total" : ""}><td>${r[0]}</td>
               ${cols.map(function (c, ci) {
