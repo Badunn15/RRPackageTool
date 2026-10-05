@@ -1464,7 +1464,7 @@
               })}</div>
               <div class=${"help" + (Math.abs(mixLeft) > 0.01 ? " warn" : "")}>${Math.abs(mixLeft) < 0.01 ? "Adds up to 100%." : "Adds up to " + (100 - mixLeft) + "%. The math scales it to 100%."}</div>
             </div>
-            ${num("lost", "Owners lost in year one", { suffix: "%", step: 5, max: 100, help: "Owners who leave after the switch." })}
+            ${num("lost", "Churn", { suffix: "%", step: 5, max: 100, help: "Share of owners who leave in year one." })}
           </div>
         </section>
         <div class="acq-results">
@@ -1526,7 +1526,7 @@
               })}</div>
               <div class=${"help" + (Math.abs(mixLeft) > 0.01 ? " warn" : "")}>${Math.abs(mixLeft) < 0.01 ? "Adds up to 100%." : "Adds up to " + (100 - mixLeft) + "%. The math scales it to 100%."}</div>
             </div>
-            ${num("lost", "Owners lost in year one", { suffix: "%", step: 5, max: 100, help: "Owners who leave after the switch. Their doors drop out of everything here." })}
+            ${num("lost", "Churn", { suffix: "%", step: 5, max: 100, help: "Share of owners who leave in year one. Their doors drop out of everything here." })}
             <div class="sub-h acq-sub">The deal</div>
             ${num("price", "Purchase price", { prefix: "$", step: 1000, help: "What you pay for the book." })}
             ${num("onetime", "One-time transition cost", { prefix: "$", step: 500, help: "Onboarding, data migration, signage, legal: costs you pay once." })}
