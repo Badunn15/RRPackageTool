@@ -1442,8 +1442,8 @@
     var snap = acqMode === "snap";
     function setMode(m) { setAcqMode(m); }
     var modeSw = html`<div class="seg" role="group" aria-label="Acquisitions view">
-      <button type="button" aria-pressed=${!snap} onClick=${function () { setMode("full"); }}>Full analysis</button>
       <button type="button" aria-pressed=${snap} onClick=${function () { setMode("snap"); }}>Quick snapshot</button>
+      <button type="button" aria-pressed=${!snap} onClick=${function () { setMode("full"); }}>Full analysis</button>
     </div>`;
     /* The quick snapshot: what the book does to the margins and what it takes to run it. No price, payback or what the book earns. */
     var snapView = null;
