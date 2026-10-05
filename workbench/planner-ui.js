@@ -808,8 +808,7 @@
                   <button type="button" class="caret" aria-expanded=${!isCollapsed} aria-label=${(isCollapsed ? "Expand " : "Collapse ") + g.label}
                     onClick=${function () { props.setUi(function (u) { u.groups[g.id] = !isCollapsed; }); }}>${isCollapsed ? "▸" : "▾"}</button>
                   ${g.label} <span class="muted small" style=${{ fontWeight: 400 }}>${filtering ? G.keep.length + " of " + rows.length : rows.length} lines</span>
-                  <label class="small muted" style=${{ fontWeight: 400, marginLeft: "10px" }} for=${"gv-" + g.id}>counts from </label>
-                  <select id=${"gv-" + g.id} value=${gView}
+                  <select id=${"gv-" + g.id} aria-label=${g.label + " counts from"} style=${{ marginLeft: "10px" }} value=${gView}
                     onChange=${function (e) { var val = e.target.value; update(function (d) { d.secView[g.id] = val; }, g.label + ": counts from " + VIEW_NAMES[val]); }}>
                     ${VIEWS.map(function (vw) { return html`<option key=${vw} value=${vw}>${VIEW_NAMES[vw]}</option>`; })}
                   </select>
