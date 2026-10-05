@@ -850,9 +850,6 @@
                   <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : BASIS_NAMES[r.e]}</td>
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
                       value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)} onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />`
-                    : r.e === "seat" ? html`<${Affix} id=${"st-" + r.id} cls="w-sm" min=${0} suffix="seats" label=${"Seats paid for " + name}
-                      value=${doc.seats[r.id] != null ? doc.seats[r.id] : doc.G.seats}
-                      onChange=${function (val) { update(function (d) { if (val === d.G.seats) delete d.seats[r.id]; else d.seats[r.id] = val; }, name + ": seats"); }} />`
                     : r.e === "annual" ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
                   <td class="mono">${isLb ? lbText : money(perDoor, 2)}</td>
                   ${TIERS.map(function (t) {
