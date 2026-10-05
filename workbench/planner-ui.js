@@ -374,6 +374,7 @@
     var body = null;
     if (sel && sel.kind === "cost") body = html`<${CostInspector} doc=${doc} C=${props.C} id=${sel.id} update=${update} setUi=${props.setUi} />`;
     if (sel && sel.kind === "svc") body = html`<${ServiceInspector} doc=${doc} C=${props.C} id=${sel.id} update=${update} setUi=${props.setUi} />`;
+    if (sel && sel.kind === "bench") body = html`<${BenchInspector} doc=${doc} id=${sel.id} update=${update} setUi=${props.setUi} />`;
     if (sel && sel.kind === "fee") body = html`<${FeeInspector} doc=${doc} C=${props.C} id=${sel.id} update=${update} setUi=${props.setUi} />`;
     var shut = !!props.ui.railShut.details;
     return html`<section class="rail-box inspector" aria-label="Details">
@@ -445,6 +446,64 @@
     </div>`;
   }
 
+  /* Moves a bench idea into the model: as a scope service, an optional add-on, or a cost line in a group. */
+  function promoteIdea(update, doc, id, dest) {
+    var svc = doc.MASTER[id], owners = bundleOwners(doc);
+    update(function (d) {
+      var dt = d.MASTER[id].dt || { min: true, special: true, plus: true };
+      if (dest === "addon") {
+        // Leaves the bench and becomes an optional add-on owners can buy; set its price and cost on the Add-ons page.
+        d.place[id] = "addon";
+        d.addons.push({ id: "addon_" + id, name: svc.n, price: 0, cost: 0, basis: "optional", kind: "addon", freq: 1, uptake: 0,
+          tiers: { min: "charged", special: "charged", plus: "charged" } });
+      } else if (dest === "scope") {
+        d.place[id] = "scope";
+        if (!d.scopeOwner[id] || !owners.some(function (o) { return o.id === d.scopeOwner[id]; })) d.scopeOwner[id] = owners.length ? (owners.find(function (o) { return o.id === "pm"; }) || owners[0]).id : "";
+        d.templates.forEach(function (tp) { if (!tp.psk[id]) tp.psk[id] = Object.assign({}, dt); });
+      } else {
+        d.place[id] = "cost:" + dest;
+        if (d.vl[id] == null) d.vl[id] = (d.ucv && d.ucv[id]) || 0;
+        d.templates.forEach(function (tp) { if (!tp.ck[id]) tp.ck[id] = Object.assign({}, dt); });
+      }
+    }, (dest === "addon" ? "Made " + svc.n + " an add-on" : "Offered " + svc.n));
+  }
+
+  function BenchInspector(props) {
+    var doc = props.doc, id = props.id, update = props.update, svc = doc.MASTER[id];
+    if (!svc || doc.place[id] !== "uc") return html`<p class="small muted">That idea isn't on the bench anymore.</p>`;
+    var cats = Object.keys(doc.MASTER).reduce(function (s, k) { var c = doc.icat[k] || doc.MASTER[k].dc; if (c && s.indexOf(c) < 0) s.push(c); return s; }, []).sort();
+    var cat = doc.icat[id] || svc.dc;
+    return html`<div class="inspector" style=${{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div><div class="tiny faint">Bench idea · not offered yet</div><h3>${svc.n}</h3></div>
+      <div class="kv">
+        <span>Name</span><input type="text" class="txt" id=${"i-bn-" + id} aria-label="Idea name" value=${svc.n}
+          onChange=${function (e) { var val = e.target.value.trim(); if (val) update(function (d) { d.MASTER[id].n = val; }, "Renamed a bench idea"); }} />
+        <span>Category</span><select id=${"i-bc-" + id} aria-label="Category" value=${cat}
+          onChange=${function (e) { var val = e.target.value; update(function (d) { d.icat[id] = val; }, svc.n + ": category"); }}>
+          ${cats.concat(cats.indexOf(cat) < 0 ? [cat] : []).map(function (c) { return html`<option key=${c} value=${c}>${c}</option>`; })}
+        </select>
+        <span>Offer as</span><select id=${"i-bo-" + id} aria-label=${"Offer " + svc.n + " as"} value="" onChange=${function (e) {
+          var dest = e.target.value; if (!dest) return;
+          promoteIdea(update, doc, id, dest);
+          props.setUi(function (u) { u.sel = dest === "addon" ? null : { kind: dest === "scope" ? "svc" : "cost", id: id }; });
+        }}>
+          <option value="">Choose…</option>
+          <option value="scope">A service in scope</option>
+          <option value="addon">An optional add-on</option>
+          ${doc.CG.map(function (g) { return html`<option key=${g.id} value=${g.id}>A cost line in ${g.label}</option>`; })}
+        </select>
+      </div>
+      <p class="note">Offering it as an add-on adds it to the Add-ons page. Set its price and cost there.</p>
+      <button type="button" class="btn sm danger" style=${{ alignSelf: "flex-start" }} onClick=${function () {
+        update(function (d) {
+          delete d.MASTER[id]; delete d.place[id]; delete d.icat[id];
+          d.templates.forEach(function (tp) { delete tp.psk[id]; delete tp.ck[id]; });
+        }, "Removed " + svc.n + " from the bench");
+        props.setUi(function (u) { u.sel = null; });
+      }}>Remove from bench</button>
+    </div>`;
+  }
+
   function ServiceInspector(props) {
     var doc = props.doc, id = props.id, update = props.update, svc = doc.MASTER[id];
     if (!svc || doc.place[id] !== "scope") return html`<p class="small muted">That service isn't in scope anymore.</p>`;
@@ -484,6 +543,29 @@
       <${Impact} head="Freed/door/mo" vals=${vals} C=${props.C} costLike=${false} />
       <p class="note">${doc.pricing.scopeSavings ? "Freed capacity is taken off cost (Portfolio → Model settings), so leaving this out raises that tier's margin as shown." : "Freed capacity is shown but not taken off cost. Turn it on under Portfolio → Model settings to count it."}</p>
       ${id === EVICT_SVC ? html`<p class="note">Linked: turning this off for a tier also removes its Eviction guarantee (Costs), and nothing is billed for evictions there.</p>` : null}
+      ${(function () {
+        var ad = doc.addons.find(function (a) { return a.svc === id; });
+        function edit(fn, label) { update(function (d) { var x = d.addons.find(function (y) { return y.svc === id; }); if (x) fn(x); }, svc.n + " add-on: " + label); }
+        if (!ad) return html`<div><button type="button" class="btn sm" title="Owners in a tier that leaves this out can still buy it as an extra" onClick=${function () {
+          update(function (d) {
+            var psk = activeTemplate(d).psk[id] || {};
+            var tiers = {};
+            TIERS.forEach(function (t) { tiers[t] = psk[t] ? "off" : "charged"; });
+            d.addons.push({ id: "addon_sell_" + id, name: svc.n, price: 0, cost: 0, basis: "optional", kind: "addon", freq: 1, uptake: 0, svc: id, tiers: tiers });
+          }, "Selling " + svc.n + " as an add-on");
+        }}>Also sell as an add-on</button></div>`;
+        return html`<div style=${{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid var(--rule-soft)", paddingTop: "10px" }}>
+          <div class="tiny faint">Sold as an add-on to tiers that leave it out</div>
+          <div class="kv">
+            <span>Owner pays</span><${Affix} id=${"i-ap-" + id} prefix="$" cls="w-lg" min=${0} label="Owner price" value=${ad.price || 0} onChange=${function (v) { edit(function (x) { x.price = v; }, "owner price"); }} />
+            <span>Your cost</span><${Affix} id=${"i-ac-" + id} prefix="$" cls="w-lg" min=${0} label="Your cost each time" value=${ad.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
+            <span>Times a year</span><${Affix} id=${"i-af-" + id} cls="w-sm" min=${0} step=${0.25} suffix="/door" label="Times a year per door" value=${ad.freq || 0} onChange=${function (v) { edit(function (x) { x.freq = v; }, "times a year"); }} />
+            <span>Owners who buy</span><${Affix} id=${"i-au-" + id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label="Share of owners who buy" value=${ad.uptake || 0} onChange=${function (v) { edit(function (x) { x.uptake = Math.min(100, v); }, "owners who buy"); }} />
+          </div>
+          <p class="note">For sale in: ${TIERS.filter(function (t) { return ad.tiers[t] !== "off"; }).map(function (t) { return TIER_SHORT[t]; }).join(", ") || "no tier"}. Tiers that include the service don't sell it. Fine-tune on the Add-ons page.</p>
+          <button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () { update(function (d) { d.addons = d.addons.filter(function (a) { return a.svc !== id; }); }, "Stopped selling " + svc.n + " as an add-on"); }}>Stop selling as an add-on</button>
+        </div>`;
+      })()}
       <button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () {
         update(function (d) { d.place[id] = "uc"; }, "Benched " + svc.n);
         props.setUi(function (u) { u.sel = null; });
@@ -852,29 +934,6 @@
     var sel = ui.sel && ui.sel.kind === "svc" ? ui.sel.id : null;
     var benchIds = Object.keys(doc.MASTER).filter(function (id) { return doc.place[id] === "uc"; });
     var benchCats = Object.keys(doc.MASTER).reduce(function (a, k) { var c = doc.icat[k] || doc.MASTER[k].dc; if (c && a.indexOf(c) < 0) a.push(c); return a; }, []).sort();
-    function promote(id, dest) {
-      var svc = doc.MASTER[id];
-      update(function (d) {
-        var dt = d.MASTER[id].dt || { min: true, special: true, plus: true };
-        if (dest === "addon") {
-          // Leaves the bench and becomes an optional add-on owners can buy; set its price and cost on the Add-ons page.
-          d.place[id] = "addon";
-          d.addons.push({ id: "addon_" + id, name: svc.n, price: 0, cost: 0, basis: "optional", kind: "addon", freq: 1, uptake: 0,
-            tiers: { min: "charged", special: "charged", plus: "charged" } });
-        } else if (dest === "scope") {
-          d.place[id] = "scope";
-          if (!d.scopeOwner[id] || !owners.some(function (o) { return o.id === d.scopeOwner[id]; })) d.scopeOwner[id] = owners.length ? (owners.find(function (o) { return o.id === "pm"; }) || owners[0]).id : "";
-          d.templates.forEach(function (tp) { if (!tp.psk[id]) tp.psk[id] = Object.assign({}, dt); });
-        } else {
-          d.place[id] = "cost:" + dest;
-          if (d.vl[id] == null) d.vl[id] = (d.ucv && d.ucv[id]) || 0;
-          d.templates.forEach(function (tp) { if (!tp.ck[id]) tp.ck[id] = Object.assign({}, dt); });
-        }
-      }, (dest === "addon" ? "Made " + svc.n + " an add-on" : "Offered " + svc.n));
-      if (dest === "addon") props.setMsg && props.setMsg({ kind: "good", text: svc.n + " is now an add-on. Set its price and cost on the Add-ons page." });
-      else props.setUi(function (u) { u.sel = { kind: dest === "scope" ? "svc" : "cost", id: id }; });
-    }
-
     return html`<div class="page">
       <${PageHead} kicker="Step 3" title="Services" lead="What each tier promises, grouped by the staff role that does the work. A service's value is the PM time it takes. Including it costs nothing extra, since staff pay is already a cost line. Leaving it out of a tier frees that time." />
       <section class="panel">
@@ -931,6 +990,7 @@
                       <td class="l name-cell"><input type="text" class="txt" id=${"sn-" + id} aria-label="Service name" value=${svc.n}
                         onChange=${function (e) { var val = e.target.value; update(function (d) { d.MASTER[id].n = val; }, "Renamed a service"); }} />
                         ${basis === "door_yr" && scopeValue(doc, id) >= 200 ? html`<span class="tag warn" title=${money(scopeValue(doc, id)) + " per door per year is large. If it's a price per event, switch the unit to per event."}>check unit</span>` : null}
+                        ${doc.addons.some(function (a) { return a.svc === id; }) ? html`<span class="tag" title="Also sold as an add-on to tiers that leave it out">add-on</span>` : null}
                         ${id === EVICT_SVC ? html`<span class="tag link">linked</span>` : null}</td>
                       <td>${hrs ? html`<span class="mono muted">${money(scopeValue(doc, id), 2)}</span>` : html`<${Affix} id=${"sv-" + id} prefix="$" min=${0} label=${"Value of " + svc.n}
                         value=${doc.psv[id] != null ? doc.psv[id] : svc.dsv} onChange=${function (val) { update(function (d) { d.psv[id] = val; }, svc.n + ": value"); }} />`}</td>
@@ -959,20 +1019,11 @@
       <section class="panel">
         <${ShutHead} k="sec:bench" ui=${ui} setUi=${props.setUi} title="Bench: not offered yet" sum=${benchIds.length + " ideas"} />
         ${ui.pfShut["sec:bench"] ? null : benchIds.length ? html`<ul class="bench">${benchIds.map(function (id) {
-          var svc = doc.MASTER[id];
-          return html`<li key=${id}><span style=${{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
-              <input type="text" class="txt" id=${"bn-" + id} aria-label="Idea name" value=${svc.n}
-                onChange=${function (e) { var val = e.target.value.trim(); if (val) update(function (d) { d.MASTER[id].n = val; }, "Renamed a bench idea"); }} />
-              <select id=${"bc-" + id} aria-label=${"Category for " + svc.n} value=${doc.icat[id] || svc.dc}
-                onChange=${function (e) { var val = e.target.value; update(function (d) { d.icat[id] = val; }, svc.n + ": category"); }}>
-                ${benchCats.concat(benchCats.indexOf(doc.icat[id] || svc.dc) < 0 ? [doc.icat[id] || svc.dc] : []).map(function (c) { return html`<option key=${c} value=${c}>${c}</option>`; })}
-              </select></span>
-            <select id=${"bench-" + id} aria-label=${"Offer " + svc.n + " as"} value="" onChange=${function (e) { if (e.target.value) promote(id, e.target.value); }}>
-              <option value="">Offer as…</option>
-              <option value="scope">A service in scope</option>
-              <option value="addon">An optional add-on</option>
-              ${doc.CG.map(function (g) { return html`<option key=${g.id} value=${g.id}>A cost line in ${g.label}</option>`; })}
-            </select></li>`;
+          var svc = doc.MASTER[id], on = ui.sel && ui.sel.kind === "bench" && ui.sel.id === id;
+          function pick() { props.setUi(function (u) { u.sel = on ? null : { kind: "bench", id: id }; }); }
+          return html`<li key=${id} class=${"pick" + (on ? " sel" : "")} tabIndex="0" role="button" aria-pressed=${on} onClick=${pick}
+            onKeyDown=${function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } }}>
+            <span>${svc.n} <span class="faint small">· ${doc.icat[id] || svc.dc}</span></span></li>`;
         })}</ul>` : html`<p class="note" style=${{ padding: "0 14px 14px" }}>Nothing on the bench.</p>`}
         ${ui.pfShut["sec:bench"] ? null : html`<div style=${{ padding: "0 14px 14px" }}><button type="button" class="btn sm" onClick=${function () {
           var id = "uc_" + Date.now().toString(36);
@@ -980,7 +1031,7 @@
             d.MASTER[id] = { id: id, n: "New idea", d: "", dp: "uc", dc: benchCats[0] || "Property Operations", dsv: 0, dt: { min: false, special: false, plus: false } };
             d.place[id] = "uc";
           }, "Added a bench idea");
-          setTimeout(function () { var el = document.getElementById("bn-" + id); if (el) { el.focus(); el.select(); } }, 60);
+          props.setUi(function (u) { u.sel = { kind: "bench", id: id }; });
         }}>+ Add an idea to the bench</button></div>`}
       </section>
       <${Next} go=${props.go} to="fees" label="Step 4: Add-ons" text="Next, set optional extras owners can buy and any benefits package." />
@@ -1079,6 +1130,7 @@
     }
     /* Back to the bench: an add-on that came from the bench goes home; a new one becomes a bench idea. */
     function toBench(a) {
+      if (a.svc) { update(function (d) { d.addons = d.addons.filter(function (x) { return x.id !== a.id; }); }, "Stopped selling " + a.name + " as an add-on"); return; }
       update(function (d) {
         var mid = a.id.indexOf("addon_") === 0 ? a.id.slice(6) : null;
         if (!mid || !d.MASTER[mid]) {
