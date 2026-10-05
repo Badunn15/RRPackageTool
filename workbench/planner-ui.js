@@ -1780,7 +1780,7 @@
     return html`<section class="panel">
       <div class="panel-h">
         <h2 class="panel-h-btn-wrap"><button type="button" class="panel-h-btn" aria-expanded=${!shut} onClick=${function () { setUi(function (u) { u.pfShut["cmp:open:" + c.key] = shut; }); }}>
-          <span class="caret-i" aria-hidden="true">${shut ? "▸" : "▾"}</span><span class="sec-name">What's different in ${c.short}</span></button></h2>
+          <span class="caret-i" aria-hidden="true">${shut ? "▸" : "▾"}</span><span class="sec-name">What's different in ${c.short || c.label}</span></button></h2>
         <span class="small muted">vs ${first.label} · ${total ? total + " difference" + (total === 1 ? "" : "s") + " in " + groups.length + " area" + (groups.length === 1 ? "" : "s") : "same numbers"}</span>
       </div>
       ${shut ? null : total ? html`<div class="panel-b">
@@ -1797,66 +1797,42 @@
     </section>`;
   }
 
-  /*
-   * Compare: the scenarios picked are saved with the open scenario (doc.cmp), so they come back after a refresh.
-   * The first one is the baseline; every number in the others carries its gap to it. Values for one package sit
-   * next to each other, so the eye compares across a few columns, not across the page.
-   */
-  var CMP_DOT = ["var(--ink-3)", "var(--accent)", "var(--gold)"];
   function Compare(props) {
     var doc = props.doc, cloud = props.cloud, lists = props.lists, names = props.names;
-    var options = [{ key: "current", label: "Open now: " + props.scen.name + (props.dirty ? " (unsaved)" : ""), short: props.scen.name, doc: doc }];
-    if (lists.official) options.push({ key: "official", label: "Official numbers", short: "Official numbers", raw: lists.official.doc });
-    lists.mine.forEach(function (s) { options.push({ key: "p:" + s.id, label: s.name + " · private", short: s.name, raw: s.doc }); });
-    lists.shared.forEach(function (s) { options.push({ key: "s:" + s.id, label: s.name + " · shared by " + byName(cloud, names, s.by), short: s.name, raw: s.doc }); });
-    var saved = Array.isArray(doc.cmp) ? doc.cmp : null;
-    var picks = (saved || ["current", lists.official ? "official" : null]).filter(function (k) { return k && options.some(function (o) { return o.key === k; }); });
+    var options = [{ key: "current", label: "Open now: " + props.scen.name + (props.dirty ? " (unsaved)" : ""), doc: doc }];
+    if (lists.official) options.push({ key: "official", label: "Official numbers", raw: lists.official.doc });
+    lists.mine.forEach(function (s) { options.push({ key: "p:" + s.id, label: s.name + " · private", raw: s.doc }); });
+    lists.shared.forEach(function (s) { options.push({ key: "s:" + s.id, label: s.name + " · shared by " + byName(cloud, names, s.by), raw: s.doc }); });
+    // The picks are saved with the open scenario (doc.cmp), so they come back after a refresh.
+    var picks = ((Array.isArray(doc.cmp) && doc.cmp) || ["current", lists.official ? "official" : null]).filter(function (k) { return k && options.some(function (o) { return o.key === k; }); });
     if (!picks.length) picks = ["current"];
-    function setPicks(p) { props.update(function (d) { d.cmp = p; }, "Compare: picked scenarios"); }
-    function setPick(i, k) { var p = picks.slice(); if (k) p[i] = k; else p.splice(i, 1); setPicks(p); }
     var view = doc.cv;
-    var cols = picks.map(function (k, i) {
+    var cols = picks.map(function (k) {
       var o = options.find(function (x) { return x.key === k; });
       var d = o.doc || normalizeDoc(o.raw);
       var c = tierCost(d, view), m = {};
-      TIERS.forEach(function (t) { m[t] = tierMargin(d, t, c.perDoor[t], view); m[t].included = c.included[t]; m[t].possible = c.possible; });
-      return { key: k, label: o.label, short: o.short, doc: d, m: m, dot: CMP_DOT[i] };
+      TIERS.forEach(function (t) { m[t] = tierMargin(d, t, c.perDoor[t], view); });
+      return { key: k, label: o.label, doc: d, m: m };
     });
-    function sells(d, t) { var p = d.pricing.tiers[t]; return p.monthlyPct > 0 || p.leasePct > 0 || p.renewal > 0; }
-    function dot(c) { return html`<span class="cmp-dot" style=${{ background: c.dot }}></span>`; }
+    function setPicks(p) { props.update(function (d) { d.cmp = p; }, "Compare: picked scenarios"); }
+    function setPick(i, k) { var p = picks.slice(); if (k) p[i] = k; else p.splice(i, 1); setPicks(p); }
+    // [label, shown value, number to compare, +1 when higher is better / -1 when lower is better, how to show a difference]
     var dMoney = function (x) { return (x > 0 ? "+" : "−") + money(Math.abs(x), 2); };
-    var dPts = function (x) { return (x > 0 ? "+" : "−") + Math.abs(x).toFixed(2).replace(/\.?0+$/, "") + " pts"; };
-    // [label, shown value, number to compare, +1 higher is better / -1 lower is better / 0 neutral, how to show a gap, section]
     var rowsDef = [
-      ["Monthly fee", function (m, d, t) { return pct(d.pricing.tiers[t].monthlyPct, 2); }, function (m, d, t) { return d.pricing.tiers[t].monthlyPct; }, 0, dPts, "Prices"],
-      ["Leasing fee", function (m, d, t) { return pct(d.pricing.tiers[t].leasePct, 0); }, function (m, d, t) { return d.pricing.tiers[t].leasePct; }, 0, dPts],
-      ["Renewal fee", function (m, d, t) { return money(d.pricing.tiers[t].renewal); }, function (m, d, t) { return d.pricing.tiers[t].renewal; }, 0, function (x) { return (x > 0 ? "+" : "−") + money(Math.abs(x)); }],
-      ["Services included", function (m) { return m.included + " of " + m.possible; }, function (m) { return m.included; }, 0, function (x) { return (x > 0 ? "+" : "−") + Math.abs(x); }],
-      ["Revenue", function (m) { return money(m.revenue, 2); }, function (m) { return m.revenue; }, 1, dMoney, "Per door per month"],
-      ["Cost", function (m) { return money(m.cost, 2); }, function (m) { return m.cost; }, -1, dMoney],
-      ["Margin", function (m) { return money(m.margin, 2); }, function (m) { return m.margin; }, 1, dMoney],
-      ["Margin %", function (m) { return pct(m.marginPct); }, function (m) { return m.marginPct; }, 1, function (x) { return (x > 0 ? "+" : "−") + Math.abs(x).toFixed(1) + " pts"; }, "Margin"],
-      ["Margin a year, all doors", function (m) { return money(m.portfolioMo * 12); }, function (m) { return m.portfolioMo * 12; }, 1, function (x) { return (x > 0 ? "+" : "−") + money(Math.abs(x)); }]
+      ["Revenue / door / mo", function (m) { return money(m.revenue, 2); }, function (m) { return m.revenue; }, 1, dMoney],
+      ["Cost / door / mo", function (m) { return money(m.cost, 2); }, function (m) { return m.cost; }, -1, dMoney],
+      ["Margin / door / mo", function (m) { return money(m.margin, 2); }, function (m) { return m.margin; }, 1, dMoney],
+      ["Margin %", function (m) { return pct(m.marginPct); }, function (m) { return m.marginPct; }, 1, function (x) { return (x > 0 ? "+" : "−") + Math.abs(x).toFixed(1) + " pts"; }],
+      ["Margin / yr, all doors", function (m) { return money(m.portfolioMo * 12); }, function (m) { return m.portfolioMo * 12; }, 1, function (x) { return (x > 0 ? "+" : "−") + money(Math.abs(x)); }]
     ];
-    var n = cols.length;
-    function cell(r, c, ci, t) {
-      var off = !sells(c.doc, t), baseOff = !sells(cols[0].doc, t), first = ci === 0;
-      var cls = (first ? "cmp-tstart " : "") + (ci === 0 && n > 1 ? "cmp-base" : "");
-      if (off) return html`<td key=${c.key + t} class=${cls + " faint"} title="This scenario doesn't sell this package">${r[0] === "Revenue" ? "not offered" : "—"}</td>`;
-      var v = r[2](c.m[t], c.doc, t), gap = ci && !baseOff ? v - r[2](cols[0].m[t], cols[0].doc, t) : 0;
-      var show = ci && !baseOff && Math.abs(gap) >= 0.005;
-      var tone = !show ? "" : r[3] === 0 ? "muted" : gap * r[3] > 0 ? "good" : "bad";
-      return html`<td key=${c.key + t} class=${cls}>${r[1](c.m[t], c.doc, t)}${show ? html`<div class=${"cmp-gap " + tone}>${r[4](gap)}</div>` : null}</td>`;
-    }
     return html`<div class="page">
-      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios at " + VIEW_NAMES[view] + " (change it in the Live margin panel). The first is the baseline; the others show ▲ or ▼ against it. The scenarios you pick are saved with the open scenario."} />
+      <${PageHead} kicker="Scenarios" title="Compare scenarios" lead=${"Up to three scenarios side by side at " + VIEW_NAMES[view] + " (change it in the Live margin panel). The first scenario is the baseline: under each number in the others is the gap to it. The scenarios you pick are saved with the open scenario."} />
       <section class="panel">
         <div class="panel-b compare-picks">
           ${picks.map(function (k, i) {
-            return html`<span key=${i} class="cmp-pick">${dot(cols[i])}<span class="tiny faint">${i === 0 ? "Baseline" : "vs"}</span>
-              <select id=${"cmp-" + i} aria-label=${"Scenario " + (i + 1)} value=${k} onChange=${function (e) { setPick(i, e.target.value); }}>
-                ${options.map(function (o) { return html`<option key=${o.key} value=${o.key}>${o.label}</option>`; })}
-              </select>${picks.length > 1 ? html`<button type="button" class="x" aria-label="Remove from comparison" onClick=${function () { setPick(i, null); }}>×</button>` : null}</span>`;
+            return html`<span key=${i} class="growth-count"><select id=${"cmp-" + i} aria-label=${"Scenario " + (i + 1)} value=${k} onChange=${function (e) { setPick(i, e.target.value); }}>
+              ${options.map(function (o) { return html`<option key=${o.key} value=${o.key}>${o.label}</option>`; })}
+            </select>${picks.length > 1 ? html`<button type="button" class="x" aria-label="Remove from comparison" onClick=${function () { setPick(i, null); }}>×</button>` : null}</span>`;
           })}
           ${picks.length < 3 && options.length > picks.length ? html`<button type="button" class="btn sm" onClick=${function () {
             var next = options.find(function (o) { return picks.indexOf(o.key) < 0; });
@@ -1864,40 +1840,28 @@
           }}>+ Add a scenario</button>` : null}
           ${!cloud.db ? html`<span class="small muted">Saved scenarios show up here on the published Planner.</span>` : null}
         </div>
-      </section>
-
-      <section class="panel">
-        <div class="table-wrap"><table class="compare cmp-simple">
-          <thead><tr><th>Margin</th>${cols.map(function (c, ci) {
-            return html`<th key=${c.key} title=${c.label}>${dot(c)}<span>${c.short}</span>${ci === 0 && n > 1 ? html`<span class="faint small"> · baseline</span>` : null}</th>`;
-          })}</tr></thead>
-          <tbody>${TIERS.map(function (t) {
-            return html`<tr key=${t}><td><b>${TIER_NAMES[t]}</b></td>${cols.map(function (c, ci) {
-              var m = c.m[t], off = !sells(c.doc, t), baseOff = !sells(cols[0].doc, t);
-              if (off) return html`<td key=${c.key} class="faint">not offered</td>`;
-              var gap = ci && !baseOff ? m.marginPct - cols[0].m[t].marginPct : 0;
-              return html`<td key=${c.key}><span class="cmp-big">${pct(m.marginPct)}</span> <span class="small muted">${money(m.margin, 2)}/door</span>
-                ${ci && !baseOff ? html`<span class=${"cmp-pill " + (Math.abs(gap) < 0.05 ? "same" : gap > 0 ? "up" : "down")}>${Math.abs(gap) < 0.05 ? "same" : (gap > 0 ? "▲ " : "▼ ") + Math.abs(gap).toFixed(1) + " pts"}</span>` : null}</td>`;
-            })}</tr>`;
+        <div class="table-wrap"><table class="compare">
+          <thead><tr><th></th>${cols.map(function (c) { return html`<th key=${c.key} colspan="3">${c.label}</th>`; })}</tr>
+            <tr><th></th>${cols.map(function (c) { return TIERS.map(function (t) { return html`<th key=${c.key + t} class="small faint">${TIER_SHORT[t]}</th>`; }); })}</tr></thead>
+          <tbody>${rowsDef.map(function (r) {
+            return html`<tr key=${r[0]} class=${r[0].indexOf("Margin") === 0 ? "total" : ""}><td>${r[0]}</td>
+              ${cols.map(function (c, ci) {
+                return TIERS.map(function (t) {
+                  // The first scenario is the baseline and stays plain. Each other one shows its gap to it: green when better, red when worse.
+                  // A package a scenario doesn't sell (no monthly, leasing or renewal fee) shows "not offered" and isn't compared.
+                  var m = c.m[t], base = cols[0].m[t];
+                  var sells = function (d) { var p = d.pricing.tiers[t]; return p.monthlyPct > 0 || p.leasePct > 0 || p.renewal > 0; };
+                  var off = !sells(c.doc), baseOff = !sells(cols[0].doc);
+                  if (off) return html`<td key=${c.key + t} class=${(t === "min" && ci ? "colstart " : "") + "faint"} title="This scenario doesn't sell this package">${r[0].indexOf("Revenue") === 0 ? "not offered" : "—"}</td>`;
+                  var gap = ci && !baseOff ? r[2](m) - r[2](base) : 0;
+                  var show = ci && !baseOff && Math.abs(gap) >= 0.005;
+                  var tcls = r[0].indexOf("Margin") === 0 ? verdict(m, c.doc.pricing.targetPct).cls + " " : "";
+                  return html`<td key=${c.key + t} class=${tcls + (t === "min" && ci ? "colstart" : "")}>${r[1](m)}
+                    ${show ? html`<div class=${"cmp-gap " + (gap * r[3] > 0 ? "good" : "bad")}>${r[4](gap)}</div>` : null}</td>`;
+                });
+              })}</tr>`;
           })}</tbody>
         </table></div>
-        <div class="panel-b"><button type="button" class="link small" aria-expanded=${!!props.ui.pfShut["cmp:more"]} onClick=${function () { props.setUi(function (u) { u.pfShut["cmp:more"] = !u.pfShut["cmp:more"]; }); }}>
-          ${props.ui.pfShut["cmp:more"] ? "▾ Hide prices, revenue and cost" : "▸ Show prices, revenue and cost"}</button></div>
-        ${props.ui.pfShut["cmp:more"] ? html`<div class="table-wrap"><table class="compare cmp-table">
-          <thead>
-            <tr><th></th>${TIERS.map(function (t) { return html`<th key=${t} colspan=${n} class="cmp-tstart cmp-th-tier">${TIER_NAMES[t]}</th>`; })}</tr>
-            <tr><th></th>${TIERS.map(function (t) { return cols.map(function (c, ci) {
-              return html`<th key=${t + c.key} class=${"cmp-th-scen" + (ci === 0 ? " cmp-tstart" : "")} title=${c.label}>${dot(c)}<span>${c.short}</span></th>`;
-            }); })}</tr>
-          </thead>
-          <tbody>${rowsDef.map(function (r) {
-            return html`<${React.Fragment} key=${r[0]}>
-              ${r[5] ? html`<tr class="cmp-sec"><td colspan=${1 + TIERS.length * n}>${r[5]}</td></tr>` : null}
-              <tr class=${r[0].indexOf("Margin") === 0 ? "total" : ""}><td>${r[0]}</td>
-                ${TIERS.map(function (t) { return cols.map(function (c, ci) { return cell(r, c, ci, t); }); })}</tr>
-            </${React.Fragment}>`;
-          })}</tbody>
-        </table></div>` : null}
       </section>
       ${cols.slice(1).map(function (c) { return html`<${CompareDiff} key=${c.key} col=${c} first=${cols[0]} ui=${props.ui} setUi=${props.setUi} />`; })}
     </div>`;
