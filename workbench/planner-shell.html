@@ -360,7 +360,7 @@
   .growth-table td div{ white-space:nowrap; }
 
   /* ---------- scenarios ---------- */
-  .scen-btn{ max-width:170px; }
+  .scen-btn{ max-width:210px; }
   .scen-btn-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
   .unsaved{ color:var(--warn); font-size:10px; }
   .menu.scen-menu{ width:360px; max-height:75vh; overflow:auto; }
@@ -375,7 +375,8 @@
   .scen-item{ width:100%; display:flex; justify-content:space-between; align-items:baseline; gap:8px; text-align:left; background:none; border:1px solid transparent; border-radius:7px; padding:5px 8px; cursor:pointer; }
   .scen-item:hover{ border-color:var(--rule); background:var(--panel-2); }
   .scen-item.on{ border-color:var(--accent); background:var(--accent-tint); }
-  .scen-name{ font-weight:600; font-size:12.5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .scen-name{ font-weight:600; font-size:12.5px; min-width:0; overflow-wrap:anywhere; }
+  .scen-current .row-b b{ min-width:0; overflow-wrap:anywhere; }
   .banner.warn{ background:var(--warn-bg); color:var(--warn); }
   .banner.tip-b{ background:var(--accent-tint); color:var(--accent-ink); }
   .banner-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }

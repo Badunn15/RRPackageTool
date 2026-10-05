@@ -2066,7 +2066,7 @@
           <div class="menu-wrap">
             <button type="button" class="btn scen-btn" aria-expanded=${menu === "scen"} onClick=${function () { setMenu(menu === "scen" ? false : "scen"); }}
               title="Open, save, share and compare scenarios">
-              <span class="scen-btn-name">${scen.name}</span>${dirty ? html`<span class="unsaved" title="Unsaved changes">●</span>` : null} ▾</button>
+              <span class="scen-btn-name" title=${scen.name}>${scen.name}</span>${dirty ? html`<span class="unsaved" title="Unsaved changes">●</span>` : null} ▾</button>
             ${menu === "scen" ? html`<${ScenarioMenu} cloud=${cloud} scen=${scen} lists=${lists} names=${names} dirty=${dirty} saving=${saving}
               save=${save} saveAs=${saveAs} rename=${rename} move=${move} remove=${remove} makeOfficial=${makeOfficial} open=${openScen} startNew=${startNew}
               compare=${function () { setMenu(false); go("compare"); }} />` : null}
