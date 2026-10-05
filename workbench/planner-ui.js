@@ -632,7 +632,7 @@
                 <td>${money(C.cost.other.revenueMo)}</td></tr>
               <tr class="sub"><td>STR</td><td>${money(C.cost.other.strRevenueMo)}</td></tr>
               <tr class="sub"><td>Commercial</td><td>${money(C.cost.other.commRevenueMo)}</td></tr>
-              <tr><td>Their share of costs / mo<${Info} plain=${true} lines=${["The costs every unit comes with (staff, software, overhead) are spread over all " + fmtNum(C.cost.units) + " units: " + money(C.cost.sharedPerUnit, 2) + " per unit per month at " + VIEW_NAMES[doc.cv] + ". These " + fmtNum(C.cost.other.units) + " units carry that share, which is what lowers the cost per package door.", "Turnovers and guarantees stay on the package doors."]} /></td>
+              <tr><td>Their share of costs / mo<${Info} plain=${true} lines=${["The costs every unit comes with (staff, software, overhead) are spread over all " + fmtNum(C.cost.units) + " units: " + money(C.cost.sharedPerUnit, 2) + " per unit per month at " + VIEW_NAMES[doc.cv] + ". These " + fmtNum(C.cost.other.units) + " units carry that share, which is what lowers the cost per package door.", "Turnovers, listing costs like cameras, and guarantees stay on the package doors."]} /></td>
                 <td>−${money(C.cost.other.costMo)}</td></tr>
               <tr class="total"><td>Contributes / mo</td><td class=${C.cost.other.contributionMo < 0 ? "bad" : "good"}>${money(C.cost.other.contributionMo)}</td></tr>
               <tr class="sub"><td>Per year</td><td>${money(C.cost.other.contributionMo * 12)}</td></tr>
@@ -668,7 +668,7 @@
     ] },
     { title: "STR and commercial", fields: [
       { id: "f-str", label: "Short-term rental units", get: function (d) { return d.G.str; }, set: function (d, v) { d.G.str = Math.max(0, Math.round(v)); d.af.rd = d.G.doors + d.G.str; }, step: 1, min: 0,
-        help: "They share the costs every unit comes with, which lowers the cost per package door. AppFolio bills them as residential." },
+        help: "They share the costs every unit comes with (not turnovers, listings or guarantees), which lowers the cost per package door. AppFolio bills them as residential." },
       { id: "f-strincome", label: "STR income per unit", prefix: "$", suffix: "/mo", get: function (d) { return d.G.strIncome; }, set: function (d, v) { d.G.strIncome = v; }, step: 100, min: 0,
         help: "Average monthly income an STR unit brings in. Raynor's fee is a share of it." },
       { id: "f-strpct", label: "STR fee", suffix: "%", get: function (d) { return d.G.strPct; }, set: function (d, v) { d.G.strPct = Math.min(100, v); }, step: 1, min: 0, max: 100,

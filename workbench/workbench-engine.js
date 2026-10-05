@@ -217,11 +217,12 @@ function syncLinked(doc, tp, kind, id, tier) {
  * Units. G.doors = long-term residential doors, the ones on the three packages. G.str (short-term rentals) and
  * G.comm (commercial) are other units Raynor manages. Costs that come with every unit (salaries, flat software,
  * overhead, per-unit software) are spread over all of them, so STR and commercial lower the cost per package door.
- * Turnovers and guarantees only happen on package doors, so they stay on those doors.
+ * Turnovers, active listings and guarantees only happen on package doors, so they stay on those doors.
  */
 function otherUnits(doc) { return (doc.G.str || 0) + (doc.G.comm || 0); }
 function allUnits(doc) { return (doc.G.doors || 0) + otherUnits(doc); }
-function residentialOnly(row, gid) { return row.e === "event" || gid === "guar"; }
+/* Costs only package doors cause: turnovers, active listings (cameras and the like) and guarantees. */
+function residentialOnly(row, gid) { return row.e === "event" || row.e === "listing" || gid === "guar"; }
 function linePerDoor(doc, mo, row, gid) {
   if (!doc.G.doors) return 0;
   return residentialOnly(row, gid) ? mo / doc.G.doors : mo / allUnits(doc);
