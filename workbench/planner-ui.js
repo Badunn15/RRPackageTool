@@ -544,8 +544,6 @@
     if (sp && !sp.amount) out.push({ page: "services", sel: { kind: "fee", id: sp.id }, title: "Special-circumstance coordination happens 0% of the time", text: "Set the share of work orders billed at $" + fmtNum(sp.price || 0) + " instead of the regular fee." });
     var rl = findCostRow(doc, "rentloss");
     if (rl && !(doc.vl.rentloss != null ? doc.vl.rentloss : rl.row.v)) out.push({ page: "costs", sel: { kind: "cost", id: "rentloss" }, title: "Rent-loss guarantee has no cost yet", text: "Left at $0 on purpose for now." });
-    if (doc.G.str && !doc.G.strIncome) out.push({ page: "portfolio", field: "f-strincome", title: "STR income per unit is $0", text: "STR units share costs but bring in nothing until this is set." });
-    if (doc.G.comm && !doc.G.commRent) out.push({ page: "portfolio", field: "f-commrent", title: "Commercial rent per unit is $0", text: "Commercial units share costs but bring in nothing until this is set." });
     if (doc.pricing.targetPct === 20) out.push({ page: "portfolio", field: "f-target", title: "Target margin is the 20% placeholder", text: "It sets the green mark on every price slider and the On target / Below target labels." });
     var units = scopeIds(doc).filter(function (id) { return (doc.pbase[id] || "door_yr") === "door_yr" && scopeValue(doc, id) >= 200; });
     if (units.length) out.push({ page: "services", sel: { kind: "svc", id: units[0] }, title: units.length + " service" + (units.length > 1 ? "s look" : " looks") + " like a price per event entered per door", text: "Flagged \"check unit\" on the Services page." });
@@ -624,21 +622,6 @@
         </section>
 
         <div style=${{ display: "flex", flexDirection: "column", gap: "14px" }}>
-        ${C.cost.other.units ? html`<section class="panel">
-          <div class="panel-h"><h2>STR and commercial</h2><span class="small muted">${fmtNum(doc.G.str || 0)} STR · ${fmtNum(doc.G.comm || 0)} commercial · ${VIEW_NAMES[doc.cv]}</span></div>
-          <div class="table-wrap"><table class="compare">
-            <tbody>
-              <tr><td>Brings in / mo<${Info} plain=${true} lines=${["STR: units × income per unit × " + fmtNum(doc.G.strPct || 0) + "%. Commercial: units × (rent per unit × " + fmtNum(doc.G.commPct || 0) + "% + other fees ÷ 12).", "Set them under Portfolio → STR and commercial."]} /></td>
-                <td>${money(C.cost.other.revenueMo)}</td></tr>
-              <tr class="sub"><td>STR</td><td>${money(C.cost.other.strRevenueMo)}</td></tr>
-              <tr class="sub"><td>Commercial</td><td>${money(C.cost.other.commRevenueMo)}</td></tr>
-              <tr><td>Their share of costs / mo<${Info} plain=${true} lines=${["The costs every unit comes with (staff, software, overhead) are spread over all " + fmtNum(C.cost.units) + " units: " + money(C.cost.sharedPerUnit, 2) + " per unit per month at " + VIEW_NAMES[doc.cv] + ". These " + fmtNum(C.cost.other.units) + " units carry that share, which is what lowers the cost per package door.", "Turnovers, listing costs like cameras, and guarantees stay on the package doors."]} /></td>
-                <td>−${money(C.cost.other.costMo)}</td></tr>
-              <tr class="total"><td>Contributes / mo</td><td class=${C.cost.other.contributionMo < 0 ? "bad" : "good"}>${money(C.cost.other.contributionMo)}</td></tr>
-              <tr class="sub"><td>Per year</td><td>${money(C.cost.other.contributionMo * 12)}</td></tr>
-            </tbody>
-          </table></div>
-        </section>` : null}
         <section class="panel">
           <div class="panel-h"><h2>Needs your numbers</h2><span class="small muted">${todo.length ? todo.length + " open" : "all set"}</span></div>
           ${todo.length ? html`<ul class="todo">${todo.map(function (x, i) {
@@ -669,18 +652,9 @@
     { title: "STR and commercial", fields: [
       { id: "f-str", label: "Short-term rental units", get: function (d) { return d.G.str; }, set: function (d, v) { d.G.str = Math.max(0, Math.round(v)); d.af.rd = d.G.doors + d.G.str; }, step: 1, min: 0,
         help: "They share the costs every unit comes with (not turnovers, listings or guarantees), which lowers the cost per package door. AppFolio bills them as residential." },
-      { id: "f-strincome", label: "STR income per unit", prefix: "$", suffix: "/mo", get: function (d) { return d.G.strIncome; }, set: function (d, v) { d.G.strIncome = v; }, step: 100, min: 0,
-        help: "Average monthly income an STR unit brings in. Raynor's fee is a share of it." },
-      { id: "f-strpct", label: "STR fee", suffix: "%", get: function (d) { return d.G.strPct; }, set: function (d, v) { d.G.strPct = Math.min(100, v); }, step: 1, min: 0, max: 100,
-        help: "Share of income received that Raynor keeps." },
       { id: "f-comm", label: "Commercial units", get: function (d) { return d.G.comm; }, set: function (d, v) { d.G.comm = Math.max(0, Math.round(v)); d.af.cd = d.G.comm; }, step: 1, min: 0,
-        help: "They share the costs every unit comes with. AppFolio bills them at its commercial rate." },
-      { id: "f-commrent", label: "Commercial rent per unit", prefix: "$", suffix: "/mo", get: function (d) { return d.G.commRent; }, set: function (d, v) { d.G.commRent = v; }, step: 100, min: 0,
-        help: "Average monthly rent on a commercial unit." },
-      { id: "f-commpct", label: "Commercial monthly fee", suffix: "%", get: function (d) { return d.G.commPct; }, set: function (d, v) { d.G.commPct = Math.min(100, v); }, step: 0.5, min: 0, max: 100,
-        help: "Share of monthly rent Raynor keeps." },
-      { id: "f-commother", label: "Other commercial fees", prefix: "$", suffix: "/unit/yr", get: function (d) { return d.G.commOtherYr; }, set: function (d, v) { d.G.commOtherYr = v; }, step: 50, min: 0,
-        help: "A rough yearly figure per unit for renewal fees and leasing commissions until those get their own setup." }
+        help: "They share the costs every unit comes with (not turnovers, listings or guarantees), which lowers the cost per package door. AppFolio bills them at its commercial rate." },
+
     ] },
     { title: "Yearly activity, whole portfolio", fields: [
       { id: "f-wo", label: "Work orders", suffix: "/yr", get: function (d) { return d.G.wo; }, set: function (d, v) { d.G.wo = v; }, step: 10, min: 0,
