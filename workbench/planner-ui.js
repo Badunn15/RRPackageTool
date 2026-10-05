@@ -660,7 +660,11 @@
       { id: "f-tenancy", label: "Average tenancy", suffix: "yrs", get: function (d) { return d.G.tenancy; }, set: function (d, v) { d.G.tenancy = v; }, step: 0.5, min: 0.25,
         help: "How long a tenant stays. Sets how often units turn over (leasing fees and turnover costs) and how many renewals happen." },
       { id: "f-listings", label: "Active listings", get: function (d) { return d.G.listings; }, set: function (d, v) { d.G.listings = v; }, step: 1, min: 0,
-        help: "Units listed for rent at a typical moment. Per-listing costs multiply by this." }
+        help: "Units listed for rent at a typical moment. Per-listing costs multiply by this." },
+      { id: "f-term", label: "Lease term", suffix: "mo", get: function (d) { return d.pricing.term; }, set: function (d, v) { d.pricing.term = Math.max(1, v); }, step: 1, min: 1,
+        help: "Length of a standard lease. Renewals and the owner's fee choice are figured per lease term." },
+      { id: "f-vacancy", label: "Vacancy", suffix: "%", get: function (d) { return d.pricing.vacancyPct; }, set: function (d, v) { d.pricing.vacancyPct = Math.min(100, v); }, step: 1, min: 0, max: 100,
+        help: "Keep at 0%. Raynor only collects fees once a renter is placed. Use it only to test an owner-side vacancy." }
     ] },
     { title: "STR and commercial", fields: [
       { id: "f-str", label: "Short-term rental units", get: function (d) { return d.G.str; }, set: function (d, v) { d.G.str = Math.max(0, Math.round(v)); d.af.rd = d.G.doors + d.G.str; }, step: 1, min: 0,
@@ -677,12 +681,6 @@
         help: "Share of monthly rent Raynor keeps." },
       { id: "f-commother", label: "Other commercial fees", prefix: "$", suffix: "/unit/yr", get: function (d) { return d.G.commOtherYr; }, set: function (d, v) { d.G.commOtherYr = v; }, step: 50, min: 0,
         help: "A rough yearly figure per unit for renewal fees and leasing commissions until those get their own setup." }
-    ] },
-    { title: "Leases", fields: [
-      { id: "f-term", label: "Lease term", suffix: "mo", get: function (d) { return d.pricing.term; }, set: function (d, v) { d.pricing.term = Math.max(1, v); }, step: 1, min: 1,
-        help: "Length of a standard lease. Renewals and the owner's fee choice are figured per lease term." },
-      { id: "f-vacancy", label: "Vacancy", suffix: "%", get: function (d) { return d.pricing.vacancyPct; }, set: function (d, v) { d.pricing.vacancyPct = Math.min(100, v); }, step: 1, min: 0, max: 100,
-        help: "Keep at 0%. Raynor only collects fees once a renter is placed. Use it only to test an owner-side vacancy." }
     ] },
     { title: "Yearly activity, whole portfolio", fields: [
       { id: "f-wo", label: "Work orders", suffix: "/yr", get: function (d) { return d.G.wo; }, set: function (d, v) { d.G.wo = v; }, step: 10, min: 0,
