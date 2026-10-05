@@ -7,3 +7,7 @@ out
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+# Built workbench pages (regenerate with workbench/build-workbench.js)
+workbench/package-margin-*.html
+workbench/sheet-ui.js
