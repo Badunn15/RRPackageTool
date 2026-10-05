@@ -1375,10 +1375,11 @@
   function Growth(props) {
     var doc = props.doc, today = doc.G.doors, C = props.C;
     var fallback = today < 250 ? 250 : Math.round((today + 100) / 10) * 10;
-    var list = props.ui.compareList || [props.ui.compareDoors || fallback];
+    // The door counts are saved with the open scenario (doc.growth), so they come back after a refresh.
+    var list = (Array.isArray(doc.growth) && doc.growth.length && doc.growth) || props.ui.compareList || [props.ui.compareDoors || fallback];
     var key = list.join(",");
     var runs = useMemo(function () { return list.map(function (n) { return marginsAt(doc, n, doc.cv); }); }, [doc, key]);
-    function setList(fn) { props.setUi(function (u) { var l = (u.compareList || list).slice(); fn(l); u.compareList = l; }); }
+    function setList(fn) { var l = list.slice(); fn(l); props.update(function (d) { d.growth = l; }, "Growth: door counts"); }
     var mc = null;
     doc.CG.forEach(function (g) { g.rows.forEach(function (r) { if (r.id === "mc") mc = r; }); });
     var biggest = Math.max.apply(null, list);
@@ -1412,7 +1413,7 @@
             ${list.map(function (n, i) { return html`<th key=${i}>${fmtNum(n)} doors</th>`; })}</tr></thead>
           <tbody>${TIERS.map(function (t) {
             var a = C.margins[t];
-            return html`<tr key=${t}><td><b>${TIER_NAMES[t]}</b></td>
+            return html`<tr key=${t}><td><b class="pkg-name">${TIER_NAMES[t]}</b></td>
               <td><div>${money(a.margin, 2)} · ${pct(a.marginPct)}</div><div class="small faint">cost ${money(a.cost, 2)} · ${money(a.portfolioMo * 12)}/yr</div></td>
               ${runs.map(function (r, i) {
                 var b = r.margins[t];
