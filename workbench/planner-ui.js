@@ -539,24 +539,8 @@
   }
 
   /* ------------------------------ pages ------------------------------ */
-  function needsInput(doc, source) {
-    var out = [];
-    if (source === SEED_LABEL) out.push({ page: "data", title: "You're looking at the seed numbers", text: "Export from the cost tool (Edit model → Export), then use Data → Import scenario." });
-    if (!doc.G.wo) out.push({ page: "portfolio", field: "f-wo", title: "Work orders per year is 0", text: "Maintenance coordination fees are billed per work order, so they bring in nothing until this is set." });
-    if (!doc.G.evictNotPlacedPct) out.push({ page: "portfolio", field: "f-notplaced", title: "Evictions where Raynor didn't place the tenant: 0%", text: "Every eviction in a guaranteed tier is treated as covered. Set the real share when you have it." });
-    var sp = doc.addons.find(function (a) { return a.id === "addon_coord_special"; });
-    if (sp && !sp.amount) out.push({ page: "services", sel: { kind: "fee", id: sp.id }, title: "Special-circumstance coordination happens 0% of the time", text: "Set the share of work orders billed at $" + fmtNum(sp.price || 0) + " instead of the regular fee." });
-    var rl = findCostRow(doc, "rentloss");
-    if (rl && !(doc.vl.rentloss != null ? doc.vl.rentloss : rl.row.v)) out.push({ page: "costs", sel: { kind: "cost", id: "rentloss" }, title: "Rent-loss guarantee has no cost yet", text: "Left at $0 on purpose for now." });
-    if (doc.pricing.targetPct === 20) out.push({ page: "portfolio", field: "f-target", title: "Target margin is the 20% placeholder", text: "It sets the green mark on every price slider and the On target / Below target labels." });
-    var units = scopeIds(doc).filter(function (id) { return (doc.pbase[id] || "door_yr") === "door_yr" && scopeValue(doc, id) >= 200; });
-    if (units.length) out.push({ page: "services", sel: { kind: "svc", id: units[0] }, title: units.length + " service" + (units.length > 1 ? "s look" : " looks") + " like a price per event entered per door", text: "Flagged \"check unit\" on the Services page." });
-    return out;
-  }
-
   function Summary(props) {
     var doc = props.doc, C = props.C, P = doc.pricing, focus = props.ui.focus, G = doc.G;
-    var todo = needsInput(doc, props.source);
     var fc = function (t) { return focus === t ? "focus" : ""; };
     var groupRowsOut = doc.CG.map(function (g) {
       var vals = {}, any = false;
@@ -571,26 +555,10 @@
       return html`<tr class=${cls || ""}><td>${label}${info ? html`<${Info} plain=${true} lines=${info} />` : null}</td>
         ${TIERS.map(function (t) { return html`<td key=${t} class=${fc(t)}>${fn(t)}</td>`; })}</tr>`;
     }
-    var steps = PAGES.filter(function (p) { return p.n; });
-    var stepText = {
-      portfolio: "Door count, rent, tenancy, yearly activity, AppFolio and your target.",
-      costs: "What Raynor pays, and which tier each cost belongs to.",
-      services: "What each tier promises, the PM time it takes, and per-use fees.",
-      fees: "Optional extras owners can buy, and owner benefits packages.",
-      prices: "Monthly, leasing and renewal fees, and the owner's fee choice."
-    };
     return html`<div class="page">
       <${PageHead} kicker="Raynor Realty · Internal" title="Is each package making money?"
-        lead=${"Each tier's revenue, cost and margin at " + VIEW_NAMES[doc.cv] + " on " + fmtNum(G.doors) + " doors. Work through steps 1 to 5 to set it up. Every change shows its effect in the rail on the right."} />
-      <div class="flow">${steps.map(function (s) {
-        var n = todo.filter(function (x) { return x.page === s.id; }).length;
-        return html`<button key=${s.id} type="button" onClick=${function () { props.go(s.id); }}>
-          <span class="n">Step ${s.n}${n ? html` · <span class="warn">${n} to check</span>` : null}</span>
-          <b>${s.label}</b><span>${stepText[s.id]}</span>
-        </button>`;
-      })}</div>
-
-      <div class="two">
+        lead=${"Each tier's revenue, cost and margin at " + VIEW_NAMES[doc.cv] + " on " + fmtNum(G.doors) + " doors. Every change shows its effect in the rail on the right."} />
+      <div>
         <section class="panel">
           <div class="panel-h"><h2>Side by side</h2><span class="small muted">per door per month unless noted</span></div>
           <div class="table-wrap"><table class="compare">
@@ -625,15 +593,6 @@
           </table></div>
         </section>
 
-        <div style=${{ display: "flex", flexDirection: "column", gap: "14px" }}>
-        <section class="panel">
-          <div class="panel-h"><h2>Needs your numbers</h2><span class="small muted">${todo.length ? todo.length + " open" : "all set"}</span></div>
-          ${todo.length ? html`<ul class="todo">${todo.map(function (x, i) {
-            return html`<li key=${i}><div class="what"><b>${x.title}</b><div>${x.text}</div></div>
-              <button type="button" class="btn sm" onClick=${function () { props.jump(x); }}>${x.page === "data" ? "Open Data" : "Fix"}</button></li>`;
-          })}</ul>` : html`<p class="note" style=${{ padding: "0 14px 14px" }}>Nothing flagged. Every placeholder has a number.</p>`}
-        </section>
-        </div>
       </div>
     </div>`;
   }
@@ -892,6 +851,7 @@
     }
     var sel = ui.sel && ui.sel.kind === "svc" ? ui.sel.id : null;
     var benchIds = Object.keys(doc.MASTER).filter(function (id) { return doc.place[id] === "uc"; });
+    var benchCats = Object.keys(doc.MASTER).reduce(function (a, k) { var c = doc.icat[k] || doc.MASTER[k].dc; if (c && a.indexOf(c) < 0) a.push(c); return a; }, []).sort();
     function promote(id, dest) {
       var svc = doc.MASTER[id];
       update(function (d) {
@@ -1000,7 +960,13 @@
         <${ShutHead} k="sec:bench" ui=${ui} setUi=${props.setUi} title="Bench: not offered yet" sum=${benchIds.length + " ideas"} />
         ${ui.pfShut["sec:bench"] ? null : benchIds.length ? html`<ul class="bench">${benchIds.map(function (id) {
           var svc = doc.MASTER[id];
-          return html`<li key=${id}><span>${svc.n} <span class="faint small">· ${doc.icat[id] || svc.dc}</span></span>
+          return html`<li key=${id}><span style=${{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+              <input type="text" class="txt" id=${"bn-" + id} aria-label="Idea name" value=${svc.n}
+                onChange=${function (e) { var val = e.target.value.trim(); if (val) update(function (d) { d.MASTER[id].n = val; }, "Renamed a bench idea"); }} />
+              <select id=${"bc-" + id} aria-label=${"Category for " + svc.n} value=${doc.icat[id] || svc.dc}
+                onChange=${function (e) { var val = e.target.value; update(function (d) { d.icat[id] = val; }, svc.n + ": category"); }}>
+                ${benchCats.concat(benchCats.indexOf(doc.icat[id] || svc.dc) < 0 ? [doc.icat[id] || svc.dc] : []).map(function (c) { return html`<option key=${c} value=${c}>${c}</option>`; })}
+              </select></span>
             <select id=${"bench-" + id} aria-label=${"Offer " + svc.n + " as"} value="" onChange=${function (e) { if (e.target.value) promote(id, e.target.value); }}>
               <option value="">Offer as…</option>
               <option value="scope">A service in scope</option>
@@ -1008,6 +974,14 @@
               ${doc.CG.map(function (g) { return html`<option key=${g.id} value=${g.id}>A cost line in ${g.label}</option>`; })}
             </select></li>`;
         })}</ul>` : html`<p class="note" style=${{ padding: "0 14px 14px" }}>Nothing on the bench.</p>`}
+        ${ui.pfShut["sec:bench"] ? null : html`<div style=${{ padding: "0 14px 14px" }}><button type="button" class="btn sm" onClick=${function () {
+          var id = "uc_" + Date.now().toString(36);
+          update(function (d) {
+            d.MASTER[id] = { id: id, n: "New idea", d: "", dp: "uc", dc: benchCats[0] || "Property Operations", dsv: 0, dt: { min: false, special: false, plus: false } };
+            d.place[id] = "uc";
+          }, "Added a bench idea");
+          setTimeout(function () { var el = document.getElementById("bn-" + id); if (el) { el.focus(); el.select(); } }, 60);
+        }}>+ Add an idea to the bench</button></div>`}
       </section>
       <${Next} go=${props.go} to="fees" label="Step 4: Add-ons" text="Next, set optional extras owners can buy and any benefits package." />
     </div>`;
@@ -1896,7 +1870,6 @@
     }
 
     var C = useMemo(function () { return compute(doc); }, [doc]);
-    var todo = needsInput(doc, source);
 
     function onImport(e) {
       var file = e.target.files && e.target.files[0];
@@ -1936,11 +1909,10 @@
         <div class="brand"><img src=${LOGO} alt="Raynor Realty, property management since 1987" width="38" height="38" /><div class="brand-t"><span>Raynor Realty</span><b>Bottom Line</b></div></div>
         <nav class="steps" aria-label="Pages">
           ${PAGES.map(function (p, i) {
-            var n = todo.filter(function (x) { return x.page === p.id; }).length;
             return html`<${React.Fragment} key=${p.id}>
               ${p.id === "growth" ? html`<span class="step-sep"></span>` : null}
               <button type="button" class="step" aria-current=${page === p.id ? "page" : null} onClick=${function () { go(p.id); }}>
-                ${p.n ? html`<span class="n">${p.n}</span>` : null}${p.label}${n ? html`<span class="dot" title=${n + " to check"}></span>` : null}
+                ${p.n ? html`<span class="n">${p.n}</span>` : null}${p.label}
               </button>
               ${p.id === "summary" ? html`<span class="step-sep"></span>` : null}
             </${React.Fragment}>`;
