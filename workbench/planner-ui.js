@@ -469,6 +469,16 @@
     }, (dest === "addon" ? "Made " + svc.n + " an add-on" : "Offered " + svc.n));
   }
 
+  /* How often an optional add-on happens: a number and a unit (see ADDON_PER in the engine). */
+  function OftenCell(props) {
+    var a = props.a, name = props.name, idp = props.idp, per = a.per || "door_yr";
+    return html`<span style=${{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
+      <${Affix} id=${idp + "-n"} cls="w-sm" min=${0} step=${0.25} label=${"How often " + name} value=${a.freq || 0} onChange=${function (v) { props.edit(function (x) { x.freq = v; }, "how often"); }} />
+      <select id=${idp + "-u"} aria-label=${"How often unit for " + name} value=${per} onChange=${function (e) { var v = e.target.value; props.edit(function (x) { x.per = v; }, "how often"); }}>
+        ${Object.keys(ADDON_PER).map(function (k) { return html`<option key=${k} value=${k}>${ADDON_PER[k]}</option>`; })}
+      </select></span>`;
+  }
+
   /* "Also sell as an add-on" for a service (kind "psk") or a cost line (kind "ck"): sold to the tiers that leave it out. */
   function SellAddon(props) {
     var doc = props.doc, update = props.update, id = props.id, name = props.name, kind = props.kind;
@@ -487,7 +497,7 @@
       <div class="kv">
         <span>Owner pays</span><${Affix} id=${"i-ap-" + id} prefix="$" cls="w-lg" min=${0} label="Owner price" value=${ad.price || 0} onChange=${function (v) { edit(function (x) { x.price = v; }, "owner price"); }} />
         <span>Your cost</span><${Affix} id=${"i-ac-" + id} prefix="$" cls="w-lg" min=${0} label="Your cost each time" value=${ad.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
-        <span>Times a year</span><${Affix} id=${"i-af-" + id} cls="w-sm" min=${0} step=${0.25} suffix="/door" label="Times a year per door" value=${ad.freq || 0} onChange=${function (v) { edit(function (x) { x.freq = v; }, "times a year"); }} />
+        <span>How often</span><${OftenCell} a=${ad} name=${name} idp=${"i-af-" + id} edit=${edit} />
         <span>Owners who buy</span><${Affix} id=${"i-au-" + id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label="Share of owners who buy" value=${ad.uptake || 0} onChange=${function (v) { edit(function (x) { x.uptake = Math.min(100, v); }, "owners who buy"); }} />
       </div>
       <p class="note">For sale in: ${TIERS.filter(function (t) { return ad.tiers[t] !== "off"; }).map(function (t) { return TIER_SHORT[t]; }).join(", ") || "no tier"}. Tiers that include it don't sell it. Fine-tune on the Add-ons page.</p>
@@ -1165,7 +1175,7 @@
         <div class="panel-h"><h2>Optional add-ons</h2><span class="small muted">Sold: owners can buy it. Included: every door in the tier gets it. Off: not offered.</span></div>
         <div class="table-wrap"><table class="grid">
           <thead><tr>
-            <th class="l">Add-on</th><th>Owner pays</th><th>Your cost</th><th>Times a year</th><th>Owners who buy</th>
+            <th class="l">Add-on</th><th>Owner pays</th><th>Your cost</th><th>How often</th><th>Owners who buy</th>
             <${TierHeads} focus=${focus} />
             <th></th>
           </tr></thead>
@@ -1176,7 +1186,7 @@
                   onChange=${function (e) { var v = e.target.value; edit(a.id, function (x) { x.name = v; }, "Renamed an add-on"); }} /></td>
                 <td><${Affix} id=${"ap-" + a.id} prefix="$" min=${0} label=${"Owner price for " + a.name} value=${a.price || 0} onChange=${function (v) { edit(a.id, function (x) { x.price = v; }, a.name + ": owner price"); }} /></td>
                 <td><${Affix} id=${"ac-" + a.id} prefix="$" min=${0} label=${"Your cost for " + a.name} value=${a.cost || 0} onChange=${function (v) { edit(a.id, function (x) { x.cost = v; }, a.name + ": your cost"); }} /></td>
-                <td><${Affix} id=${"af-" + a.id} cls="w-sm" min=${0} step=${0.25} suffix="/door" label=${"Times a year per door for " + a.name} value=${a.freq || 0} onChange=${function (v) { edit(a.id, function (x) { x.freq = v; }, a.name + ": times a year"); }} /></td>
+                <td><${OftenCell} a=${a} name=${a.name} idp=${"af-" + a.id} edit=${function (fn, label) { edit(a.id, fn, a.name + ": " + label); }} /></td>
                 <td><${Affix} id=${"au-" + a.id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label=${"Share of owners who buy " + a.name} value=${a.uptake || 0} onChange=${function (v) { edit(a.id, function (x) { x.uptake = Math.min(100, v); }, a.name + ": owners who buy"); }} /></td>
                 ${TIERS.map(function (t) {
                   var n = netFor(a, t);
@@ -1217,7 +1227,7 @@
                     return html`<label key=${a.id} class="bundle-item" for=${"bi-" + b.id + "-" + a.id}>
                       <input type="checkbox" id=${"bi-" + b.id + "-" + a.id} checked=${on}
                         onChange=${function () { edit(b.id, function (x) { x.items = on ? x.items.filter(function (i) { return i !== a.id; }) : x.items.concat([a.id]); }, b.name + ": " + (on ? "removed " : "added ") + a.name); }} />
-                      <span>${a.name}</span><span class="faint small mono">${money((a.price || 0) * (a.freq || 0) / 12, 2)}/mo value</span>
+                      <span>${a.name}</span><span class="faint small mono">${money((a.price || 0) * addonTimesPerDoorYr(doc, a) / 12, 2)}/mo value</span>
                     </label>`;
                   }) : html`<p class="note">Add some optional add-ons above first.</p>`}
                 </div>

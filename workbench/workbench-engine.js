@@ -94,11 +94,23 @@ function billedEvictionsYr(doc, tier) {
 function bundleItems(doc, b) {
   return (b.items || []).map(function (id) { return doc.addons.find(function (a) { return a.id === id; }); }).filter(Boolean);
 }
+/*
+ * How often an optional add-on happens, per door per year, from its "How often" number and unit (a.per):
+ * per door a year (default), per turnover (only when a unit turns over), per door a month, or a count a year across all doors.
+ */
+var ADDON_PER = { door_yr: "per door / yr", turnover: "per turnover", month: "per door / mo", portfolio_yr: "per year, all doors" };
+function addonTimesPerDoorYr(doc, a) {
+  var n = a.freq || 0, per = a.per || "door_yr";
+  if (per === "turnover") return doc.G.tenancy > 0 ? n / doc.G.tenancy : 0;
+  if (per === "month") return n * 12;
+  if (per === "portfolio_yr") return doc.G.doors ? n / doc.G.doors : 0;
+  return n;
+}
 function bundleCostPerDoorYr(doc, b) {
-  return bundleItems(doc, b).reduce(function (s, a) { return s + (a.cost || 0) * (a.freq || 0); }, 0);
+  return bundleItems(doc, b).reduce(function (s, a) { return s + (a.cost || 0) * addonTimesPerDoorYr(doc, a); }, 0);
 }
 function bundleValuePerDoorYr(doc, b) {
-  return bundleItems(doc, b).reduce(function (s, a) { return s + (a.price || 0) * (a.freq || 0); }, 0);
+  return bundleItems(doc, b).reduce(function (s, a) { return s + (a.price || 0) * addonTimesPerDoorYr(doc, a); }, 0);
 }
 
 /* Raynor's fixed cost per occurrence. The billed eviction's is the court fee from Assumptions, shared with the guarantee line. */
@@ -134,7 +146,7 @@ function addonEventsYr(doc, a, tier) {
   if (a.basis === "evict_billed") return billedEvictionsYr(doc, tier);
   if (a.basis === "optional" || a.basis === "bundle") {
     var share = addonState(a, tier) === "included" ? 1 : (a.uptake || 0) / 100;
-    return (doc.G.doors || 0) * share * (a.basis === "optional" ? a.freq || 0 : 1);
+    return (doc.G.doors || 0) * share * (a.basis === "optional" ? addonTimesPerDoorYr(doc, a) : 1);
   }
   if (a.basis === "door_yr") return (a.amount || 0) * (doc.G.doors || 0);
   return a.amount || 0;
@@ -785,5 +797,5 @@ function validDoc(d) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }
