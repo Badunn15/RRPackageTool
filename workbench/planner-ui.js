@@ -374,6 +374,7 @@
     var body = null;
     if (sel && sel.kind === "cost") body = html`<${CostInspector} doc=${doc} C=${props.C} id=${sel.id} update=${update} setUi=${props.setUi} />`;
     if (sel && sel.kind === "svc") body = html`<${ServiceInspector} doc=${doc} C=${props.C} id=${sel.id} update=${update} setUi=${props.setUi} />`;
+    if (sel && sel.kind === "addon") body = html`<${AddonInspector} doc=${doc} id=${sel.id} update=${update} setUi=${props.setUi} />`;
     if (sel && sel.kind === "bench") body = html`<${BenchInspector} doc=${doc} id=${sel.id} update=${update} setUi=${props.setUi} />`;
     if (sel && sel.kind === "fee") body = html`<${FeeInspector} doc=${doc} C=${props.C} id=${sel.id} update=${update} setUi=${props.setUi} />`;
     var shut = !!props.ui.railShut.details;
@@ -381,7 +382,7 @@
       <${RailHead} k="details" title="Details" ui=${props.ui} setUi=${props.setUi}>
         ${sel && !shut ? html`<button type="button" class="link small" onClick=${function () { props.setUi(function (u) { u.sel = null; }); }} title="Deselect the row and close its details. Nothing is deleted.">Close</button>` : null}
       </${RailHead}>
-      ${shut ? null : body || html`<p class="small muted" style=${{ margin: 0 }}>Click any cost line, service or fee to see its math, every setting it has, and what it's worth to each tier.</p>`}
+      ${shut ? null : body || html`<p class="small muted" style=${{ margin: 0 }}>Click any cost line, service, fee or add-on to see its math, every setting it has, and what it's worth to each tier.</p>`}
     </section>`;
   }
 
@@ -505,6 +506,43 @@
       </div>
       <p class="note">For sale in: ${TIERS.filter(function (t) { return ad.tiers[t] !== "off"; }).map(function (t) { return TIER_SHORT[t]; }).join(", ") || "no tier"}. Tiers that include it don't sell it. Fine-tune on the Add-ons page.</p>
       <button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () { update(function (d) { d.addons = d.addons.filter(function (x) { return x.svc !== id; }); }, "Stopped selling " + name + " as an add-on"); }}>Stop selling as an add-on</button>
+    </div>`;
+  }
+
+  function removeAddon(update, a) {
+    update(function (d) {
+      d.addons = d.addons.filter(function (x) { return x.id !== a.id; });
+      d.addons.forEach(function (x) { if (x.items) x.items = x.items.filter(function (i) { return i !== a.id; }); });
+    }, "Removed " + a.name);
+  }
+  /* Back to the bench: an add-on that came from the bench goes home; a new one becomes a bench idea. One sold from a service or cost line just stops being sold. */
+  function benchAddon(update, a) {
+    if (a.svc) { update(function (d) { d.addons = d.addons.filter(function (x) { return x.id !== a.id; }); }, "Stopped selling " + a.name + " as an add-on"); return; }
+    update(function (d) {
+      var mid = a.id.indexOf("addon_") === 0 ? a.id.slice(6) : null;
+      if (!mid || !d.MASTER[mid]) {
+        mid = "uc_" + a.id;
+        d.MASTER[mid] = { id: mid, n: a.name, d: "", dp: "uc", dc: "Add-ons", dsv: 0, dt: { min: false, special: false, plus: false } };
+      }
+      d.place[mid] = "uc";
+      d.addons = d.addons.filter(function (x) { return x.id !== a.id; });
+      d.addons.forEach(function (x) { if (x.items) x.items = x.items.filter(function (i) { return i !== a.id; }); });
+    }, "Moved " + a.name + " back to the bench");
+  }
+
+  function AddonInspector(props) {
+    var doc = props.doc, update = props.update, a = doc.addons.find(function (x) { return x.id === props.id; });
+    if (!a || a.kind !== "addon") return html`<p class="small muted">That add-on was removed.</p>`;
+    var link = a.svc ? (findCostRow(doc, a.svc) ? rowName(doc, findCostRow(doc, a.svc).row) : (doc.MASTER[a.svc] && doc.MASTER[a.svc].n)) : null;
+    function done() { props.setUi(function (u) { u.sel = null; }); }
+    return html`<div class="inspector" style=${{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div><div class="tiny faint">Optional add-on</div><h3>${a.name}</h3></div>
+      ${link ? html`<p class="note">Sold from "${link}". The tiers that include it don't sell it, and ticking or unticking a tier there changes where it's sold.</p>` : null}
+      <div style=${{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <button type="button" class="btn sm" title=${a.svc ? "Stop selling it as an add-on. The service or cost line stays." : "Not offering it after all: move it back to the bench on the Services page"}
+          onClick=${function () { benchAddon(update, a); done(); }}>${a.svc ? "Stop selling as an add-on" : "Move to bench"}</button>
+        <button type="button" class="btn sm danger" onClick=${function () { removeAddon(update, a); done(); }}>Delete add-on</button>
+      </div>
     </div>`;
   }
 
@@ -983,7 +1021,7 @@
             if (!B.ids.length || (filtering && !catNames.length)) return null;
             var oCollapsed = !!ui.owners[o.id];
             return html`<tbody key=${o.id}>
-              <tr class="grp"><td class="l" colspan=${7 + TIERS.length}>
+              <tr class="grp"><td class="l" colspan=${6 + TIERS.length}>
                 <button type="button" class="caret" aria-expanded=${!oCollapsed} aria-label=${(oCollapsed ? "Expand " : "Collapse ") + o.name}
                   onClick=${function () { props.setUi(function (u) { u.owners[o.id] = !oCollapsed; }); }}>${oCollapsed ? "▸" : "▾"}</button>
                 ${o.name} <span class="muted small" style=${{ fontWeight: 400 }}>· ${B.ids.length} services · ${money(ownerHourlyRate(doc, o.id), 2)}/hr</span>
@@ -1139,26 +1177,7 @@
     var bundles = doc.addons.filter(function (a) { return a.kind === "bundle"; });
     var LBL = ADDON_STATE_LABELS.addon;
     function edit(id, fn, label) { update(function (d) { var a = d.addons.find(function (x) { return x.id === id; }); if (a) fn(a); }, label); }
-    function remove(a) {
-      update(function (d) {
-        d.addons = d.addons.filter(function (x) { return x.id !== a.id; });
-        d.addons.forEach(function (x) { if (x.items) x.items = x.items.filter(function (i) { return i !== a.id; }); });
-      }, "Removed " + a.name);
-    }
-    /* Back to the bench: an add-on that came from the bench goes home; a new one becomes a bench idea. */
-    function toBench(a) {
-      if (a.svc) { update(function (d) { d.addons = d.addons.filter(function (x) { return x.id !== a.id; }); }, "Stopped selling " + a.name + " as an add-on"); return; }
-      update(function (d) {
-        var mid = a.id.indexOf("addon_") === 0 ? a.id.slice(6) : null;
-        if (!mid || !d.MASTER[mid]) {
-          mid = "uc_" + a.id;
-          d.MASTER[mid] = { id: mid, n: a.name, d: "", dp: "uc", dc: "Add-ons", dsv: 0, dt: { min: false, special: false, plus: false } };
-        }
-        d.place[mid] = "uc";
-        d.addons = d.addons.filter(function (x) { return x.id !== a.id; });
-        d.addons.forEach(function (x) { if (x.items) x.items = x.items.filter(function (i) { return i !== a.id; }); });
-      }, "Moved " + a.name + " back to the bench");
-    }
+    function remove(a) { removeAddon(update, a); }
     function netFor(a, t) {
       var it = C.margins[t].addon.items.find(function (x) { return x.addon.id === a.id; });
       return it ? it.rev - it.cost : null;
@@ -1179,13 +1198,15 @@
           <thead>
             <tr>
               <th class="l" rowSpan="2">Add-on</th><th rowSpan="2">Price</th><th rowSpan="2">Cost</th><th rowSpan="2">How often</th><th rowSpan="2">% who buy</th>
-              <th class="c grp" colSpan="3">Sold in</th><th rowSpan="2" title="What Raynor keeps per door each month, in a tier that sells it">Keeps / door / mo</th><th rowSpan="2"></th>
+              <th class="c grp" colSpan="3">Sold in</th><th rowSpan="2" title="What Raynor keeps per door each month, in a tier that sells it">Keeps / door / mo</th>
             </tr>
             <tr><${TierHeads} focus=${focus} /></tr>
           </thead>
           <tbody>
             ${adds.map(function (a) {
-              return html`<tr key=${a.id}>
+              var on = props.ui.sel && props.ui.sel.kind === "addon" && props.ui.sel.id === a.id;
+              return html`<tr key=${a.id} class=${"item" + (on ? " sel" : "")}
+                onClick=${function (e) { if (!e.target.closest("input,select,button,label")) props.setUi(function (u) { u.sel = on ? null : { kind: "addon", id: a.id }; }); }}>
                 <td class="l name-cell"><input type="text" class="txt" id=${"an-" + a.id} aria-label="Add-on name" value=${a.name}
                   onChange=${function (e) { var v = e.target.value; edit(a.id, function (x) { x.name = v; }, "Renamed an add-on"); }} /></td>
                 <td><${Affix} id=${"ap-" + a.id} prefix="$" min=${0} label=${"Owner price for " + a.name} value=${a.price || 0} onChange=${function (v) { edit(a.id, function (x) { x.price = v; }, a.name + ": owner price"); }} /></td>
@@ -1201,12 +1222,10 @@
                   var n = t ? netFor(a, t) : null;
                   return html`<td class=${"c mono small " + (n == null ? "faint" : n < 0 ? "bad" : "")} title="What Raynor keeps per door per month in a tier that sells it">${n == null ? "—" : (n >= 0 ? "+" : "") + money(n, 2)}</td>`;
                 })()}
-                <td class="c nowrap"><button type="button" class="mini" title="Not offering it after all: move it back to the bench on the Services page" onClick=${function () { toBench(a); }}>Bench</button>
-                  <button type="button" class="x" title="Delete add-on" aria-label=${"Delete " + a.name} onClick=${function () { remove(a); }}>×</button></td>
               </tr>`;
             })}
-            ${adds.length ? null : html`<tr><td class="l muted small" colspan=${7 + TIERS.length}>No add-ons yet. Add one here, or offer a bench item as an add-on from the Services page.</td></tr>`}
-            <tr class="add"><td class="l" colspan=${7 + TIERS.length}><button type="button" class="link small" onClick=${function () {
+            ${adds.length ? null : html`<tr><td class="l muted small" colspan=${6 + TIERS.length}>No add-ons yet. Add one here, or offer a bench item as an add-on from the Services page.</td></tr>`}
+            <tr class="add"><td class="l" colspan=${6 + TIERS.length}><button type="button" class="link small" onClick=${function () {
               var id = "addon_" + Date.now().toString(36);
               update(function (d) { d.addons.push({ id: id, name: "New add-on", price: 0, cost: 0, basis: "optional", kind: "addon", freq: 1, uptake: 0, tiers: { min: "charged", special: "charged", plus: "charged" } }); }, "Added an add-on");
             }}>+ Add an add-on</button></td></tr>
