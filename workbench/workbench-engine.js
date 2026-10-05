@@ -242,6 +242,11 @@ function activeTemplate(doc) {
   return doc.templates.find(function (t) { return t.id === doc.at; }) || doc.templates[0];
 }
 
+/* A per-seat line uses its own seat count when one is set (doc.seats), otherwise the portfolio-wide Software seats. */
+function seatsFor(doc, id) {
+  return doc.seats && doc.seats[id] != null ? doc.seats[id] : doc.G.seats;
+}
+
 function cmo(row, doc) {
   var v = doc.vl[row.id] != null ? doc.vl[row.id] : row.v;
   var bd = doc.bd[row.id] != null ? doc.bd[row.id] : (row.n_bd || 0);
@@ -255,7 +260,7 @@ function cmo(row, doc) {
     case "monthly": return v;
     case "door": return v * allUnits(doc);
     case "door_yr": return (v * allUnits(doc)) / 12;
-    case "seat": return v * G.seats;
+    case "seat": return v * seatsFor(doc, row.id);
     case "listing": return v * G.listings;
     case "event": return G.tenancy > 0 ? (v * G.doors) / (G.tenancy * 12) : 0;
     case "claim": return (v * ev) / 12;
@@ -576,7 +581,7 @@ function formulaLines(row, doc, groupId, view) {
     case "monthly": lines.push(usd(v) + "/mo" + tail); break;
     case "door": lines.push(usd(v) + "/unit/mo × " + fmtN(allUnits(doc)) + " units" + tail); break;
     case "door_yr": lines.push(usd(v) + "/unit/yr × " + fmtN(allUnits(doc)) + " units ÷ 12" + tail); break;
-    case "seat": lines.push(usd(v) + "/seat/mo × " + fmtN(G.seats) + " seats" + tail); break;
+    case "seat": lines.push(usd(v) + "/seat/mo × " + fmtN(seatsFor(doc, row.id)) + " seats" + (doc.seats && doc.seats[row.id] != null ? " (this tool's own count)" : "") + tail); break;
     case "listing": lines.push(usd(v) + "/listing/mo × " + fmtN(G.listings) + " listings" + tail); break;
     case "event":
       lines.push(usd(v) + " per turnover × " + fmtN(G.doors) + " doors ÷ (" + fmtN(G.tenancy) + "-yr avg tenancy × 12)" + tail);
@@ -640,7 +645,7 @@ function scopeFormulaLines(doc, id) {
 
 function normalizeDoc(raw) {
   var d = JSON.parse(JSON.stringify(raw));
-  ["vl", "bd", "ev", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "secView", "MASTER", "removed", "udest"].forEach(function (k) {
+  ["vl", "bd", "ev", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "secView", "MASTER", "removed", "udest", "seats"].forEach(function (k) {
     if (!d[k] || typeof d[k] !== "object") d[k] = {};
   });
   if (!Array.isArray(d.CATS)) d.CATS = [];
