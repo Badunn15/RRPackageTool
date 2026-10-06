@@ -1395,11 +1395,15 @@
     var mc = null;
     doc.CG.forEach(function (g) { g.rows.forEach(function (r) { if (r.id === "mc") mc = r; }); });
     var biggest = Math.max.apply(null, list);
-    function delta(a, b, fmt) {
-      var d = b - a;
-      if (Math.abs(d) < 0.005) return html`<span class="faint">no change</span>`;
-      return html`<span class=${"strong " + (d > 0 ? "good" : "bad")}>${d > 0 ? "+" : "−"}${fmt(Math.abs(d))}</span>`;
-    }
+    var cols = [{ n: today, m: C.margins }].concat(runs.map(function (r, i) { return { n: list[i], m: r.margins }; }));
+    // [label, shown value, number, +1 when higher is better for Raynor / -1 when lower is better], as on Compare.
+    var rowsDef = [
+      ["RPU (revenue / door / mo)", function (m) { return money(m.revenue, 2); }, function (m) { return m.revenue; }, 1],
+      ["Cost / door / mo", function (m) { return money(m.cost, 2); }, function (m) { return m.cost; }, -1],
+      ["Margin / door / mo", function (m) { return money(m.margin, 2); }, function (m) { return m.margin; }, 1],
+      ["Margin %", function (m) { return pct(m.marginPct); }, function (m) { return m.marginPct; }, 1],
+      ["Margin / yr, all doors", function (m) { return money(m.portfolioMo * 12); }, function (m) { return m.portfolioMo * 12; }, 1]
+    ];
     return html`<div class="page">
       <${PageHead} kicker="What if" title="Margin as you grow" lead="The same packages and prices on a bigger (or smaller) portfolio. Per-door costs and yearly counts grow with doors. Salaried roles and flat software stay at today's level, which is where the gain comes from." />
       <section class="panel">
@@ -1421,31 +1425,23 @@
           ${list.length < 3 ? html`<button type="button" class="btn sm" onClick=${function () { setList(function (l) { l.push(Math.round((Math.max.apply(null, l) * 2) / 10) * 10 || 500); }); }}>+ Add a door count</button>` : null}
         </div>
         <div class="table-wrap"><table class="compare growth-table">
-          <thead><tr><th>Package</th><th>Today · <span class="door-n">${fmtNum(today)} doors</span></th>
-            ${list.map(function (n, i) { return html`<th key=${i}><span class="door-n">${fmtNum(n)} doors</span></th>`; })}</tr></thead>
-          <tbody><tr class="sec"><td colSpan=${list.length + 2}>Margin per door</td></tr>
-          ${TIERS.map(function (t) {
-            var a = C.margins[t];
-            return html`<tr key=${t}><td><b class="pkg-name">${TIER_NAMES[t]}</b></td>
-              <td><div>${money(a.margin, 2)} · ${pct(a.marginPct)}</div><div class="small faint">cost ${money(a.cost, 2)} · ${money(a.portfolioMo * 12)}/yr</div></td>
-              ${runs.map(function (r, i) {
-                var b = r.margins[t];
-                return html`<td key=${i}><div>${money(b.margin, 2)} · ${pct(b.marginPct)}</div>
-                  <div class="small">${delta(a.marginPct, b.marginPct, function (x) { return x.toFixed(1) + " pts"; })} <span class="faint">· ${money(b.portfolioMo * 12)}/yr</span></div></td>`;
-              })}</tr>`;
-          })}
-          <tr class="sec"><td colSpan=${list.length + 2}>RPU · revenue per door per month</td></tr>
-          ${TIERS.map(function (t) {
-            var a = C.margins[t].revenue;
-            return html`<tr key=${"rpu-" + t}><td><b class="pkg-name">${TIER_NAMES[t]}</b></td><td>${money(a, 2)}</td>
-              ${runs.map(function (r, i) {
-                var b = r.margins[t].revenue;
-                return html`<td key=${i}>${money(b, 2)}${Math.abs(b - a) >= 0.005 ? html` <span class="small">${delta(a, b, function (x) { return money(x, 2); })}</span>` : null}</td>`;
+          <thead><tr><th></th>${cols.map(function (c, ci) { return html`<th key=${ci} colspan="3">${ci ? "" : "Today · "}<span class="door-n">${fmtNum(c.n)} doors</span></th>`; })}</tr>
+            <tr><th></th>${cols.map(function (c, ci) { return TIERS.map(function (t) { return html`<th key=${ci + t} class="small cmp-pkg">${TIER_SHORT[t]}</th>`; }); })}</tr></thead>
+          <tbody>${rowsDef.map(function (r) {
+            return html`<tr key=${r[0]} class=${r[0].indexOf("Margin") === 0 ? "total" : ""}><td>${r[0]}</td>
+              ${cols.map(function (c, ci) {
+                return TIERS.map(function (t) {
+                  // Green marks the door count that's ahead for Raynor on this package, as on Compare.
+                  var vals = cols.map(function (x) { return Math.round(r[2](x.m[t]) * 100) * r[3]; });
+                  var best = Math.max.apply(null, vals), mine = Math.round(r[2](c.m[t]) * 100) * r[3];
+                  var cls = cols.length > 1 && mine === best && vals.some(function (x) { return x !== best; }) ? "good" : "";
+                  return html`<td key=${ci + t} class=${cls + (t === "min" && ci ? " colstart" : "")}>${r[1](c.m[t])}</td>`;
+                });
               })}</tr>`;
           })}</tbody>
         </table></div>
         <div class="panel-b" style=${{ paddingTop: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
-          <p class="note">Each cell is margin per door per month and margin %. Under it: the change from today, and the yearly margin if every door were on that package. RPU is everything a door brings in a month: the monthly, leasing and renewal fees plus per-use fees and add-ons. It can rise with doors because some add-on sales grow with the portfolio. Staffing is held at today's level. Rough capacity: a PM handles 200–300 doors (PM pay is already per door, so it grows here), a maintenance coordinator about 500, and a process coordinator is effectively unlimited.</p>
+          <p class="note">Each column group is one portfolio size, and green marks the size that's ahead for Raynor on each package. Margin / yr, all doors is the yearly margin if every door were on that package. RPU is everything a door brings in a month: the monthly, leasing and renewal fees plus per-use fees and add-ons. It can rise with doors because some add-on sales grow with the portfolio. Staffing is held at today's level. Rough capacity: a PM handles 200–300 doors (PM pay is already per door, so it grows here), a maintenance coordinator about 500, and a process coordinator is effectively unlimited.</p>
           ${biggest > 500 && mc ? html`<p class="growth-flag">At ${fmtNum(biggest)} doors you'd likely need a second Maintenance coordinator (about ${money(cmo(mc, doc) * 12)}/yr), which isn't included above.</p>` : null}
         </div>
       </section>
