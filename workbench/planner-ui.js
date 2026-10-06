@@ -1360,7 +1360,7 @@
       </div>
       <dl class="quote">
         <div><dt>Monthly</dt><dd>${money(q.monthly)}</dd></div>
-        <div><dt>Leasing</dt><dd>${money(q.leaseUp)}</dd><span class="tiny faint mono">${doc.G.rent > 0 ? pct(q.leaseUp / doc.G.rent * 100, 0) : "—"} of 1 mo</span></div>
+        <div><dt>Leasing${doc.G.rent > 0 ? " · " + pct(q.leaseUp / doc.G.rent * 100, 0) : ""}</dt><dd>${money(q.leaseUp)}</dd></div>
         <div><dt>Renewal</dt><dd>${money(q.renewal)}</dd></div>
         <div><dt>At signing</dt><dd>${money(q.dueAtSigning)}</dd></div>
       </dl>
