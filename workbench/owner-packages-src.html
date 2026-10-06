@@ -96,10 +96,11 @@
   .mark.no{ color:var(--ink-3); }
   .sheet-foot{ display:flex; flex-direction:column; gap:12px; padding:14px; }
   .all-toggle{ align-self:flex-start; }
-  .all-list{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:16px 22px; }
-  .all-list[hidden]{ display:none; }
-  .all-list h4{ margin:0 0 4px; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-ink); }
-  .all-list ul{ margin:0; padding-left:18px; font-size:14px; color:var(--ink-2); }
+  .all-toggle .caret{ display:inline-block; transition:transform .15s ease; color:var(--ink-3); }
+  .all-toggle[aria-expanded="true"] .caret{ transform:rotate(90deg); }
+  .all-toggle .count{ font-family:var(--font-data); font-size:12px; color:var(--ink-3); font-weight:500; }
+  .all-wrap{ border-top:1px solid var(--rule); }
+  .all-wrap[hidden]{ display:none; }
 
   /* calculator */
   .calc{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:0; background:var(--panel); border:1px solid var(--rule); border-radius:14px; overflow:hidden; }
@@ -175,9 +176,9 @@
     <div class="sheet">
       <div class="table-wrap"><table class="diff" id="diff"></table></div>
       <div class="sheet-foot">
-        <button type="button" class="btn all-toggle" id="all-toggle" aria-expanded="false" aria-controls="all-list">Show everything all three include</button>
-        <div class="all-list" id="all-list" hidden></div>
+        <button type="button" class="btn all-toggle" id="all-toggle" aria-expanded="false" aria-controls="all-wrap"><span class="caret" aria-hidden="true">&#9656;</span> Everything all three include <span class="count" id="all-count"></span></button>
       </div>
+      <div class="table-wrap all-wrap" id="all-wrap" hidden><table class="diff" id="all-table"></table></div>
     </div>
   </section>
 
@@ -308,14 +309,19 @@ $("diff").innerHTML = "<thead><tr><th scope=\"col\">Item</th>" + TIERS.map(funct
       return '<tr><td>' + esc(r.n) + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" + r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>";
     }).join("");
   }).join("") + "</tbody>";
-$("all-list").innerHTML = Object.keys(ALL).map(function (k) {
-  return "<div><h4>" + esc(k) + "</h4><ul>" + ALL[k].map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>";
-}).join("");
+function head() { return "<thead><tr><th scope=\"col\">Item</th>" + TIERS.map(function (t) { return '<th scope="col">' + esc(t.name) + "</th>"; }).join("") + "</tr></thead>"; }
+var allCount = 0;
+$("all-table").innerHTML = head() + "<tbody>" + Object.keys(ALL).map(function (k) {
+  return '<tr class="grp"><td colspan="4">' + esc(k) + "</td></tr>" + ALL[k].map(function (x) {
+    allCount++;
+    return "<tr><td>" + esc(x) + "</td>" + TIERS.map(function () { return "<td>" + mark("yes") + "</td>"; }).join("") + "</tr>";
+  }).join("");
+}).join("") + "</tbody>";
+$("all-count").textContent = "(" + allCount + ")";
 $("all-toggle").addEventListener("click", function () {
-  var open = $("all-list").hidden;
-  $("all-list").hidden = !open;
+  var open = $("all-wrap").hidden;
+  $("all-wrap").hidden = !open;
   this.setAttribute("aria-expanded", String(open));
-  this.textContent = open ? "Hide the full list" : "Show everything all three include";
 });
 
 /* ---------- calculator ---------- */
