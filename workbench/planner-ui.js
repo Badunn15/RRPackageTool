@@ -1423,7 +1423,8 @@
         <div class="table-wrap"><table class="compare growth-table">
           <thead><tr><th>Package</th><th>Today · <span class="door-n">${fmtNum(today)} doors</span></th>
             ${list.map(function (n, i) { return html`<th key=${i}><span class="door-n">${fmtNum(n)} doors</span></th>`; })}</tr></thead>
-          <tbody>${TIERS.map(function (t) {
+          <tbody><tr class="sec"><td colSpan=${list.length + 2}>Margin per door</td></tr>
+          ${TIERS.map(function (t) {
             var a = C.margins[t];
             return html`<tr key=${t}><td><b class="pkg-name">${TIER_NAMES[t]}</b></td>
               <td><div>${money(a.margin, 2)} · ${pct(a.marginPct)}</div><div class="small faint">cost ${money(a.cost, 2)} · ${money(a.portfolioMo * 12)}/yr</div></td>
@@ -1432,10 +1433,19 @@
                 return html`<td key=${i}><div>${money(b.margin, 2)} · ${pct(b.marginPct)}</div>
                   <div class="small">${delta(a.marginPct, b.marginPct, function (x) { return x.toFixed(1) + " pts"; })} <span class="faint">· ${money(b.portfolioMo * 12)}/yr</span></div></td>`;
               })}</tr>`;
+          })}
+          <tr class="sec"><td colSpan=${list.length + 2}>RPU · revenue per door per month</td></tr>
+          ${TIERS.map(function (t) {
+            var a = C.margins[t].revenue;
+            return html`<tr key=${"rpu-" + t}><td><b class="pkg-name">${TIER_NAMES[t]}</b></td><td>${money(a, 2)}</td>
+              ${runs.map(function (r, i) {
+                var b = r.margins[t].revenue;
+                return html`<td key=${i}>${money(b, 2)}${Math.abs(b - a) >= 0.005 ? html` <span class="small">${delta(a, b, function (x) { return money(x, 2); })}</span>` : null}</td>`;
+              })}</tr>`;
           })}</tbody>
         </table></div>
         <div class="panel-b" style=${{ paddingTop: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
-          <p class="note">Each cell is margin per door per month and margin %. Under it: the change from today, and the yearly margin if every door were on that package. Staffing is held at today's level. Rough capacity: a PM handles 200–300 doors (PM pay is already per door, so it grows here), a maintenance coordinator about 500, and a process coordinator is effectively unlimited.</p>
+          <p class="note">Each cell is margin per door per month and margin %. Under it: the change from today, and the yearly margin if every door were on that package. RPU is everything a door brings in a month: the monthly, leasing and renewal fees plus per-use fees and add-ons. It can rise with doors because some add-on sales grow with the portfolio. Staffing is held at today's level. Rough capacity: a PM handles 200–300 doors (PM pay is already per door, so it grows here), a maintenance coordinator about 500, and a process coordinator is effectively unlimited.</p>
           ${biggest > 500 && mc ? html`<p class="growth-flag">At ${fmtNum(biggest)} doors you'd likely need a second Maintenance coordinator (about ${money(cmo(mc, doc) * 12)}/yr), which isn't included above.</p>` : null}
         </div>
       </section>
