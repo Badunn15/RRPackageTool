@@ -1,0 +1,391 @@
+<title>Raynor Management Packages</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Layout: brand header, three package columns, a "what's different" sheet, then the fee calculator. Single column under 860px. */
+  :root{
+    --bg:#eef2f6; --panel:#ffffff; --panel-2:#f4f7fa; --rule:#d3dce5; --rule-soft:#e4eaf0;
+    --ink:#132232; --ink-2:#475869; --ink-3:#768594;
+    --navy:#17345c; --accent:#2b5a9e; --accent-ink:#1f477f; --accent-tint:#e2ebf7; --sky:#8fb6e6;
+    --gold:#8f6428; --gold-line:#d2ad6c; --gold-tint:#f7efe1;
+    --good:#1b7a4c; --good-bg:#e1f2e8;
+    --seg-monthly:#2b5a9e; --seg-lease:#c9973f; --seg-renew:#8fb6e6;
+    --font-display:"Newsreader", "Iowan Old Style", Georgia, serif;
+    --font-ui:"Schibsted Grotesk", "Segoe UI", system-ui, sans-serif;
+    --font-data:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#0e151c; --panel:#16202a; --panel-2:#1b2733; --rule:#2c3b49; --rule-soft:#22303c;
+      --ink:#e6ebef; --ink-2:#a9b5bf; --ink-3:#74838f;
+      --navy:#0f2440; --accent:#7ba6e8; --accent-ink:#a3c2f2; --accent-tint:#1c2b40; --sky:#5d86bf;
+      --gold:#dfb469; --gold-line:#7d6236; --gold-tint:#2c2416;
+      --good:#55cf95; --good-bg:#12301f;
+      --seg-monthly:#5f8fd6; --seg-lease:#d6a654; --seg-renew:#3f6699;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#0e151c; --panel:#16202a; --panel-2:#1b2733; --rule:#2c3b49; --rule-soft:#22303c;
+    --ink:#e6ebef; --ink-2:#a9b5bf; --ink-3:#74838f;
+    --navy:#0f2440; --accent:#7ba6e8; --accent-ink:#a3c2f2; --accent-tint:#1c2b40; --sky:#5d86bf;
+    --gold:#dfb469; --gold-line:#7d6236; --gold-tint:#2c2416;
+    --good:#55cf95; --good-bg:#12301f;
+    --seg-monthly:#5f8fd6; --seg-lease:#d6a654; --seg-renew:#3f6699;
+  }
+  *{ box-sizing:border-box; }
+  body{ background:var(--bg); color:var(--ink); font-family:var(--font-ui); font-size:15px; line-height:1.5; }
+  button, input{ font:inherit; color:inherit; }
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+  .mono{ font-family:var(--font-data); font-variant-numeric:tabular-nums; }
+  .wrap{ max-width:1120px; margin:0 auto; padding-inline:16px; }
+
+  /* header */
+  .masthead{ background:var(--navy); color:#fff; box-shadow:inset 0 -2px 0 var(--gold-line); }
+  .masthead .wrap{ display:flex; flex-direction:column; gap:18px; padding-block:26px 30px; }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand img{ width:46px; height:46px; border-radius:50%; box-shadow:0 0 0 2px var(--gold-line); }
+  .brand span{ font-size:12px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:#e2c48d; }
+  .brand small{ display:block; font-size:12px; color:#b9c8da; letter-spacing:0; text-transform:none; font-weight:500; }
+  .masthead h1{ font-family:var(--font-display); font-weight:600; font-size:clamp(30px, 5vw, 44px); line-height:1.08; margin:0; text-wrap:balance; max-width:20ch; }
+  .masthead p{ margin:0; max-width:62ch; color:#cfdae7; font-size:16px; }
+
+  main{ display:flex; flex-direction:column; gap:40px; padding-block:28px 56px; }
+  .sec-h{ display:flex; flex-direction:column; gap:4px; margin-bottom:14px; }
+  .kicker{ font-size:12px; letter-spacing:.13em; text-transform:uppercase; font-weight:700; color:var(--gold); }
+  h2{ font-family:var(--font-display); font-weight:600; font-size:28px; line-height:1.15; margin:0; text-wrap:balance; }
+  .lead{ margin:0; color:var(--ink-2); max-width:66ch; }
+
+  /* package columns */
+  .tiers{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; }
+  .tier{ background:var(--panel); border:1px solid var(--rule); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:14px; min-width:0; }
+  .tier.top{ border-color:var(--gold-line); box-shadow:inset 0 3px 0 var(--gold-line); }
+  .tier h3{ margin:0; font-family:var(--font-display); font-weight:600; font-size:23px; }
+  .tier .pitch{ margin:0; color:var(--ink-2); font-size:14px; min-height:3em; }
+  .fees{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:0; border:1px solid var(--rule-soft); border-radius:10px; overflow:hidden; }
+  .fees div{ display:flex; flex-direction:column; gap:2px; padding:9px 10px; background:var(--panel-2); }
+  .fees div + div{ border-left:1px solid var(--rule-soft); }
+  .fees dt{ font-size:11.5px; color:var(--ink-3); }
+  .fees dd{ margin:0; font-family:var(--font-data); font-weight:600; font-size:17px; }
+  .fees dd small{ font-size:11px; font-weight:500; color:var(--ink-3); }
+  .adds{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px; font-size:14px; }
+  .adds li{ display:grid; grid-template-columns:18px minmax(0,1fr); gap:8px; align-items:start; }
+  .adds li::before{ content:"+"; font-weight:700; color:var(--gold); text-align:center; }
+  .adds .base::before{ content:"✓"; color:var(--accent); }
+  .tier .pick{ margin-top:auto; align-self:flex-start; }
+
+  .btn{ display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:9px; border:1px solid var(--rule); background:var(--panel); font-weight:600; font-size:14px; cursor:pointer; }
+  .btn:hover{ border-color:var(--accent); color:var(--accent-ink); }
+
+  /* differences sheet */
+  .sheet{ background:var(--panel); border:1px solid var(--rule); border-radius:14px; overflow:hidden; }
+  .table-wrap{ overflow-x:auto; }
+  table.diff{ width:100%; border-collapse:collapse; min-width:560px; font-size:14px; }
+  .diff th, .diff td{ padding:9px 14px; border-bottom:1px solid var(--rule-soft); text-align:center; vertical-align:middle; }
+  .diff th:first-child, .diff td:first-child{ text-align:left; }
+  .diff thead th{ position:sticky; top:0; background:var(--panel); font-size:13px; font-weight:700; color:var(--accent-ink); border-bottom:1px solid var(--rule); width:19%; }
+  .diff thead th:first-child{ width:auto; color:var(--ink-3); font-weight:600; }
+  .diff tr.grp td{ background:var(--panel-2); font-size:11.5px; letter-spacing:.11em; text-transform:uppercase; font-weight:700; color:var(--gold); padding-block:7px; }
+  .diff td .note{ display:block; font-size:12.5px; color:var(--ink-3); }
+  .mark{ display:inline-flex; align-items:center; justify-content:center; gap:5px; font-size:13px; font-weight:600; white-space:nowrap; }
+  .mark.yes{ color:var(--good); }
+  .mark.yes::before{ content:""; width:18px; height:18px; border-radius:50%; background:var(--good-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='%231b7a4c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat; }
+  .mark.add{ color:var(--gold); background:var(--gold-tint); border-radius:999px; padding:2px 9px; font-size:12px; }
+  .mark.fee{ font-family:var(--font-data); color:var(--ink); }
+  .mark.no{ color:var(--ink-3); }
+  .sheet-foot{ display:flex; flex-direction:column; gap:12px; padding:14px; }
+  .all-toggle{ align-self:flex-start; }
+  .all-list{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:16px 22px; }
+  .all-list[hidden]{ display:none; }
+  .all-list h4{ margin:0 0 4px; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-ink); }
+  .all-list ul{ margin:0; padding-left:18px; font-size:14px; color:var(--ink-2); }
+
+  /* calculator */
+  .calc{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:0; background:var(--panel); border:1px solid var(--rule); border-radius:14px; overflow:hidden; }
+  .calc-in{ padding:20px; display:flex; flex-direction:column; gap:18px; border-right:1px solid var(--rule-soft); }
+  .calc-out{ padding:20px; display:flex; flex-direction:column; gap:18px; background:var(--panel-2); min-width:0; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field > label, .field > span{ font-size:13px; font-weight:600; color:var(--ink-2); }
+  .seg{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); background:var(--panel-2); border:1px solid var(--rule); border-radius:10px; padding:3px; gap:3px; }
+  .seg button{ border:none; background:none; padding:8px 6px; border-radius:7px; font-weight:600; font-size:13.5px; color:var(--ink-2); cursor:pointer; }
+  .seg button[aria-pressed="true"]{ background:var(--panel); color:var(--accent-ink); box-shadow:0 1px 2px rgba(0,0,0,.1), inset 0 -2px 0 var(--gold-line); }
+  .money{ display:flex; align-items:center; border:1px solid var(--rule); border-radius:9px; background:var(--panel); max-width:200px; }
+  .money:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint); }
+  .money span{ padding-inline:10px; color:var(--ink-3); font-family:var(--font-data); }
+  .money input{ border:none; background:transparent; outline:none; padding:8px 10px 8px 0; width:100%; font-family:var(--font-data); font-size:16px; text-align:right; }
+  .slider-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .slider-head b{ font-family:var(--font-data); font-size:24px; color:var(--accent-ink); }
+  input[type="range"]{ -webkit-appearance:none; appearance:none; width:100%; height:8px; border-radius:999px; margin:10px 0 4px; cursor:pointer;
+    background:linear-gradient(to right, var(--accent) var(--fill,50%), var(--rule) var(--fill,50%)); }
+  input[type="range"]::-webkit-slider-thumb{ -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--panel); border:3px solid var(--accent); box-shadow:0 1px 3px rgba(0,0,0,.25); }
+  input[type="range"]::-moz-range-thumb{ width:18px; height:18px; border-radius:50%; background:var(--panel); border:3px solid var(--accent); }
+  .track{ position:relative; }
+  .tick{ position:absolute; top:2px; width:2px; height:28px; background:var(--gold); transform:translateX(-1px); pointer-events:none; }
+  .ends{ display:flex; justify-content:space-between; font-size:12px; color:var(--ink-3); }
+  .presets{ display:flex; flex-wrap:wrap; gap:8px; }
+  .presets .btn{ font-size:13px; padding:6px 11px; }
+  .hint{ margin:0; font-size:13.5px; color:var(--ink-2); }
+
+  .quote{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin:0; }
+  .quote div{ background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .quote dt{ font-size:12.5px; color:var(--ink-3); display:flex; align-items:center; gap:6px; }
+  .quote dt i{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+  .quote dd{ margin:0; font-family:var(--font-data); font-weight:600; font-size:22px; }
+  .quote dd small{ font-size:12px; color:var(--ink-3); font-weight:500; }
+  .years{ display:flex; flex-direction:column; gap:12px; }
+  .year{ display:flex; flex-direction:column; gap:5px; }
+  .year-h{ display:flex; justify-content:space-between; gap:10px; font-size:13.5px; flex-wrap:wrap; }
+  .year-h b{ font-family:var(--font-data); }
+  .bar{ display:flex; height:18px; border-radius:5px; overflow:hidden; background:var(--rule-soft); }
+  .bar span{ height:100%; transition:width .2s ease; }
+  .vs{ font-size:12.5px; color:var(--ink-3); }
+  .vs.more{ color:var(--gold); font-weight:600; }
+  .legend{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; color:var(--ink-2); }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .legend i{ width:10px; height:10px; border-radius:2px; display:inline-block; }
+  .fine{ font-size:12.5px; color:var(--ink-3); margin:0; max-width:80ch; }
+
+  @media (max-width:860px){
+    .tiers{ grid-template-columns:minmax(0,1fr); }
+    .tier .pitch{ min-height:0; }
+    .calc{ grid-template-columns:minmax(0,1fr); }
+    .calc-in{ border-right:none; border-bottom:1px solid var(--rule-soft); }
+  }
+  @media (max-width:420px){ .quote{ grid-template-columns:minmax(0,1fr); } .fees dd{ font-size:15px; } }
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="brand"><img src="__LOGO__" alt="Raynor Realty logo"><div><span>Raynor Realty</span><small>Property management since 1987</small></div></div>
+    <h1>Three ways to have us manage your rental</h1>
+    <p>Every package covers the full job of leasing, rent collection, maintenance and accounting. The higher packages add protection, planning and vacancy care. Below, see exactly what changes between them, then shape your own fees.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section aria-labelledby="pk-h">
+    <div class="sec-h"><span class="kicker">The packages</span><h2 id="pk-h">Standard fees and what each one adds</h2></div>
+    <div class="tiers" id="tiers"></div>
+  </section>
+
+  <section aria-labelledby="df-h">
+    <div class="sec-h"><span class="kicker">Side by side</span><h2 id="df-h">What's different between them</h2>
+      <p class="lead">Only the items that change are listed here. Anything a package doesn't include can usually be added to it.</p></div>
+    <div class="sheet">
+      <div class="table-wrap"><table class="diff" id="diff"></table></div>
+      <div class="sheet-foot">
+        <button type="button" class="btn all-toggle" id="all-toggle" aria-expanded="false" aria-controls="all-list">Show everything all three include</button>
+        <div class="all-list" id="all-list" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="cl-h">
+    <div class="sec-h"><span class="kicker">Fee calculator</span><h2 id="cl-h">Pay more monthly, or more at lease signing</h2>
+      <p class="lead">You choose how your fees are split. A lower monthly fee means higher leasing and renewal fees, and a higher monthly fee shrinks them. Up to the point where the renewal fee reaches $0, each lease term costs you the same total.</p></div>
+    <div class="calc">
+      <div class="calc-in">
+        <div class="field"><span id="tier-lab">Package</span><div class="seg" role="group" aria-labelledby="tier-lab" id="tier-seg"></div></div>
+        <div class="field"><label for="rent">Monthly rent</label><div class="money"><span>$</span><input id="rent" type="text" inputmode="decimal" value="1,500"></div></div>
+        <div class="field">
+          <div class="slider-head"><label for="pick">Your monthly fee</label><b id="pick-out">10.00%</b></div>
+          <div class="track"><input id="pick" type="range" min="0" max="20" step="0.05" value="10"><span class="tick" id="std-tick" title="Standard mix"></span></div>
+          <div class="ends"><span>More at signing</span><span>No up-front fees</span></div>
+        </div>
+        <div class="presets" id="presets"></div>
+        <p class="hint" id="hint"></p>
+      </div>
+      <div class="calc-out" aria-live="polite">
+        <dl class="quote">
+          <div><dt><i style="background:var(--seg-monthly)"></i>Monthly fee</dt><dd id="q-monthly">$0</dd></div>
+          <div><dt><i style="background:var(--seg-lease)"></i>Leasing fee</dt><dd id="q-lease">$0</dd></div>
+          <div><dt><i style="background:var(--seg-renew)"></i>Renewal fee</dt><dd id="q-renew">$0</dd></div>
+          <div><dt>Due when a new lease is signed</dt><dd id="q-sign">$0</dd></div>
+        </dl>
+        <div class="years">
+          <div class="year"><div class="year-h"><span>A year with a new tenant</span><b id="y-turn">$0</b></div><div class="bar" id="b-turn"></div><span class="vs" id="v-turn"></span></div>
+          <div class="year"><div class="year-h"><span>A year your tenant renews</span><b id="y-renew">$0</b></div><div class="bar" id="b-renew"></div><span class="vs" id="v-renew"></span></div>
+        </div>
+        <div class="legend"><span><i style="background:var(--seg-monthly)"></i>Monthly fees for 12 months</span><span><i style="background:var(--seg-lease)"></i>Leasing fee</span><span><i style="background:var(--seg-renew)"></i>Renewal fee</span></div>
+      </div>
+    </div>
+    <p class="fine" style="margin-top:12px">Figures are estimates for a 12-month lease at the rent you enter. The monthly fee is charged on rent collected. Per-use fees such as maintenance coordination are separate and listed above.</p>
+  </section>
+</main>
+
+<script>
+/* Standard pricing per package, from Raynor Realty Bottom Line's official numbers. */
+var TERM = 12;
+var TIERS = [
+  { id: "min", name: "Minimum Management", short: "Minimum", monthlyPct: 8, leasePct: 75, renewal: 250,
+    pitch: "Full-service management with the essentials. Add the extras you want.",
+    adds: [] },
+  { id: "special", name: "Raynor Special", short: "Special", monthlyPct: 10, leasePct: 75, renewal: 250,
+    pitch: "Everything in Minimum, plus guarantees, yearly reviews and vacancy care.",
+    adds: ["Eviction guarantee and lease break waiver", "Yearly management inspection and portfolio review", "Vacancy checks, cameras and utility handling", "No $75 coordination fee on work orders"] },
+  { id: "plus", name: "Protection Plus", short: "Plus", monthlyPct: 12, leasePct: 75, renewal: 250,
+    pitch: "Everything in Raynor Special, plus planning and our most hands-on care.",
+    adds: ["Budget and CapEx planning with you", "Proactive property report", "Pre-vacancy listing and deadbolts included", "No coordination fees at all"] }
+];
+/* Rows that differ. Each mark: "yes", "add" (available as an add-on), "no", or a fee string. */
+var DIFF = [
+  { group: "Guarantees", rows: [
+    { n: "Eviction guarantee", note: "For tenants we place. Without it, an eviction is billed at $750.", m: ["add", "yes", "yes"] },
+    { n: "Lease break waiver", note: "No leasing fee to re-place a tenant who breaks the lease", m: ["add", "yes", "yes"] }
+  ]},
+  { group: "Maintenance fees", rows: [
+    { n: "Maintenance coordination", note: "Per work order", m: ["$75", "Included", "Included"] },
+    { n: "Special-circumstance coordination", note: "Per work order, in place of the $75 fee", m: ["$150", "$150", "Included"] },
+    { n: "Deadbolts", note: "At each turnover", m: ["add", "add", "yes"] }
+  ]},
+  { group: "Inspections and reporting", rows: [
+    { n: "Management inspection, once a year", m: ["add", "yes", "yes"] },
+    { n: "Annual portfolio review", m: ["add", "yes", "yes"] },
+    { n: "Portfolio report", m: ["add", "yes", "yes"] },
+    { n: "Renewal market analysis", m: ["add", "yes", "yes"] },
+    { n: "Investment deal analysis", m: ["add", "yes", "yes"] },
+    { n: "Budget and CapEx planning with you", m: ["add", "add", "yes"] },
+    { n: "Proactive property report", m: ["add", "add", "yes"] }
+  ]},
+  { group: "Vacancy care", rows: [
+    { n: "Occupied unit setup", m: ["add", "yes", "yes"] },
+    { n: "Vacancy checks", m: ["add", "yes", "yes"] },
+    { n: "Vacancy monitoring with cameras", m: ["add", "yes", "yes"] },
+    { n: "Utility management while vacant", m: ["add", "yes", "yes"] },
+    { n: "Pre-vacancy listing", note: "Listed before the current tenant moves out", m: ["add", "add", "yes"] }
+  ]}
+];
+var ALL = {
+  "Leasing and placement": ["Leasing coordination and marketing", "Photography coordination", "Zillow Boost listings", "Showings and self-tour management", "Tenant screening and application review", "Lease preparation and signing", "Resident move-in orientation"],
+  "Renewals": ["Renewal negotiation", "Renewal signing and processing"],
+  "Maintenance": ["Work order triage and dispatch", "Emergency and after-hours coordination", "Property manager handles complex repairs", "Vendor communication", "Invoice review and approval"],
+  "Accounting": ["Weekly owner distributions", "Monthly owner statement review", "Weekly rent roll review", "Vendor invoice processing", "Annual accounting and tax documents"],
+  "Tenants and owners": ["Owner communication", "Online owner and tenant portal", "Resident support at every level", "Delinquency and collections", "Pet guarantee"],
+  "Property and compliance": ["Move-in and move-out inspections", "Resident-led inspection review", "Key management, lockbox and rekeys", "Compliance and enforcement", "Eviction service, if eligible", "Owner onboarding and ownership changes"]
+};
+
+var $ = function (id) { return document.getElementById(id); };
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function money(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
+function pct(n, d) { return n.toFixed(d == null ? 2 : d) + "%"; }
+
+/* Same math as Bottom Line's owner fee choice: each lease term keeps the standard total until a fee hits $0. */
+function frame(t, rent) {
+  var anchor = t.monthlyPct / 100 * rent;
+  var turnTerm = anchor * TERM + t.leasePct / 100 * rent, renewTerm = anchor * TERM + t.renewal;
+  return { turnTerm: turnTerm, renewTerm: renewTerm,
+    zeroRenewalPct: rent > 0 ? renewTerm / TERM / rent * 100 : 0, zeroLeasePct: rent > 0 ? turnTerm / TERM / rent * 100 : 0 };
+}
+function quote(t, rent, p) {
+  var f = frame(t, rent), monthly = p / 100 * rent, perTerm = monthly * TERM;
+  return { f: f, monthly: monthly, lease: Math.max(0, f.turnTerm - perTerm), renewal: Math.max(0, f.renewTerm - perTerm) };
+}
+
+/* ---------- packages ---------- */
+$("tiers").innerHTML = TIERS.map(function (t, i) {
+  var base = i === 0 ? '<li class="base">Leasing, rent collection, maintenance and accounting</li><li class="base">Move-in and move-out inspections</li><li class="base">Weekly owner distributions</li><li class="base">Online owner portal</li>'
+    : t.adds.map(function (a) { return "<li>" + esc(a) + "</li>"; }).join("");
+  return '<article class="tier' + (i === 2 ? " top" : "") + '" aria-labelledby="t-' + t.id + '">' +
+    '<h3 id="t-' + t.id + '">' + esc(t.name) + '</h3><p class="pitch">' + esc(t.pitch) + "</p>" +
+    '<dl class="fees"><div><dt>Monthly, of rent</dt><dd>' + t.monthlyPct + '%</dd></div>' +
+    '<div><dt>Leasing, of 1 mo</dt><dd>' + t.leasePct + '%</dd></div>' +
+    '<div><dt>Renewal</dt><dd>$' + t.renewal + "</dd></div></dl>" +
+    '<ul class="adds">' + base + "</ul>" +
+    '<button type="button" class="btn pick" data-tier="' + t.id + '">Try ' + esc(t.short) + "'s fees &darr;</button></article>";
+}).join("");
+
+/* ---------- differences ---------- */
+function mark(v) {
+  if (v === "yes") return '<span class="mark yes"><span class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Included</span></span>';
+  if (v === "add") return '<span class="mark add">Add-on</span>';
+  if (v === "no") return '<span class="mark no">—</span>';
+  return '<span class="mark fee">' + esc(v) + "</span>";
+}
+$("diff").innerHTML = "<thead><tr><th scope=\"col\">Item</th>" + TIERS.map(function (t) { return '<th scope="col">' + esc(t.name) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+  DIFF.map(function (g) {
+    return '<tr class="grp"><td colspan="4">' + esc(g.group) + "</td></tr>" + g.rows.map(function (r) {
+      return '<tr><td>' + esc(r.n) + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" + r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>";
+    }).join("");
+  }).join("") + "</tbody>";
+$("all-list").innerHTML = Object.keys(ALL).map(function (k) {
+  return "<div><h4>" + esc(k) + "</h4><ul>" + ALL[k].map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>";
+}).join("");
+$("all-toggle").addEventListener("click", function () {
+  var open = $("all-list").hidden;
+  $("all-list").hidden = !open;
+  this.setAttribute("aria-expanded", String(open));
+  this.textContent = open ? "Hide the full list" : "Show everything all three include";
+});
+
+/* ---------- calculator ---------- */
+var state = { tier: "special", rent: 1500, pick: 10 };
+function tier() { return TIERS.filter(function (t) { return t.id === state.tier; })[0]; }
+function readRent() { var v = parseFloat(String($("rent").value).replace(/[^0-9.]/g, "")); return isFinite(v) && v > 0 ? v : 0; }
+
+$("tier-seg").innerHTML = TIERS.map(function (t) { return '<button type="button" data-tier="' + t.id + '">' + esc(t.short) + "</button>"; }).join("");
+
+function setTier(id) {
+  state.tier = id; state.pick = tier().monthlyPct; render();
+}
+function setPick(p) { state.pick = Math.round(p * 100) / 100; render(); }
+
+function render() {
+  var t = tier(), rent = state.rent, f = frame(t, rent);
+  var max = Math.max(t.monthlyPct, Math.round(f.zeroLeasePct * 100) / 100);
+  state.pick = Math.min(Math.max(0, state.pick), max);
+  var q = quote(t, rent, state.pick);
+  Array.prototype.forEach.call($("tier-seg").children, function (b) { b.setAttribute("aria-pressed", String(b.dataset.tier === t.id)); });
+
+  var s = $("pick"); s.max = max; s.value = state.pick;
+  s.style.setProperty("--fill", (max ? state.pick / max * 100 : 0) + "%");
+  s.setAttribute("aria-valuetext", pct(state.pick) + " of rent, " + money(q.monthly) + " a month");
+  $("std-tick").style.left = "calc(11px + (100% - 22px) * " + (max ? t.monthlyPct / max : 0) + ")";
+  $("pick-out").textContent = pct(state.pick);
+
+  $("presets").innerHTML = [
+    ["Standard (" + t.monthlyPct + "%)", t.monthlyPct],
+    ["Renewal fee $0 (" + pct(f.zeroRenewalPct) + ")", f.zeroRenewalPct],
+    ["No up-front fees (" + pct(f.zeroLeasePct) + ")", f.zeroLeasePct]
+  ].map(function (p) { return '<button type="button" class="btn" data-pick="' + p[1] + '">' + esc(p[0]) + "</button>"; }).join("");
+
+  var hint;
+  if (Math.abs(state.pick - t.monthlyPct) < 0.01) hint = "This is " + t.name + "'s standard mix.";
+  else if (state.pick < t.monthlyPct) hint = "A lower monthly fee moves cost into the leasing and renewal fees. Each lease term costs the same total as the standard mix.";
+  else if (state.pick <= f.zeroRenewalPct + 0.01) hint = "A higher monthly fee shrinks the leasing and renewal fees. Each lease term still costs the same total as the standard mix.";
+  else hint = "Past " + pct(f.zeroRenewalPct) + ", the renewal fee is already $0, so a renewal year costs more than the standard mix. A new-tenant year still costs the same.";
+  $("hint").textContent = hint;
+
+  $("q-monthly").innerHTML = money(q.monthly) + "<small> /mo</small>";
+  $("q-lease").innerHTML = money(q.lease) + "<small> " + (rent > 0 ? pct(q.lease / rent * 100, 0) + " of 1 month" : "") + "</small>";
+  $("q-renew").textContent = money(q.renewal);
+  $("q-sign").innerHTML = money(q.lease + q.monthly) + "<small> leasing + first month</small>";
+
+  var scale = Math.max(f.turnTerm, f.renewTerm, q.monthly * TERM + q.lease, 1);
+  function bar(el, parts) {
+    $(el).innerHTML = parts.map(function (p) { return '<span style="width:' + (p[0] / scale * 100) + "%;background:var(" + p[1] + ')"></span>'; }).join("");
+  }
+  var yTurn = q.monthly * TERM + q.lease, yRenew = q.monthly * TERM + q.renewal;
+  $("y-turn").textContent = money(yTurn); $("y-renew").textContent = money(yRenew);
+  bar("b-turn", [[q.monthly * TERM, "--seg-monthly"], [q.lease, "--seg-lease"]]);
+  bar("b-renew", [[q.monthly * TERM, "--seg-monthly"], [q.renewal, "--seg-renew"]]);
+  function vs(el, y, std) {
+    var d = y - std, e = $(el);
+    e.className = "vs" + (d > 0.5 ? " more" : "");
+    e.textContent = Math.abs(d) < 0.5 ? "Same as the standard mix" : (d > 0 ? money(d) + " more" : money(-d) + " less") + " than the standard mix (" + money(std) + ")";
+  }
+  vs("v-turn", yTurn, f.turnTerm); vs("v-renew", yRenew, f.renewTerm);
+}
+
+$("tier-seg").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) setTier(b.dataset.tier); });
+$("pick").addEventListener("input", function () { setPick(parseFloat(this.value)); });
+$("presets").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) setPick(parseFloat(b.dataset.pick)); });
+$("rent").addEventListener("input", function () { state.rent = readRent(); render(); });
+$("rent").addEventListener("blur", function () { if (state.rent) this.value = Math.round(state.rent).toLocaleString("en-US"); });
+document.getElementById("tiers").addEventListener("click", function (e) {
+  var b = e.target.closest("button.pick"); if (!b) return;
+  setTier(b.dataset.tier);
+  document.getElementById("cl-h").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+render();
+</script>
