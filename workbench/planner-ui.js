@@ -1435,13 +1435,15 @@
                   var vals = cols.map(function (x) { return Math.round(r[2](x.m[t]) * 100) * r[3]; });
                   var best = Math.max.apply(null, vals), mine = Math.round(r[2](c.m[t]) * 100) * r[3];
                   var cls = cols.length > 1 && mine === best && vals.some(function (x) { return x !== best; }) ? "good" : "";
-                  return html`<td key=${ci + t} class=${cls + (t === "min" && ci ? " colstart" : "")}>${r[1](c.m[t])}</td>`;
+                  // Under Margin %: the change from today, in points.
+                  var d = r[0] === "Margin %" && ci ? c.m[t].marginPct - cols[0].m[t].marginPct : null;
+                  return html`<td key=${ci + t} class=${cls + (t === "min" && ci ? " colstart" : "")}>${r[1](c.m[t])}${d == null ? null : html`<div class=${"tiny " + (Math.abs(d) < 0.05 ? "faint" : d > 0 ? "good" : "bad")}>${Math.abs(d) < 0.05 ? "no change" : (d > 0 ? "+" : "−") + Math.abs(d).toFixed(1) + " pts"}</div>`}</td>`;
                 });
               })}</tr>`;
           })}</tbody>
         </table></div>
         <div class="panel-b" style=${{ paddingTop: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
-          <p class="note">Each column group is one portfolio size, and green marks the size that's ahead for Raynor on each package. Margin / yr, all doors is the yearly margin if every door were on that package. RPU is everything a door brings in a month: the monthly, leasing and renewal fees plus per-use fees and add-ons. It can rise with doors because some add-on sales grow with the portfolio. Staffing is held at today's level. Rough capacity: a PM handles 200–300 doors (PM pay is already per door, so it grows here), a maintenance coordinator about 500, and a process coordinator is effectively unlimited.</p>
+          <p class="note">Each column group is one portfolio size, and green marks the size that's ahead for Raynor on each package. Under Margin %: the change from today, in points. Margin / yr, all doors is the yearly margin if every door were on that package. RPU is everything a door brings in a month: the monthly, leasing and renewal fees plus per-use fees and add-ons. It can rise with doors because some add-on sales grow with the portfolio. Staffing is held at today's level. Rough capacity: a PM handles 200–300 doors (PM pay is already per door, so it grows here), a maintenance coordinator about 500, and a process coordinator is effectively unlimited.</p>
           ${biggest > 500 && mc ? html`<p class="growth-flag">At ${fmtNum(biggest)} doors you'd likely need a second Maintenance coordinator (about ${money(cmo(mc, doc) * 12)}/yr), which isn't included above.</p>` : null}
         </div>
       </section>
