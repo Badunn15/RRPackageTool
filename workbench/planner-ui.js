@@ -146,11 +146,12 @@
         if (!isNaN(n)) props.onChange(props.min != null ? Math.max(props.min, n) : n);
       }} />`;
   }
+  /* slots: always draw the prefix and suffix cells (empty if none), so a column of these lines up its numbers. */
   function Affix(props) {
-    return html`<span class=${"affix " + (props.cls || "")}>
-      ${props.prefix ? html`<span class="pre">${props.prefix}</span>` : null}
+    return html`<span class=${"affix " + (props.slots ? "slots " : "") + (props.cls || "")}>
+      ${props.prefix || props.slots ? html`<span class="pre">${props.prefix || ""}</span>` : null}
       <${Num} id=${props.id} value=${props.value} onChange=${props.onChange} step=${props.step} min=${props.min} max=${props.max} label=${props.label} />
-      ${props.suffix ? html`<span class="suf">${props.suffix}</span>` : null}
+      ${props.suffix || props.slots ? html`<span class="suf">${props.suffix || ""}</span>` : null}
     </span>`;
   }
 
@@ -201,7 +202,7 @@
     </div>`;
   }
   function PctBox(props) {
-    return html`<span class="affix w-sm">
+    return html`<span class="affix w-pct">
       <${Num} id=${props.id} value=${props.value} step=${props.step || 0.05} min=${0} label=${props.label}
         onChange=${function (v) { props.onChange(Math.min(props.max, Math.max(0, v))); }} />
       <span class="suf">%</span>
@@ -311,6 +312,13 @@
               onClick=${function () { props.update(function (d) { d.cv = v; }, "Cost view: " + VIEW_NAMES[v]); }}>${VIEW_NAMES[v].replace("Fully ", "")}</button>`;
           })}
         </div>
+        <div class="seg" role="group" aria-label="Revenue counted">
+          ${[[false, "Owners only"], [true, "Owners + residents"]].map(function (o) {
+            return html`<button key=${String(o[0])} type="button" aria-pressed=${doc.resident.on === o[0]}
+              title=${o[0] ? "Count resident revenue: RBP, tenant fees, pet rent, late fees" : "Count only what owners pay"}
+              onClick=${function () { props.update(function (d) { d.resident.on = o[0]; }, "Resident revenue " + (o[0] ? "on" : "off")); }}>${o[1]}</button>`;
+          })}
+        </div>
         ${TIERS.map(function (t) {
           var m = C.margins[t], v = verdict(m, P.targetPct), on = ui.focus === t;
           return html`<button key=${t} type="button" class=${"tcard " + v.cls + (on ? " on" : "")} aria-pressed=${on}
@@ -322,7 +330,7 @@
             ${P.scopeSavings && C.cost.freed[t] > 0.004 ? html`<span class="td freed" title="Count freed PM capacity is on (Portfolio → Model settings). Without it this tier's margin would be ${money(m.margin - C.cost.freed[t], 2)}/door, ${pct(m.revenue ? (m.margin - C.cost.freed[t]) / m.revenue * 100 : 0)}.">Includes ${money(C.cost.freed[t], 2)} freed PM capacity · +${(m.revenue ? C.cost.freed[t] / m.revenue * 100 : 0).toFixed(1)} pts</span>` : null}
           </button>`;
         })}
-        <p class="tiny faint" style=${{ margin: 0 }}>${VIEW_NAMES[doc.cv]} · ${fmtNum(doc.G.doors)} doors · ${P.targetPct}% target${P.scopeSavings ? " · freed PM capacity counted" : ""}. Click a tier to focus it.</p>
+        <p class="tiny faint" style=${{ margin: 0 }}>${VIEW_NAMES[doc.cv]} · ${fmtNum(doc.G.doors)} doors · ${P.targetPct}% target · ${doc.resident.on ? "resident revenue counted" : "owner revenue only"}${P.scopeSavings ? " · freed PM capacity counted" : ""}. Click a tier to focus it.</p>
         </${React.Fragment}>`}
       </section>
 
@@ -654,7 +662,7 @@
           ? TIER_SHORT[t] + " has the Eviction guarantee, so only the " + fmtNum(doc.G.evictNotPlacedPct || 0) + "% of evictions where Raynor didn't place the tenant are billed. The rest are the Eviction guarantee cost line."
           : evictionHandled(doc, t) ? TIER_SHORT[t] + " has no Eviction guarantee, so every eviction is billed." : "Eviction service is off for " + TIER_SHORT[t] + ", so nothing is billed.")
       : ADDON_POOL[a.basis]
-        ? fmtNum(Math.round(share * 10) / 10) + "% of the " + fmtNum(doc.G.wo || 0) + " work orders a year" + (isRest ? ": whatever the other work-order fees in " + TIER_SHORT[t] + " don't claim." : ".")
+        ? fmtNum(Math.round(share * 10) / 10) + "% of the " + fmtNum(Math.round(woYr(doc))) + " work orders a year" + (isRest ? ": whatever the other work-order fees in " + TIER_SHORT[t] + " don't claim." : ".")
         : a.basis === "door_yr" ? fmtNum(a.amount || 0) + " per door a year × " + fmtNum(doc.G.doors) + " doors." : "Counted across the whole portfolio."
     ];
   }
@@ -689,6 +697,30 @@
   }
 
   /* ------------------------------ pages ------------------------------ */
+  /* The resident revenue breakdown, for tooltips. */
+  function residentLines(doc, r) {
+    var lines = [(r.on ? "Counted: " : "Switched off. It would add ") + money(r.full, 2) + "/door/mo, the same in every package."];
+    Object.keys(r.items).forEach(function (k) { lines.push(RESIDENT_NAMES[k] + ": " + money(r.items[k], 2) + "/mo (" + money(r.items[k] * 12) + "/yr)"); });
+    lines.push("Set under Portfolio → Resident revenue.");
+    return lines;
+  }
+
+  /* Resident revenue's pieces under its subtotal on the Summary. They're the same in every package; N/A in the owners-only view. */
+  function residentRows(doc, C, row) {
+    var r = C.margins.min.resident, R = doc.resident, c = r.cycle, G = doc.G;
+    var how = {
+      rbp: [money(rbpSpread(R), 2) + "/mo average spread of the " + R.rbp.length + " packages" + (R.raynorPct < 100 ? " × " + R.raynorPct + "% of leases enrolled" : "") + "."],
+      renewal: [money(R.renewalFee) + " per renewal × " + c.renewalsYr.toFixed(2) + " renewals a door a year ÷ 12."],
+      admin: [money(R.adminFee) + " per move-in × " + fmtNum(G.moveIns || 0) + " move-ins a year ÷ " + fmtNum(G.doors) + " doors ÷ 12."],
+      pet: [money(R.petYr) + "/door/yr" + (R.petKeep < 100 ? " × " + R.petKeep + "% kept" : "") + " ÷ 12."],
+      late: [money(R.lateYr) + "/door/yr" + (R.lateKeep < 100 ? " × " + R.lateKeep + "% kept" : "") + " ÷ 12."],
+      app: [money(R.appYr, 2) + "/door/yr ÷ 12."]
+    };
+    return Object.keys(r.items).map(function (k) {
+      return html`<${React.Fragment} key=${k}>${row(RESIDENT_NAMES[k], function () { return r.on ? money(r.items[k], 2) : html`<span class="faint">N/A</span>`; }, "sub2", how[k])}</${React.Fragment}>`;
+    });
+  }
+
   function Summary(props) {
     var doc = props.doc, C = props.C, P = doc.pricing, focus = props.ui.focus, G = doc.G;
     var fc = function (t) { return focus === t ? "focus" : ""; };
@@ -701,6 +733,16 @@
       return any ? { g: g, vals: vals } : null;
     }).filter(Boolean);
     var lbAny = TIERS.some(function (t) { return C.margins[t].leaseBreak.cost > 0.004; });
+    // Collapsible groups on the Summary, remembered with the other open/closed sections (ui.pfShut).
+    var shut = props.ui.pfShut || {}, SUM_KEYS = ["sum:rev", "sum:own", "sum:res", "sum:cost"];
+    function tog(k, label) {
+      var isShut = !!shut[k];
+      return html`<button type="button" class="row-tog" aria-expanded=${!isShut}
+        onClick=${function () { props.setUi(function (u) { u.pfShut[k] = !isShut; }); }}>
+        <span class="caret-i" aria-hidden="true">${isShut ? "▸" : "▾"}</span>${label}</button>`;
+    }
+    function setAll(v) { props.setUi(function (u) { SUM_KEYS.forEach(function (k) { u.pfShut[k] = v; }); }); }
+    var showRev = !shut["sum:rev"], showOwn = showRev && !shut["sum:own"], showRes = showRev && !shut["sum:res"], showCost = !shut["sum:cost"];
     function row(label, fn, cls, info) {
       return html`<tr class=${cls || ""}><td>${label}${info ? html`<${Info} plain=${true} lines=${info} />` : null}</td>
         ${TIERS.map(function (t) { return html`<td key=${t} class=${fc(t)}>${fn(t)}</td>`; })}</tr>`;
@@ -710,7 +752,9 @@
         lead=${"Each tier's revenue, cost and margin at " + VIEW_NAMES[doc.cv] + " on " + fmtNum(G.doors) + " doors. Every change shows its effect in the rail on the right."} />
       <div>
         <section class="panel">
-          <div class="panel-h"><h2>Side by side</h2><span class="small muted">per door per month unless noted</span></div>
+          <div class="panel-h"><h2>Side by side</h2><span class="small muted">per door per month unless noted
+            <button type="button" class="mini" style=${{ marginLeft: "10px" }} onClick=${function () { setAll(true); }}>Collapse all</button>
+            <button type="button" class="mini" style=${{ marginLeft: "4px" }} onClick=${function () { setAll(false); }}>Expand all</button></span></div>
           <div class="table-wrap"><table class="compare">
             <thead><tr><th></th>${TIERS.map(function (t) {
               var v = verdict(C.margins[t], P.targetPct);
@@ -719,16 +763,21 @@
             <tbody>
               ${row("Standard monthly fee", function (t) { return pct(P.tiers[t].monthlyPct, 2); }, "", ["Set on the Prices page. The owner's own pick is shown there too."])}
               ${row("Services included", function (t) { return C.cost.included[t] + " of " + C.cost.possible; })}
-              ${row("Revenue", function (t) { return money(C.margins[t].revenue, 2); }, "total")}
-              ${row("Monthly fee", function (t) { return money(C.margins[t].rev.mgmt, 2); }, "sub", ["The owner's monthly % × " + money(G.rent) + " average rent.", P.vacancyPct ? "Less " + P.vacancyPct + "% vacancy." : "No vacancy deduction."])}
-              ${row("Leasing fees", function (t) { return money(C.margins[t].rev.leasing, 2); }, "sub", ["Leasing fee × " + C.margins.min.rev.turnsYr.toFixed(2) + " placements a year (1 ÷ " + fmtNum(G.tenancy) + "-yr average tenancy) ÷ 12."])}
-              ${row("Renewal fees", function (t) { return money(C.margins[t].rev.renewal, 2); }, "sub", ["Renewal fee × " + C.margins.min.rev.renewalsYr.toFixed(2) + " renewals a year ÷ 12."])}
-              ${row("Per-use fees and add-ons", function (t) { return money(C.margins[t].addon.rev, 2); }, "sub", ["Per-use service fees (step 3) and optional add-ons and benefits packages (step 4)."])}
-              ${row("Cost", function (t) { return money(C.margins[t].cost, 2); }, "total", ["Cost lines checked for the tier and counted at " + VIEW_NAMES[doc.cv] + ", plus add-on costs and the lease break waiver" + (P.scopeSavings ? ", less freed PM capacity." : ".")])}
-              ${groupRowsOut.map(function (x) { return html`<${React.Fragment} key=${x.g.id}>${row(x.g.label, function (t) { return money(x.vals[t], 2); }, "sub")}</${React.Fragment}>`; })}
-              ${lbAny ? row("Lease break waiver", function (t) { return money(C.margins[t].leaseBreak.cost, 2); }, "sub", ["The leasing fee a tier waives when it re-places a tenant who broke their lease. Guarantees group."]) : null}
-              ${row("Fee and add-on costs", function (t) { return money(C.margins[t].addon.cost, 2); }, "sub", ["Court fees and the PM's split on billed evictions, what add-ons and benefits packages cost you, and any cost you set on a fee."])}
-              ${P.scopeSavings ? row("Less freed PM capacity", function (t) { return "−" + money(C.cost.freed[t], 2); }, "sub", ["Services a tier leaves out, valued at the PM time they free."]) : null}
+              ${row("Fee while vacant", function (t) { return P.tiers[t].vacancyCharge ? money(P.vacancyFee) + "/mo" : html`<span class="good">Included</span>`; }, "", ["What the owner pays each month the unit sits vacant. Included means no charge while vacant.", P.countVacancy ? "Counted in margin: see Vacancy fee under Revenue." : "A package benefit to compare. Margins are for a filled unit (Portfolio → Residential to count vacancy)."])}
+              ${row(tog("sum:rev", "Revenue"), function (t) { return money(C.margins[t].revenue, 2); }, "total rev-row", [doc.resident.on ? "What owners pay plus resident revenue: the whole property's revenue per door." : "What owners pay only. Resident revenue is switched off."])}
+              ${showRev ? (row(tog("sum:own", "Owner revenue"), function (t) { return money(C.margins[t].ownerRevenue, 2); }, "sub mid", ["What owners pay: the lines below added up.", "Margin on owner revenue alone: " + TIERS.map(function (t) { var m = C.margins[t]; return TIER_SHORT[t] + " " + pct(m.ownerRevenue > 0 ? (m.ownerRevenue - m.cost) / m.ownerRevenue * 100 : 0); }).join(", ") + "."])) : null}
+              ${showOwn ? (row("Monthly fee", function (t) { return money(C.margins[t].rev.mgmt, 2); }, "sub2", ["The owner's monthly % × " + money(G.rent) + " average rent.", P.countVacancy && G.vacantDays ? "Not earned during " + fmtNum(G.vacantDays) + " vacant days per turnover (" + pct(C.margins.min.rev.vacantShare * 100) + " of the year)." : "A filled unit: the fee for every month."])) : null}
+              ${showOwn ? (!P.countVacancy ? null : row("Vacancy fee", function (t) { return P.tiers[t].vacancyCharge ? money(C.margins[t].rev.vacancy, 2) : html`<span class="faint">Included</span>`; }, "sub2", [money(P.vacancyFee) + "/mo while a unit sits vacant, in tiers that charge it (Prices page).", G.vacantDays ? fmtNum(G.vacantDays) + " vacant days per turnover." : "It's $0 until days vacant per turnover is set (Portfolio → Residential)."])) : null}
+              ${showOwn ? (row("Leasing fees", function (t) { return money(C.margins[t].rev.leasing, 2); }, "sub2", ["Leasing fee × " + C.margins.min.rev.turnsYr.toFixed(2) + " placements a year (1 ÷ " + fmtNum(G.tenancy) + "-yr average tenancy) ÷ 12."])) : null}
+              ${showOwn ? (row("Renewal fees", function (t) { return money(C.margins[t].rev.renewal, 2); }, "sub2", ["Renewal fee × " + C.margins.min.rev.renewalsYr.toFixed(2) + " renewals a year ÷ 12."])) : null}
+              ${showOwn ? (row("Per-use fees and add-ons", function (t) { return money(C.margins[t].addon.rev, 2); }, "sub2", ["Per-use service fees (step 3) and optional add-ons and benefits packages (step 4)."])) : null}
+              ${showRev ? (row(tog("sum:res", "Resident revenue"), function (t) { var r = C.margins[t].resident; return r.on ? money(r.total, 2) : html`<span class="faint">N/A</span>`; }, "sub mid", residentLines(doc, C.margins.min.resident))) : null}
+              ${showRes ? residentRows(doc, C, row) : null}
+              ${row(tog("sum:cost", "Cost"), function (t) { return money(C.margins[t].cost, 2); }, "total cost-row", ["Cost lines checked for the tier and counted at " + VIEW_NAMES[doc.cv] + ", plus add-on costs and the lease break waiver" + (P.scopeSavings ? ", less freed PM capacity." : ".")])}
+              ${showCost ? (groupRowsOut.map(function (x) { return html`<${React.Fragment} key=${x.g.id}>${row(x.g.label, function (t) { return money(x.vals[t], 2); }, "sub")}</${React.Fragment}>`; })) : null}
+              ${showCost ? (lbAny ? row("Lease break waiver", function (t) { return money(C.margins[t].leaseBreak.cost, 2); }, "sub", ["The leasing fee a tier waives when it re-places a tenant who broke their lease. Guarantees group."]) : null) : null}
+              ${showCost ? (row("Fee and add-on costs", function (t) { return money(C.margins[t].addon.cost, 2); }, "sub", ["Court fees and the PM's split on billed evictions, what add-ons and benefits packages cost you, and any cost you set on a fee."])) : null}
+              ${showCost ? (P.scopeSavings ? row("Less freed PM capacity", function (t) { return "−" + money(C.cost.freed[t], 2); }, "sub", ["Services a tier leaves out, valued at the PM time they free."]) : null) : null}
               ${row("Margin", function (t) { return html`<span class=${verdict(C.margins[t], P.targetPct).cls}>${money(C.margins[t].margin, 2)}</span>`; }, "total big")}
               ${row("Margin %", function (t) { return html`<span class=${verdict(C.margins[t], P.targetPct).cls}>${pct(C.margins[t].marginPct)}</span>`; }, "total")}
               ${row("Portfolio margin / yr", function (t) { return money(C.margins[t].portfolioMo * 12); }, "sub", ["Margin per door × " + fmtNum(G.doors) + " long-term residential doors × 12, as if every one were on this tier. STR and commercial are counted separately."])}
@@ -749,50 +798,91 @@
 
   var FIELD_GROUPS = [
     { title: "Residential", fields: [
-      { id: "f-doors", label: "Long-term residential doors", get: function (d) { return d.G.doors; }, set: function (d, v) { d.G.doors = Math.max(1, Math.round(v)); d.af.rd = afResUnits(d); }, step: 1, min: 1,
+      { id: "f-doors", label: "Long-term residential doors", suffix: "doors", get: function (d) { return d.G.doors; }, set: function (d, v) { d.G.doors = Math.max(1, Math.round(v)); d.af.rd = afResUnits(d); }, step: 1, min: 1,
         help: "Doors on the three packages. Package revenue and margin are per one of these doors. STR and commercial units are set below." },
-      { id: "f-rent", label: "Average rent", prefix: "$", get: function (d) { return d.G.rent; }, set: function (d, v) { d.G.rent = v; }, step: 25, min: 0,
+      { id: "f-rent", label: "Average rent", prefix: "$", suffix: "/mo", get: function (d) { return d.G.rent; }, set: function (d, v) { d.G.rent = v; }, step: 25, min: 0,
         help: "Average monthly rent across managed units. Every percentage fee (monthly and leasing) is figured on this." },
-      { id: "f-tenancy", label: "Average tenancy", suffix: "yrs", get: function (d) { return d.G.tenancy; }, set: function (d, v) { d.G.tenancy = v; }, step: 0.5, min: 0.25,
+      { id: "f-tenancy", label: "Average tenancy", suffix: "years", get: function (d) { return d.G.tenancy; }, set: function (d, v) { d.G.tenancy = v; }, step: 0.5, min: 0.25,
         help: "How long a tenant stays. Sets how often units turn over (leasing fees and turnover costs) and how many renewals happen." },
-      { id: "f-listings", label: "Active listings", get: function (d) { return d.G.listings; }, set: function (d, v) { d.G.listings = v; }, step: 1, min: 0,
+      { id: "f-listings", label: "Active listings", suffix: "listings", get: function (d) { return d.G.listings; }, set: function (d, v) { d.G.listings = v; }, step: 1, min: 0,
         help: "Units listed for rent at a typical moment. Per-listing costs multiply by this." },
-      { id: "f-term", label: "Lease term", suffix: "mo", get: function (d) { return d.pricing.term; }, set: function (d, v) { d.pricing.term = Math.max(1, v); }, step: 1, min: 1,
+      { id: "f-term", label: "Lease term", suffix: "months", get: function (d) { return d.pricing.term; }, set: function (d, v) { d.pricing.term = Math.max(1, v); }, step: 1, min: 1,
         help: "Length of a standard lease. Renewals and the owner's fee choice are figured per lease term." },
-      { id: "f-vacancy", label: "Vacancy", suffix: "%", get: function (d) { return d.pricing.vacancyPct; }, set: function (d, v) { d.pricing.vacancyPct = Math.min(100, v); }, step: 1, min: 0, max: 100,
-        help: "Keep at 0%. Raynor only collects fees once a renter is placed. Use it only to test an owner-side vacancy." }
+      { id: "f-vacfee", label: "Fee while vacant", prefix: "$", suffix: "/mo", get: function (d) { return d.pricing.vacancyFee; }, set: function (d, v) { d.pricing.vacancyFee = v; }, step: 1, min: 0,
+        help: "What owners pay each month their unit sits vacant. Minimum and Special charge it; in Plus it's included (no charge while vacant). Change which tiers charge it on the Prices page." },
+      { id: "f-countvac", label: "Count vacancy in margin", toggle: function (d) { return !!d.pricing.countVacancy; }, setToggle: function (d, on) { d.pricing.countVacancy = on; },
+        help: "Off (normal): margins are for a filled unit, and the vacancy fee is a package benefit to compare. On: for the vacant days below, the % fee stops and tiers that charge the vacancy fee bill it instead." },
+      { id: "f-vacdays", label: "Days vacant per turnover", suffix: "days", get: function (d) { return d.G.vacantDays; }, set: function (d, v) { d.G.vacantDays = Math.min(365, v); }, step: 1, min: 0, max: 365,
+        help: "How long a unit sits empty between tenants. Only used when Count vacancy in margin is on." }
+    ] },
+    { title: "Resident revenue", fields: [
+      { id: "f-res-on", label: "Count resident revenue", toggle: function (d) { return !!d.resident.on; }, setToggle: function (d, on) { d.resident.on = on; },
+        help: "On counts what residents pay that Raynor keeps, so revenue is the whole property's. Off shows what owners pay alone. The same switch sits under Live margin." },
+      { id: "f-rbp", label: "Resident benefits package", rbp: true, get: function (d) { return rbpSpread(d.resident); },
+        text: function (d) { return money(rbpSpread(d.resident), 2) + "/mo"; },
+        help: "Each enrolled lease is on one of these packages. Raynor keeps the spread (FMV less program fee). The plain average of all of them is used, times the share of leases enrolled (below)." },
+      { id: "f-raynor", label: "Leases enrolled in RBP", suffix: "%", get: function (d) { return d.resident.raynorPct; }, set: function (d, v) { d.resident.raynorPct = Math.min(100, v); }, step: 5, min: 0, max: 100,
+        help: "Share of leases signed up for a resident benefits package. 100% is the best case for one property; lower it to match the portfolio. Only RBP uses this." },
+      { id: "f-tren", label: "Tenant renewal fee", prefix: "$", suffix: "/renewal", get: function (d) { return d.resident.renewalFee; }, set: function (d, v) { d.resident.renewalFee = v; }, step: 5, min: 0,
+        help: function (d) { var c = leaseCycle(d); return "The average a tenant pays per renewal ($50–250; quicker renewals pay less) × " + c.renewalsYr.toFixed(2) + " renewals a door a year = " + money(d.resident.renewalFee * c.renewalsYr, 2) + "/door/yr."; } },
+      { id: "f-admin", label: "Admin fee at move-in", prefix: "$", suffix: "/move-in", get: function (d) { return d.resident.adminFee; }, set: function (d, v) { d.resident.adminFee = v; }, step: 5, min: 0,
+        help: function (d) { var n = d.G.moveIns || 0, per = d.G.doors ? d.resident.adminFee * n / d.G.doors : 0; return "Charged once per move-in × " + fmtNum(n) + " move-ins a year (Portfolio → Yearly activity) ÷ " + fmtNum(d.G.doors) + " doors = " + money(per, 2) + "/door/yr."; } },
+      { id: "f-pet", label: "Pet rent", prefix: "$", suffix: "/door/yr", get: function (d) { return d.resident.petYr; }, set: function (d, v) { d.resident.petYr = v; }, step: 1, min: 0,
+        help: "Last year's pet rent averaged over every door." },
+      { id: "f-petkeep", label: "Pet rent Raynor keeps", suffix: "%", get: function (d) { return d.resident.petKeep; }, set: function (d, v) { d.resident.petKeep = Math.min(100, v); }, step: 5, min: 0, max: 100,
+        help: "Raynor keeps all of it today, which is what pays for the pet guarantee. Lower it to see the numbers if part goes to the owner." },
+      { id: "f-late", label: "Late fees", prefix: "$", suffix: "/door/yr", get: function (d) { return d.resident.lateYr; }, set: function (d, v) { d.resident.lateYr = v; }, step: 1, min: 0,
+        help: "Last year's late fees averaged over every door." },
+      { id: "f-latekeep", label: "Late fees Raynor keeps", suffix: "%", get: function (d) { return d.resident.lateKeep; }, set: function (d, v) { d.resident.lateKeep = Math.min(100, v); }, step: 5, min: 0, max: 100,
+        help: "Raynor keeps all of it today, which is what pays for the eviction guarantee. Lower it to see the numbers if part goes to the owner." },
+      { id: "f-app", label: "Application fees", prefix: "$", suffix: "/door/yr", get: function (d) { return d.resident.appYr; }, set: function (d, v) { d.resident.appYr = v; }, step: 0.5, min: 0,
+        help: "Net from last year: $75 charged, about $35 cost, per applicant. Follows how many people apply, not move-ins." }
     ] },
     { title: "STR and commercial", fields: [
-      { id: "f-str", label: "Short-term rental units", get: function (d) { return d.G.str; }, set: function (d, v) { d.G.str = Math.max(0, Math.round(v)); d.af.rd = afResUnits(d); }, step: 1, min: 0,
+      { id: "f-str", label: "Short-term rental units", suffix: "units", get: function (d) { return d.G.str; }, set: function (d, v) { d.G.str = Math.max(0, Math.round(v)); d.af.rd = afResUnits(d); }, step: 1, min: 0,
         help: "They share the costs every unit comes with (not turnovers, listings or guarantees), which lowers the cost per package door. AppFolio bills them as residential." },
-      { id: "f-comm", label: "Commercial units", get: function (d) { return d.G.comm; }, set: function (d, v) { d.G.comm = Math.max(0, Math.round(v)); d.af.cd = d.G.comm; }, step: 1, min: 0,
+      { id: "f-comm", label: "Commercial units", suffix: "units", get: function (d) { return d.G.comm; }, set: function (d, v) { d.G.comm = Math.max(0, Math.round(v)); d.af.cd = d.G.comm; }, step: 1, min: 0,
         help: "They share the costs every unit comes with (not turnovers, listings or guarantees), which lowers the cost per package door. AppFolio bills them at its commercial rate." },
 
     ] },
     { title: "Yearly activity, whole portfolio", fields: [
-      { id: "f-wo", label: "Work orders", suffix: "/yr", get: function (d) { return d.G.wo; }, set: function (d, v) { d.G.wo = v; }, step: 10, min: 0,
-        help: "Work orders over the last 12 months. Maintenance coordination fees are billed on these." },
+      { id: "f-wobydoor", label: "Work orders follow doors", toggle: function (d) { return !!d.G.woByDoor; },
+        setToggle: function (d, on) {
+          // Switching keeps today's number: the count becomes a rate per door, or the rate becomes a count.
+          if (on) d.G.woPerDoor = d.G.doors ? d.G.wo / d.G.doors : 0;
+          else d.G.wo = Math.round(woYr(d));
+          d.G.woByDoor = on;
+        },
+        help: "On: work orders are a rate per door, so changing the door count moves them with it. Off: a fixed yearly count." },
+      { id: "f-worate", label: "Work orders per door", suffix: "/door/yr", hide: function (d) { return !d.G.woByDoor; },
+        get: function (d) { return d.G.woPerDoor; }, set: function (d, v) { d.G.woPerDoor = v; }, step: 0.1, min: 0,
+        help: function (d) { return "Residential work orders a door a year × " + fmtNum(d.G.doors) + " doors = " + fmtNum(Math.round(woYr(d))) + " a year. Not STR or commercial, whose fees already cover coordination. Coordination fees are billed on these."; } },
+      { id: "f-wo", label: "Work orders", suffix: "/yr", hide: function (d) { return !!d.G.woByDoor; },
+        get: function (d) { return d.G.wo; }, set: function (d, v) { d.G.wo = v; }, step: 10, min: 0,
+        help: function (d) { return "Residential work orders over the last 12 months (" + (d.G.doors ? fmtNum(d.G.wo / d.G.doors) : 0) + " a door). Not STR or commercial, whose fees already cover coordination. Coordination fees are billed on these, spread over the residential doors."; } },
+      { id: "f-movein", label: "Move-ins", suffix: "/yr", get: function (d) { return d.G.moveIns; }, set: function (d, v) { d.G.moveIns = v; }, step: 1, min: 0,
+        help: function (d) { return "New tenants moved in over the last 12 months. The " + money(d.resident.adminFee) + " admin fee is charged on each. Starts at " + fmtNum(d.G.tenancy > 0 ? Math.round(d.G.doors / d.G.tenancy) : 0) + " (doors ÷ average tenancy). Leasing fees still follow average tenancy."; } },
       { id: "f-evictions", label: "Evictions", suffix: "/yr", get: function (d) { return d.G.evictions; }, set: function (d, v) { d.G.evictions = v; }, step: 1, min: 0,
         help: "Evictions filed over the last 12 months. Used by both the billed eviction fee and the Eviction guarantee." },
-      { id: "f-court", label: "Court fees per eviction", prefix: "$", get: function (d) { return d.G.courtFee; }, set: function (d, v) { d.G.courtFee = v; }, step: 1, min: 0,
+      { id: "f-court", label: "Court fees per eviction", prefix: "$", suffix: "/eviction", get: function (d) { return d.G.courtFee; }, set: function (d, v) { d.G.courtFee = v; }, step: 1, min: 0,
         help: "$96 filing + $30 per tenant. Comes out of the $750 when the owner is billed. Raynor pays it when the guarantee covers the eviction." },
       { id: "f-notplaced", label: "Tenant we didn't place", suffix: "%", get: function (d) { return d.G.evictNotPlacedPct; }, set: function (d, v) { d.G.evictNotPlacedPct = Math.min(100, v); }, step: 5, min: 0, max: 100,
         help: "In a tier with the Eviction guarantee, the share of evictions where Raynor didn't place the tenant. Those are billed $750 instead of covered." }
     ] },
     { title: "Staff and software", fields: [
-      { id: "f-seats", label: "Software seats", get: function (d) { return d.G.seats; }, set: function (d, v) { d.G.seats = v; }, step: 1, min: 0,
+      { id: "f-seats", label: "Software seats", suffix: "seats", get: function (d) { return d.G.seats; }, set: function (d, v) { d.G.seats = v; }, step: 1, min: 0,
         help: "Per-seat software costs multiply by this." },
-      { id: "f-hours", label: "Work hours per person", suffix: "/yr", get: function (d) { return d.G.hoursYr; }, set: function (d, v) { d.G.hoursYr = v; }, step: 40, min: 1,
+      { id: "f-hours", label: "Work hours per person", suffix: "hrs/yr", get: function (d) { return d.G.hoursYr; }, set: function (d, v) { d.G.hoursYr = v; }, step: 40, min: 1,
         help: "Paid hours a year (2,080 = 40 hours × 52 weeks). Turns a salary into an hourly rate for services priced in hours." }
     ] },
     { title: "AppFolio", fields: [
-      { id: "f-afrr", label: "Residential rate", prefix: "$", suffix: "/unit", get: function (d) { return d.af.rr; }, set: function (d, v) { d.af.rr = v; }, step: 0.01, min: 0,
+      { id: "f-afrr", label: "Residential rate", prefix: "$", suffix: "/unit/mo", get: function (d) { return d.af.rr; }, set: function (d, v) { d.af.rr = v; }, step: 0.01, min: 0,
         help: "What AppFolio charges per residential unit each month." },
-      { id: "f-afrd", label: "Residential units", readonly: function (d) { return fmtNum(d.af.rd); },
+      { id: "f-afrd", label: "Residential units", suffix: "units", readonly: function (d) { return fmtNum(d.af.rd); },
         help: "Long-term residential doors, plus STR units when Include STR is on. Updates on its own." },
-      { id: "f-afcd", label: "Commercial units", readonly: function (d) { return fmtNum(d.af.cd); },
+      { id: "f-afcd", label: "Commercial units", suffix: "units", readonly: function (d) { return fmtNum(d.af.cd); },
         help: "From STR and commercial above. Updates on its own." },
-      { id: "f-afcr", label: "Commercial rate", prefix: "$", suffix: "/unit", get: function (d) { return d.af.cr; }, set: function (d, v) { d.af.cr = v; }, step: 0.01, min: 0,
+      { id: "f-afcr", label: "Commercial rate", prefix: "$", suffix: "/unit/mo", get: function (d) { return d.af.cr; }, set: function (d, v) { d.af.cr = v; }, step: 0.01, min: 0,
         help: "What AppFolio charges per commercial unit each month. Only counted when commercial units are included below." },
       { id: "f-afistr", label: "Include STR", toggle: function (d) { return !!d.af.istr; }, setToggle: function (d, on) { d.af.istr = on ? 1 : 0; d.af.rd = afResUnits(d); },
         help: "Counts the STR units in AppFolio's residential units. Off leaves them out of the AppFolio cost." },
@@ -810,9 +900,35 @@
   /* A field's current value as short text, for the one-line summary of a collapsed Portfolio section. */
   function fieldText(doc, f) {
     if (f.readonly) return f.readonly(doc);
+    if (f.text) return f.text(doc);
     if (f.toggle) return f.toggle(doc) ? "on" : "off";
     var v = f.get(doc);
     return (f.prefix || "") + fmtNum(v || 0) + (f.suffix ? (f.suffix.charAt(0) === "/" || f.suffix === "%" ? "" : " ") + f.suffix : "");
+  }
+
+  /* The resident benefits packages: FMV and program fee per package, the spread Raynor keeps, and their plain average. */
+  function RbpTable(props) {
+    var doc = props.doc, f = props.f, list = doc.resident.rbp;
+    function set(i, k, v) { props.update(function (d) { d.resident.rbp[i][k] = v; }, list[i].name + (k === "fmv" ? " FMV" : " program fee")); }
+    // The average spread is the main line; the packages behind it open on demand (closed by default).
+    var open = !!(props.ui.pfShut || {})["rbp:open"];
+    function toggle() { props.setUi(function (u) { u.pfShut["rbp:open"] = !open; }); }
+    return html`<div class="frow rbp-row" id=${"row-" + f.id}>
+      <label>Average RBP spread</label>
+      <div class="fctrl"><span class="affix ro slots"><span class="pre">$</span><span class="ro-v">${rbpSpread(doc.resident).toFixed(2)}</span><span class="suf">/mo</span></span></div>
+      <div class="help">${f.help}
+        <button type="button" class="link small" style=${{ marginLeft: "6px" }} aria-expanded=${open} onClick=${toggle}>${open ? "Hide the " + list.length + " packages ▾" : "Show the " + list.length + " packages ▸"}</button></div>
+      ${open ? html`<div class="rbp-wrap"><table class="rbp">
+        <thead><tr><th>Package</th><th class="r">FMV</th><th class="r">Program fee</th><th class="r">Spread</th></tr></thead>
+        <tbody>${list.map(function (p, i) {
+          var sp = (p.fmv || 0) - (p.fee || 0);
+          return html`<tr key=${i}><td>${p.name}</td>
+            <td class="r"><${Affix} cls="w-xs" prefix="$" step=${0.05} min=${0} label=${p.name + " FMV"} value=${p.fmv} onChange=${function (v) { set(i, "fmv", v); }} /></td>
+            <td class="r"><${Affix} cls="w-xs" prefix="$" step=${0.05} min=${0} label=${p.name + " program fee"} value=${p.fee} onChange=${function (v) { set(i, "fee", v); }} /></td>
+            <td class=${"r mono" + (sp <= 0 ? " faint" : "")}>${money(sp, 2)}</td></tr>`;
+        })}</tbody>
+      </table></div>` : null}
+    </div>`;
   }
 
   function Portfolio(props) {
@@ -831,18 +947,20 @@
               onClick=${function () { props.setUi(function (u) { u.pfShut[grp.title] = !isShut; }); }}>
               <span class="caret-i" aria-hidden="true">${isShut ? "▸" : "▾"}</span>
               <span class="sec-name">${grp.title}</span>
-              ${isShut ? html`<span class="sec-sum">${grp.fields.map(function (f) { return f.label + " " + fieldText(doc, f); }).join(" · ")}</span>` : null}
+              ${isShut ? html`<span class="sec-sum">${grp.fields.filter(function (f) { return !(f.hide && f.hide(doc)); }).map(function (f) { return f.label + " " + fieldText(doc, f); }).join(" · ")}</span>` : null}
             </button>
           </h2>
-          ${isShut ? null : html`<div class="panel-b fieldset">${grp.fields.map(function (f) {
-            var ctrl = f.readonly ? html`<span class="affix ro">${f.readonly(doc)}</span>`
+          ${isShut ? null : html`<div class="panel-b fieldset">${grp.fields.filter(function (f) { return !(f.hide && f.hide(doc)); }).map(function (f) {
+            var help = typeof f.help === "function" ? f.help(doc) : f.help;
+            if (f.rbp) return html`<${RbpTable} key=${f.id} f=${f} doc=${doc} update=${update} ui=${props.ui} setUi=${props.setUi} />`;
+            var ctrl = f.readonly ? html`<span class="affix ro slots"><span class="pre"></span><span class="ro-v">${f.readonly(doc)}</span><span class="suf">${f.suffix || ""}</span></span>`
               : f.toggle ? html`<label class="toggle-box" for=${f.id}><input type="checkbox" id=${f.id} checked=${f.toggle(doc)} onChange=${function (e) { var on = e.target.checked; update(function (d) { f.setToggle(d, on); }, f.label + (on ? " on" : " off")); }} /><span>${f.toggle(doc) ? "On" : "Off"}</span></label>`
-              : html`<${Affix} id=${f.id} prefix=${f.prefix} suffix=${f.suffix} step=${f.step} min=${f.min} max=${f.max} label=${f.label}
+              : html`<${Affix} slots=${true} id=${f.id} prefix=${f.prefix} suffix=${f.suffix} step=${f.step} min=${f.min} max=${f.max} label=${f.label}
                   value=${f.get(doc)} onChange=${function (v) { update(function (d) { f.set(d, v); }, f.label); }} />`;
             return html`<div key=${f.id} class="frow" id=${"row-" + f.id}>
               <label for=${f.id}>${f.label}</label>
               <div class="fctrl">${ctrl}</div>
-              <div class="help">${f.help}</div>
+              <div class="help">${help}</div>
             </div>`;
           })}</div>`}
         </section>`;
@@ -1301,6 +1419,40 @@
     </div>`;
   }
 
+  /*
+   * What an owner on this package pays over one average tenancy (Portfolio), year by year, at the owner's current pick.
+   * Year 1 has the leasing fee for the new tenant; later years have renewal fees (one per lease term). Per-use fees are
+   * the package's average per door (coordination, accounting, billed evictions, add-ons). A filled unit: no vacancy.
+   */
+  function OwnerTermCost(props) {
+    var doc = props.doc, m = props.m, q = m.rev.quote, G = doc.G, term = Math.max(1, doc.pricing.term || 12);
+    var years = Math.max(1, Math.round(G.tenancy || 1)), perUseYr = m.addon.rev * 12, renewalsYr = 12 / term;
+    var rows = [];
+    for (var y = 1; y <= years; y++) {
+      var leaseOrRenew = y === 1 ? q.leaseUp + (renewalsYr > 1 ? q.renewal * (renewalsYr - 1) : 0) : q.renewal * renewalsYr;
+      rows.push({ y: y, monthly: q.monthly * 12, signing: leaseOrRenew, perUse: perUseYr, total: q.monthly * 12 + leaseOrRenew + perUseYr });
+    }
+    var sum = function (k) { return rows.reduce(function (a, r) { return a + r[k]; }, 0); };
+    var total = sum("total");
+    return html`<details class="term-cost">
+      <summary>Owner's cost over a ${years}-year tenancy <b class="mono">${money(total)}</b></summary>
+      <table class="yr-table">
+        <thead><tr><th>Year</th><th>Monthly</th><th title="Leasing fee in year 1, renewal fees after">Lease / renew</th><th>Per-use</th><th>Total</th></tr></thead>
+        <tbody>${rows.map(function (r) {
+          return html`<tr key=${r.y}><td>${r.y}${r.y === 1 ? " new" : ""}</td><td>${money(r.monthly)}</td><td>${money(r.signing)}</td><td>${money(r.perUse)}</td><td class="strong">${money(r.total)}</td></tr>`;
+        })}</tbody>
+        <tfoot><tr><td>All</td><td>${money(sum("monthly"))}</td><td>${money(sum("signing"))}</td><td>${money(sum("perUse"))}</td><td>${money(total)}</td></tr></tfoot>
+      </table>
+      <p class="tiny muted" style=${{ margin: "6px 0 0" }}>${money(total / years / 12)}/mo on average, ${pct(G.rent > 0 ? total / years / 12 / G.rent * 100 : 0)} of ${money(G.rent)} rent.
+        <${Info} plain=${true} label="How the owner's cost is figured" lines=${[
+          "At the owner's pick of " + pct(q.pct, 2) + " monthly, on " + money(G.rent) + " rent, over one " + fmtNum(G.tenancy) + "-year average tenancy (Portfolio).",
+          "Year 1 pays the leasing fee for the new tenant; each later year pays the renewal fee (" + fmtNum(term) + "-month leases).",
+          "Per-use is this package's average per door: coordination fees, the accounting fee, billed evictions and any add-ons, from the Services and Add-ons pages.",
+          "A filled unit: vacant months aren't counted."
+        ]} /></p>
+    </details>`;
+  }
+
   function PriceCard(props) {
     var doc = props.doc, t = props.tier, C = props.C, m = C.margins[t], P = doc.pricing, p = P.tiers[t];
     var q = m.rev.quote, f = q.frame;
@@ -1341,6 +1493,10 @@
         <label class="fld" for=${"prn-" + t}><span>Renewal fee</span>
           <${Affix} id=${"prn-" + t} prefix="$" step=${25} min=${0} label="Renewal fee" value=${p.renewal} onChange=${function (v) { set("renewal", v, "renewal fee"); }} /></label>
       </div>
+      <label class="switch small" for=${"pv-" + t}><input type="checkbox" id=${"pv-" + t} checked=${!!p.vacancyCharge}
+        onChange=${function (e) { set("vacancyCharge", e.target.checked, e.target.checked ? "charges the vacancy fee" : "vacancy fee included"); }} />
+        ${p.vacancyCharge ? "Charges " + money(P.vacancyFee) + "/mo while vacant" : "No fee while vacant"}
+        <${Info} plain=${true} label="Vacancy fee" lines=${["Owners on this tier pay " + money(P.vacancyFee) + "/mo while their unit sits vacant between tenants. Unchecked, it's included: no charge while vacant.", P.countVacancy ? "Counted in margin: " + money(m.rev.vacancy, 2) + "/door/mo at " + fmtNum(doc.G.vacantDays) + " vacant days per turnover." : "A package benefit to compare. Margins are for a filled unit, so it doesn't change them."]} /></label>
       <div class="divider"></div>
       <div class="sub-h">Owner's fee choice</div>
       <div class="row-b">
@@ -1371,6 +1527,7 @@
           "Past that, the renewal fee can't go below $0, so each renewal year pays the full monthly fee and brings in more. Worst case sits at " + pct(range.lo.pct, 2) + "."
         ]} /></div>
       ${Math.abs(p.shift || 0) > 0.001 ? html`<button type="button" class="link small" style=${{ alignSelf: "flex-start" }} onClick=${function () { set("shift", 0, "back to standard mix"); }}>Back to standard mix</button>` : null}
+      <${OwnerTermCost} doc=${doc} m=${m} />
     </article>`;
   }
 
@@ -1541,7 +1698,7 @@
             <div class="panel-h"><h2>What it takes</h2></div>
             <div class="panel-b acq-kpis">
               <div><span class="small muted">Doors after</span><b class="mono">${rough(r.doorsAfter)}</b><span class="tiny faint">${fmtNum(G.doors)} today + ${rough(r.kept)}</span></div>
-              <div><span class="small muted">Work orders</span><b class="mono">${rough(A.wo)}/yr</b><span class="tiny faint">${rough(G.wo)} today</span></div>
+              <div><span class="small muted">Work orders</span><b class="mono">${rough(A.wo)}/yr</b><span class="tiny faint">${rough(woYr(doc))} today</span></div>
               <div><span class="small muted">Evictions</span><b class="mono">${rough(A.evictions)}/yr</b><span class="tiny faint">${rough(G.evictions)} today</span></div>
               <div><span class="small muted">Active listings</span><b class="mono">${rough(A.listings)}</b><span class="tiny faint">${rough(G.listings)} today</span></div>
             </div>
@@ -1601,7 +1758,8 @@
               <div><span class="small muted">Doors after</span><b class="mono">${fmtNum(Math.round(r.doorsAfter))}</b><span class="tiny faint">${fmtNum(G.doors)} today + ${fmtNum(Math.round(r.kept))} kept</span></div>
               <div><span class="small muted">Book earns a year</span><b class=${"mono " + (r.bookYr < 0 ? "bad" : "good")}>${money(r.bookYr)}</b><span class="tiny faint">margin on its ${fmtNum(Math.round(r.kept))} doors</span></div>
               <div><span class="small muted">Payback</span><b class="mono">${r.upfront <= 0 ? "—" : r.paybackMo == null ? "never" : fmtNum(Math.round(r.paybackMo * 10) / 10) + " mo"}</b><span class="tiny faint">${money(r.upfront)} up front</span></div>
-              <div><span class="small muted">First-year net</span><b class=${"mono " + (r.firstYearNet < 0 ? "bad" : "good")}>${money(r.firstYearNet)}</b><span class="tiny faint">book margin less up-front cost</span></div>
+              <div><span class="small muted">First-year net</span><b class=${"mono " + (r.firstYearNet < 0 ? "bad" : "good")}>${money(r.firstYearNet)}</b><span class="tiny faint">book margin less up-front cost${r.residentRamp > 0.5 ? ", less " + money(r.residentRamp) + " resident revenue still ramping in" : ""}</span>
+                ${r.residentRamp > 0.5 ? html`<${Info} plain=${true} label="Resident revenue ramp" lines=${["RBP, pet rent and late fees only come from tenants Raynor placed or renewed.", "The book's tenants move onto Raynor leases as each lease renews or turns over, so they're on one for about " + pct(r.onRaynorYr1 * 100, 0) + " of year one.", "Book earns a year and payback use the full amount once everyone has moved over."]} />` : null}</div>
             </div>
           </section>
           <section class="panel">
@@ -1751,10 +1909,11 @@
       num(TIER_SHORT[t] + " monthly fee", pa.monthlyPct, pb.monthlyPct, function (v) { return pct(v, 2); });
       num(TIER_SHORT[t] + " leasing fee", pa.leasePct, pb.leasePct, function (v) { return pct(v, 0); });
       num(TIER_SHORT[t] + " renewal fee", pa.renewal, pb.renewal, function (v) { return money(v); });
+      if (!!pa.vacancyCharge !== !!pb.vacancyCharge) put(TIER_SHORT[t] + " vacancy fee: " + (pa.vacancyCharge ? "charged" : "included") + " → " + (pb.vacancyCharge ? "charged" : "included"));
     });
     open("portfolio", "Portfolio and settings");
     FIELD_GROUPS.forEach(function (g) { g.fields.forEach(function (f) {
-      if (f.get) num(f.label, f.get(a), f.get(b), fmtNum);
+      if (f.get) num(f.label, f.get(a), f.get(b), f.rbp ? function (v) { return money(v, 2) + " average spread"; } : fmtNum);
       if (f.toggle && f.toggle(a) !== f.toggle(b)) put(f.label + ": " + (f.toggle(a) ? "on" : "off") + " → " + (f.toggle(b) ? "on" : "off"));
     }); });
     var ca = activeTemplate(a), cb = activeTemplate(b);

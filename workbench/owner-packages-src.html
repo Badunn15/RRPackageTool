@@ -211,7 +211,7 @@
         <div class="legend"><span><i style="background:var(--seg-monthly)"></i>Monthly fees for 12 months</span><span><i style="background:var(--seg-lease)"></i>Leasing fee</span><span><i style="background:var(--seg-renew)"></i>Renewal fee</span></div>
       </div>
     </div>
-    <p class="fine" style="margin-top:12px">Figures are estimates for a 12-month lease at the rent you enter. The monthly fee is charged on rent collected. Per-use fees such as maintenance coordination are separate and listed above.</p>
+    <p class="fine" style="margin-top:12px">Figures are estimates for a 12-month lease at the rent you enter. The monthly fee is charged on rent collected. Fees such as maintenance coordination, the annual accounting fee and the fee while vacant are separate and listed above.</p>
   </section>
 </main>
 
@@ -222,12 +222,12 @@ var TIERS = [
   { id: "min", name: "Minimum Management", short: "Minimum", monthlyPct: 8, leasePct: 75, renewal: 250,
     pitch: "Full-service management with the essentials. Add the extras you want.",
     adds: [] },
-  { id: "special", name: "Raynor Special", short: "Special", monthlyPct: 10, leasePct: 75, renewal: 250,
+  { id: "special", name: "Raynor Special", short: "Special", monthlyPct: 10, leasePct: 50, renewal: 250,
     pitch: "Everything in Minimum, plus guarantees, yearly reviews and vacancy care.",
-    adds: ["Eviction guarantee and lease break waiver", "Yearly management inspection and portfolio review", "Vacancy checks, cameras and utility handling", "No $75 coordination fee on work orders"] },
-  { id: "plus", name: "Protection Plus", short: "Plus", monthlyPct: 12, leasePct: 75, renewal: 250,
+    adds: ["Eviction guarantee and lease break waiver", "Yearly management inspection and portfolio review", "Vacancy checks, cameras and utility handling", "No $75 coordination fee on work orders", "Annual accounting and tax documents included"] },
+  { id: "plus", name: "Protection Plus", short: "Plus", monthlyPct: 12, leasePct: 50, renewal: 250,
     pitch: "Everything in Raynor Special, plus planning and our most hands-on care.",
-    adds: ["Budget and CapEx planning with you", "Proactive property report", "Pre-vacancy listing and deadbolts included", "No coordination fees at all"] }
+    adds: ["Budget and CapEx planning with you", "Proactive property report", "Pre-vacancy listing and deadbolts included", "No coordination fees at all", "No fee while your unit is vacant"] }
 ];
 /* Rows that differ. Each mark: "yes", "add" (available as an add-on), "no", or a fee string. */
 var DIFF = [
@@ -235,9 +235,13 @@ var DIFF = [
     { n: "Eviction guarantee", note: "For tenants we place. Without it, an eviction is billed at $750.", m: ["add", "yes", "yes"] },
     { n: "Lease break waiver", note: "No leasing fee to re-place a tenant who breaks the lease", m: ["add", "yes", "yes"] }
   ]},
-  { group: "Maintenance fees", rows: [
+  { group: "Fees", rows: [
     { n: "Maintenance coordination", note: "Per work order", m: ["$75", "Included", "Included"] },
     { n: "Special-circumstance coordination", note: "Per work order, in place of the $75 fee", m: ["$150", "$150", "Included"] },
+    { n: "Annual accounting and tax documents", note: "Per door, once a year", m: ["$125/yr", "Included", "Included"] },
+    { n: "Fee while vacant", note: "Each month the unit sits empty between tenants", m: ["$99/mo", "$99/mo", "Included"] }
+  ]},
+  { group: "Maintenance", rows: [
     { n: "Deadbolts", note: "At each turnover", m: ["add", "add", "yes"] }
   ]},
   { group: "Inspections and reporting", rows: [
@@ -261,7 +265,7 @@ var ALL = {
   "Leasing and placement": ["Leasing coordination and marketing", "Photography coordination", "Zillow Boost listings", "Showings and self-tour management", "Tenant screening and application review", "Lease preparation and signing", "Resident move-in orientation"],
   "Renewals": ["Renewal negotiation", "Renewal signing and processing"],
   "Maintenance": ["Work order triage and dispatch", "Emergency and after-hours coordination", "Property manager handles complex repairs", "Vendor communication", "Invoice review and approval"],
-  "Accounting": ["Weekly owner distributions", "Monthly owner statement review", "Weekly rent roll review", "Vendor invoice processing", "Annual accounting and tax documents"],
+  "Accounting": ["Weekly owner distributions", "Monthly owner statement review", "Weekly rent roll review", "Vendor invoice processing"],
   "Tenants and owners": ["Owner communication", "Online owner and tenant portal", "Resident support at every level", "Delinquency and collections", "Pet guarantee"],
   "Property and compliance": ["Move-in and move-out inspections", "Resident-led inspection review", "Key management, lockbox and rekeys", "Compliance and enforcement", "Eviction service, if eligible", "Owner onboarding and ownership changes"]
 };

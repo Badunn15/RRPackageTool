@@ -122,7 +122,7 @@
   .affix input{ border:none; background:transparent; min-width:0; padding:5px 6px; outline:none; }
   input.num{ font-family:var(--font-data); font-size:12.5px; font-variant-numeric:tabular-nums; text-align:right; }
   .affix input.num{ width:84px; }
-  .affix.w-sm input.num{ width:58px; } .affix.w-lg input.num{ width:104px; }
+  .affix.w-sm input.num{ width:58px; } .affix.w-pct input.num{ width:84px; } .affix.w-lg input.num{ width:104px; }
   .affix.ro{ background:var(--panel-2); border-style:dashed; padding:5px 8px; font-family:var(--font-data); font-size:12.5px; }
   select{ background:var(--panel); border:1px solid var(--rule); border-radius:7px; padding:4px 6px; font-size:12.5px; max-width:100%; }
   input[type="text"].txt{ background:transparent; border:1px solid transparent; border-radius:6px; padding:3px 5px; width:100%; min-width:0; }
@@ -142,6 +142,11 @@
   .fctrl .affix input.num{ width:auto; flex:1 1 auto; min-width:0; }
   .fctrl .affix .pre, .fctrl .affix .suf{ flex:0 0 auto; }
   .fctrl .affix.ro{ justify-content:flex-end; align-items:center; }
+  /* Fixed $ and unit cells, so every number in the column ends at the same spot. */
+  .fctrl .affix.slots .pre{ width:22px; padding:0; text-align:center; }
+  .fctrl .affix.slots .suf{ width:68px; padding:0 8px 0 6px; text-align:left; }
+  .fctrl .affix.ro.slots{ padding:0; }
+  .fctrl .affix.ro.slots .ro-v{ flex:1 1 auto; text-align:right; padding:0 6px; }
   .toggle-box{ display:flex; align-items:center; gap:8px; height:32px; padding-inline:9px; border:1px solid var(--rule); border-radius:7px; background:var(--panel); cursor:pointer; font-size:12.5px; font-weight:600; }
   .frow:first-child{ border-top:none; }
   .frow label{ font-weight:600; font-size:13px; }
@@ -150,6 +155,16 @@
   .frow.flash{ animation:flash 1.6s ease-out; }
   @keyframes flash{ 0%{ background:var(--accent-tint); } 100%{ background:transparent; } }
   @media (max-width:760px){ .frow{ grid-template-columns:1fr; gap:4px; } }
+  .frow.wide{ grid-template-columns:190px minmax(0,1fr); align-items:start; }
+  .frow.wide .rbp-wrap{ grid-column:1 / -1; overflow-x:auto; }
+  .frow.rbp-row .rbp-wrap{ grid-column:1 / -1; overflow-x:auto; }
+  table.rbp{ border-collapse:collapse; font-size:12.5px; min-width:420px; }
+  table.rbp th{ font-size:11px; font-weight:600; color:var(--ink-2); text-align:left; padding:4px 10px 6px 0; }
+  table.rbp td{ padding:3px 10px 3px 0; border-top:1px solid var(--rule-soft); }
+  table.rbp .r{ text-align:right; }
+  table.rbp tfoot td{ padding-top:7px; font-weight:600; }
+  .affix.w-xs .num{ width:70px; }
+  @media (max-width:760px){ .frow.wide{ grid-template-columns:1fr; } }
 
   /* ---------- tables ---------- */
   .toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -214,10 +229,19 @@
   .compare td:first-child{ font-family:var(--font-ui); color:var(--ink-2); }
   .compare tr.sub td:first-child{ padding-left:30px; font-size:12.5px; }
   .compare tr.sub td{ color:var(--ink-2); font-size:12.5px; }
+  /* Revenue breakdown: subtotals (mid) sit under Revenue, their pieces (sub2) one step further in. */
+  .compare tr.sub.mid td{ color:var(--ink); font-weight:600; }
+  .compare tr.sub2 td:first-child{ padding-left:50px; font-size:12px; }
+  .compare tr.sub2 td{ color:var(--ink-3); font-size:12px; }
   .compare tr.total td{ font-weight:600; color:var(--ink); border-top:1px solid var(--rule); }
   .compare tr.total td:first-child{ color:var(--ink); }
   .compare tr td.good{ color:var(--good); } .compare tr td.bad{ color:var(--bad); } .compare tr td.faint{ color:var(--ink-3); }
   .compare tr.big td{ font-size:15px; font-weight:700; }
+  .row-tog{ display:inline-flex; align-items:baseline; gap:4px; background:none; border:none; padding:0; margin-left:-14px; font:inherit; color:inherit; cursor:pointer; text-align:left; }
+  .row-tog:hover{ color:var(--accent-ink); }
+  /* Summary totals: revenue blue, cost red (margin keeps its green/amber/red verdict color). */
+  .compare tr.rev-row td:not(:first-child){ color:var(--accent); }
+  .compare tr.cost-row td:not(:first-child){ color:var(--bad); }
   .compare th.focus, .compare td.focus{ background:var(--accent-tint); }
   .pill{ display:inline-block; font-family:var(--font-ui); font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:2px 8px; border-radius:999px; white-space:nowrap; }
   .pill.good{ background:var(--good-bg); color:var(--good); } .pill.warn{ background:var(--warn-bg); color:var(--warn); } .pill.bad{ background:var(--bad-bg); color:var(--bad); }
@@ -267,6 +291,19 @@
   .quote div{ display:flex; flex-direction:column; gap:1px; min-width:0; }
   .quote dt{ font-size:10.5px; color:var(--ink-3); } .quote dd{ margin:0; font-family:var(--font-data); font-size:12.5px; font-weight:600; }
   .range-line{ display:flex; flex-wrap:wrap; align-items:baseline; gap:5px; font-size:12.5px; }
+  /* Owner's cost over a tenancy, under each price card */
+  .term-cost{ border-top:1px solid var(--rule-soft); padding-top:8px; }
+  .term-cost summary{ cursor:pointer; font-size:12.5px; font-weight:600; color:var(--accent-ink); display:flex; justify-content:space-between; gap:8px; list-style:none; }
+  .term-cost summary::-webkit-details-marker{ display:none; }
+  .term-cost summary::before{ content:"▸"; color:var(--ink-3); margin-right:4px; }
+  .term-cost[open] summary::before{ content:"▾"; }
+  .term-cost summary b{ margin-left:auto; color:var(--ink); }
+  .yr-table{ width:100%; border-collapse:collapse; margin-top:8px; font-size:11px; table-layout:fixed; }
+  .yr-table th:first-child, .yr-table td:first-child{ width:15%; }
+  .yr-table th{ font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3); text-align:right; padding:3px 2px; border-bottom:1px solid var(--rule); white-space:normal; line-height:1.2; vertical-align:bottom; }
+  .yr-table td{ font-family:var(--font-data); text-align:right; padding:3px 2px; border-bottom:1px solid var(--rule-soft); white-space:nowrap; }
+  .yr-table th:first-child, .yr-table td:first-child{ text-align:left; font-family:var(--font-ui); }
+  .yr-table tfoot td{ font-weight:700; border-top:1px solid var(--rule); border-bottom:none; color:var(--ink); }
   .divider{ border-top:1px solid var(--rule-soft); }
 
   /* ---------- rail ---------- */
