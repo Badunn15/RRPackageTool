@@ -2,6 +2,13 @@
 var TIERS = ["min", "special", "plus"];
 var TIER_NAMES = { min: "Minimum Management", special: "Raynor Special", plus: "Protection Plus" };
 var TIER_SHORT = { min: "Minimum", special: "Special", plus: "Plus" };
+
+/*
+ * Which packages a scenario offers (doc.tierOn). There are always three slots; a switched-off one keeps its settings
+ * and its margin is still figured, but every page shows it blanked out and Acquisitions doesn't place owners in it.
+ */
+function tierOn(doc, t) { return !doc || !doc.tierOn || doc.tierOn[t] !== false; }
+function onTiers(doc) { return TIERS.filter(function (t) { return tierOn(doc, t); }); }
 var VIEWS = ["direct", "allocated", "loaded"];
 var VIEW_NAMES = { direct: "Direct COGS", allocated: "Fully Allocated", loaded: "Fully Loaded" };
 var VIEW_ORDER = { direct: 0, allocated: 1, loaded: 2 };
@@ -13,6 +20,10 @@ var BASIS_NAMES = {
 
 var DEFAULT_PRICING = {
   term: 12, vacancyPct: 0, targetPct: 20, scopeSavings: false, vacancyFee: 99,
+  // Owners who pick a low monthly fee (paying more up front) get a discount on what they prepay. Each step: when the
+  // owner's monthly fee is at or below `atPct`% of rent, `pct`% comes off the leasing and renewal fees. 0% monthly means
+  // the whole lease term is paid up front. The biggest step reached wins.
+  upfrontDiscount: { on: true, steps: [{ atPct: 0, pct: 10 }] },
   tiers: {
     min: { monthlyPct: 8, leasePct: 75, renewal: 250, shift: 0, vacancyCharge: true },
     special: { monthlyPct: 10, leasePct: 75, renewal: 250, shift: 0, vacancyCharge: true },
@@ -21,14 +32,18 @@ var DEFAULT_PRICING = {
 };
 
 /*
- * What residents pay that Raynor keeps (doc.resident). It's the same in every package and only comes from tenants
+ * What residents pay that Raynor keeps (doc.resident). It's the same in every package (except pet rent and late fees when
+ * they match the management fee) and only comes from tenants
  * Raynor placed or has renewed. resident.on switches it into revenue: off shows what owners pay alone.
  *  - RBP: every unit is on one of the resident benefits packages; Raynor keeps the spread (FMV less program fee).
  *    The plain average of the packages is used, on occupied doors under a Raynor lease.
  *  - Tenant renewal fee: $ per renewal ($50-250 depending on how fast they sign) x renewals a year.
  *  - Admin fee: charged at move-in, x move-ins a year (G.moveIns, a portfolio count), spread over doors.
  *  - Pet rent and late fees: last year's P&L per door, times the share Raynor keeps (they fund the pet and
- *    eviction guarantees; the rest would go to the owner).
+ *    eviction guarantees; the rest would go to the owner). lateMatch sets the late-fee share to each package's
+ *    standard monthly management fee instead. petAsRent counts pet rent as rent: it leaves resident revenue and the
+ *    average pet rent joins the base the monthly management fee is charged on (see feeBase), so it follows the
+ *    owner's pick and moves into the up-front fees like the rest of the fee.
  *  - Application fees: $ per door a year from the P&L ($75 charged, about $35 cost, per applicant).
  */
 var DEFAULT_RBP = [
@@ -39,7 +54,7 @@ var DEFAULT_RBP = [
   { name: "RBP #9", fmv: 24.05, fee: 3.50 }
 ];
 var DEFAULT_RESIDENT = { on: true, rbp: DEFAULT_RBP, raynorPct: 100, renewalFee: 150, adminFee: 195,
-  petYr: 89, petKeep: 100, lateYr: 58, lateKeep: 100, appYr: 2.5 };
+  petYr: 89, petKeep: 100, petAsRent: false, lateYr: 58, lateKeep: 100, lateMatch: false, appYr: 2.5 };
 var RESIDENT_NAMES = { rbp: "Resident benefits package", renewal: "Tenant renewal fees", admin: "Admin fees at move-in",
   pet: "Pet rent", late: "Late fees", app: "Application fees" };
 
@@ -63,19 +78,40 @@ function leaseCycle(doc) {
   return { turnsYr: turnsYr, renewalsYr: renewalsYr, vacantShare: vacantShare };
 }
 
-/* Resident revenue per door per month. "full" is what it adds when counted; total is 0 when it's switched off. */
-function residentPerDoor(doc) {
+/* Average pet rent per door per month that the management fee is charged on, when pet rent counts as rent (else 0). */
+function petRentMo(doc) {
+  var R = doc.resident || DEFAULT_RESIDENT;
+  return R.petAsRent ? (R.petYr || 0) / 12 : 0;
+}
+
+/* What the monthly management fee % is charged on: rent, plus average pet rent when it counts as rent. */
+function feeBase(doc) { return (doc.G.rent || 0) + petRentMo(doc); }
+
+/* The % of pet rent or late fees Raynor keeps in a tier: its own setting, or the tier's standard monthly fee when matched. */
+function residentKeepPct(doc, which, tier) {
+  var R = doc.resident || DEFAULT_RESIDENT, keep = R[which + "Keep"];
+  if (R[which + "Match"] && tier && doc.pricing && doc.pricing.tiers[tier]) return doc.pricing.tiers[tier].monthlyPct || 0;
+  return keep == null ? 100 : keep;
+}
+
+/*
+ * Resident revenue per door per month in a tier. "full" is what it adds when counted; total is 0 when it's switched off.
+ * The tier only matters for pet rent and late fees matched to the management fee.
+ */
+function residentPerDoor(doc, tier) {
   var R = doc.resident || DEFAULT_RESIDENT, cyc = leaseCycle(doc);
   var items = {
     rbp: rbpSpread(R) * (1 - cyc.vacantShare) * (R.raynorPct == null ? 100 : R.raynorPct) / 100,
     renewal: (R.renewalFee || 0) * cyc.renewalsYr / 12,
     admin: doc.G.doors ? (R.adminFee || 0) * (doc.G.moveIns || 0) / doc.G.doors / 12 : 0,
-    pet: (R.petYr || 0) * (R.petKeep == null ? 100 : R.petKeep) / 100 / 12,
-    late: (R.lateYr || 0) * (R.lateKeep == null ? 100 : R.lateKeep) / 100 / 12,
+    // Counted as rent, pet rent is in the management fee instead (owner revenue).
+    pet: R.petAsRent ? 0 : (R.petYr || 0) * residentKeepPct(doc, "pet", tier) / 100 / 12,
+    late: (R.lateYr || 0) * residentKeepPct(doc, "late", tier) / 100 / 12,
     app: (R.appYr || 0) / 12
   };
   var full = Object.keys(items).reduce(function (s, k) { return s + items[k]; }, 0);
-  return { on: !!R.on, items: items, full: full, total: R.on ? full : 0, cycle: cyc };
+  return { on: !!R.on, items: items, full: full, total: R.on ? full : 0, cycle: cyc,
+    petKeep: residentKeepPct(doc, "pet", tier), lateKeep: residentKeepPct(doc, "late", tier) };
 }
 
 /* Fees billed to owners on top of the monthly/leasing/renewal price. Per tier: charged (bill it), included (do it, don't bill), off (don't offer). */
@@ -90,7 +126,7 @@ var ADDON_BASES = {
   wo: "Share of work orders", wo_rest: "Rest of work orders",
   evict: "Share of evictions", evict_rest: "Rest of evictions",
   evict_billed: "Evictions not under a guarantee",
-  events: "Events / yr (portfolio)", door_yr: "Per door / yr",
+  events: "Events / yr (portfolio)", door_yr: "Per door / yr", entity_yr: "Per owner entity / yr",
   optional: "Optional add-on", bundle: "Owner benefits package"
 };
 /*
@@ -103,7 +139,7 @@ var ADDON_BASES = {
  */
 var ADDON_STATE_LABELS = { fee: ADDON_STATE_NAMES, addon: { charged: "Sold", included: "Included", off: "Off" } };
 /* Bases a user can pick for a fee. Evictions have exactly one billed row (evict_billed), so the eviction pool isn't offered. */
-var ADDON_BASES_PICKABLE = ["wo", "wo_rest", "events", "door_yr"];
+var ADDON_BASES_PICKABLE = ["wo", "wo_rest", "events", "door_yr", "entity_yr"];
 var ADDON_POOL = { wo: "wo", wo_rest: "wo", evict: "evict", evict_rest: "evict" };
 var DEFAULT_ADDONS = [
   { id: "addon_coord", name: "Maintenance coordination fee", price: 75, cost: 0, basis: "wo_rest", amount: 0,
@@ -115,7 +151,8 @@ var DEFAULT_ADDONS = [
 ];
 /* Owner accounting fee, $125 a door a year: billed on Minimum (required, since Raynor has to do it), included in Special and Plus. */
 function ACCOUNTING_ADDON() {
-  return { id: "addon_acct", name: "Owner accounting fee", kind: "fee", price: 125, cost: 0, basis: "door_yr", amount: 1,
+  // Charged once a year per owner entity (an owner with several doors pays it once), spread over the doors.
+  return { id: "addon_acct", name: "Owner accounting fee", kind: "fee", price: 125, cost: 0, basis: "entity_yr", amount: 1,
     tiers: { min: "charged", special: "included", plus: "included" } };
 }
 
@@ -193,7 +230,9 @@ function linkedAddonCost(doc, a) {
   var id = a.svc;
   if (!id) return null;
   var doors = doc.G.doors || 0;
-  if (doc.place[id] === "scope") return scopeValue(doc, id);
+  // A service is PM time, already paid in salaries. Selling it to a tier that leaves it out only costs that time when
+  // "Count freed PM capacity" took it off the tier; otherwise it was never taken off, so the add-on adds nothing.
+  if (doc.place[id] === "scope") return doc.pricing && doc.pricing.scopeSavings ? scopeValue(doc, id) : 0;
   if (id === "evict_g") { var g = findRow(doc, id); return g && doors ? cmo(g, doc) / doors : 0; }
   if (id === "lease_brk") return doors ? leaseBreakMo(doc, "min") / doors : 0;
   var r = findRow(doc, id);
@@ -251,6 +290,7 @@ function addonEventsYr(doc, a, tier) {
     return (doc.G.doors || 0) * share * (a.basis === "optional" ? addonTimesPerDoorYr(doc, a) : 1);
   }
   if (a.basis === "door_yr") return (a.amount || 0) * (doc.G.doors || 0);
+  if (a.basis === "entity_yr") return (a.amount || 0) * (doc.G.entities || 0);
   return a.amount || 0;
 }
 
@@ -307,7 +347,7 @@ function leaseBreakCost(doc, tier, view, q) {
 
 /* A tier's lease-break waiver in $/mo for the whole portfolio at its current price and owner pick (for the cost table). */
 function leaseBreakMo(doc, tier) {
-  var p = doc.pricing.tiers[tier], q = quote(p, doc.G.rent, doc.pricing.term, splitPct(p, doc.G.rent, doc.pricing.term));
+  var p = doc.pricing.tiers[tier], q = quote(p, doc.G.rent, doc.pricing.term, splitPct(p, doc.G.rent, doc.pricing.term, feeBase(doc)), doc.pricing.upfrontDiscount, feeBase(doc));
   var row = findRow(doc, "lease_brk");
   return row ? (q.leaseUp * rowEv(doc, row)) / 12 : 0;
 }
@@ -500,39 +540,58 @@ function tierCost(doc, view) {
 }
 
 /* ---------- price side: owner fee choice ---------- */
-function priceFrame(p, rent, term) {
-  var anchor = (p.monthlyPct / 100) * rent;
+/*
+ * A tier's standard fees over one lease term. The monthly % is charged on `base` (rent, plus average pet rent when it
+ * counts as rent); the leasing fee stays a % of one month's rent. `base` defaults to rent.
+ */
+function priceFrame(p, rent, term, base) {
+  base = base == null ? rent : base;
+  var anchor = (p.monthlyPct / 100) * base;
   var turnTerm = anchor * term + (p.leasePct / 100) * rent;
   var renewTerm = anchor * term + p.renewal;
   return {
-    anchor: anchor, turnTerm: turnTerm, renewTerm: renewTerm,
-    zeroRenewalPct: rent > 0 && term > 0 ? (renewTerm / term / rent) * 100 : 0,
-    zeroLeasePct: rent > 0 && term > 0 ? (turnTerm / term / rent) * 100 : 0
+    anchor: anchor, turnTerm: turnTerm, renewTerm: renewTerm, base: base,
+    zeroRenewalPct: base > 0 && term > 0 ? (renewTerm / term / base) * 100 : 0,
+    zeroLeasePct: base > 0 && term > 0 ? (turnTerm / term / base) * 100 : 0
   };
 }
 
-function quote(p, rent, term, pct) {
-  var f = priceFrame(p, rent, term);
-  var monthly = (pct / 100) * rent;
+/* The discount % an owner earns at a monthly fee of `pct`% of rent (0 when off or no step is reached). */
+function upfrontDiscountPct(disc, pct) {
+  if (!disc || !disc.on || !Array.isArray(disc.steps)) return 0;
+  var best = 0;
+  disc.steps.forEach(function (s) { if (pct <= (s.atPct || 0) + 0.001 && (s.pct || 0) > best) best = s.pct || 0; });
+  return Math.min(100, best);
+}
+
+function quote(p, rent, term, pct, disc, base) {
+  var f = priceFrame(p, rent, term, base);
+  var monthly = (pct / 100) * f.base;
   var perTerm = monthly * term;
-  var leaseUp = Math.max(0, f.turnTerm - perTerm);
-  var renewal = Math.max(0, f.renewTerm - perTerm);
+  var leaseUpFull = Math.max(0, f.turnTerm - perTerm);
+  var renewalFull = Math.max(0, f.renewTerm - perTerm);
+  // Share of a new-tenant lease term paid up front (the leasing fee) rather than monthly. The discount comes off the up-front fees.
+  var upfrontShare = f.turnTerm > 0 ? (leaseUpFull / f.turnTerm) * 100 : 0;
+  var discountPct = upfrontDiscountPct(disc, pct);
+  var leaseUp = leaseUpFull * (1 - discountPct / 100);
+  var renewal = renewalFull * (1 - discountPct / 100);
   return {
     pct: pct, monthly: monthly, leaseUp: leaseUp, renewal: renewal, frame: f,
+    leaseUpFull: leaseUpFull, renewalFull: renewalFull, upfrontShare: upfrontShare, discountPct: discountPct,
     dueAtSigning: leaseUp + monthly,
     zone: pct < f.zeroRenewalPct - 0.01 ? 0 : pct < f.zeroLeasePct - 0.01 ? 1 : 2
   };
 }
 
-function splitPct(p, rent, term) {
-  var f = priceFrame(p, rent, term);
+function splitPct(p, rent, term, base) {
+  var f = priceFrame(p, rent, term, base);
   return Math.min(Math.max(0, p.monthlyPct + (p.shift || 0)), f.zeroLeasePct);
 }
 
 /* Raynor revenue per door per month for a tier's pricing, at a given owner split. */
 function revenuePerDoor(doc, p, pct) {
   var P = doc.pricing, G = doc.G;
-  var q = quote(p, G.rent, P.term, pct);
+  var q = quote(p, G.rent, P.term, pct, P.upfrontDiscount, feeBase(doc));
   var cyc = leaseCycle(doc), turnsYr = cyc.turnsYr, renewalsYr = cyc.renewalsYr;
   // No rent comes in while a door sits empty between tenants, so the % fee isn't earned then. Tiers that charge
   // the flat vacancy fee bill it for those months instead.
@@ -550,14 +609,14 @@ function revenuePerDoor(doc, p, pct) {
  */
 function tierRevenue(doc, tier, p, pct, view, addon) {
   var rev = revenuePerDoor(doc, p, pct);
-  var lb = leaseBreakCost(doc, tier, view, rev.quote), res = residentPerDoor(doc);
+  var lb = leaseBreakCost(doc, tier, view, rev.quote), res = residentPerDoor(doc, tier);
   return { rev: rev, lb: lb, resident: res, owner: rev.total + addon.rev, total: rev.total + addon.rev + res.total };
 }
 
 function tierMargin(doc, tier, costPerDoor, view) {
   view = view || doc.cv;
   var p = doc.pricing.tiers[tier];
-  var pct = splitPct(p, doc.G.rent, doc.pricing.term);
+  var pct = splitPct(p, doc.G.rent, doc.pricing.term, feeBase(doc));
   var addon = addonPerDoor(doc, tier, view);
   var tr = tierRevenue(doc, tier, p, pct, view, addon);
   var revenue = tr.total, cost = costPerDoor + addon.cost + tr.lb.cost;
@@ -572,7 +631,7 @@ function tierMargin(doc, tier, costPerDoor, view) {
 /* Worst and best margin across every position on the owner's split slider. */
 function ownerChoiceRange(doc, tier, costPerDoor, view) {
   view = view || doc.cv;
-  var p = doc.pricing.tiers[tier], f = priceFrame(p, doc.G.rent, doc.pricing.term);
+  var p = doc.pricing.tiers[tier], f = priceFrame(p, doc.G.rent, doc.pricing.term, feeBase(doc));
   var addon = addonPerDoor(doc, tier, view);
   costPerDoor = costPerDoor + addon.cost;
   var points = [f.zeroRenewalPct, f.zeroLeasePct];
@@ -614,6 +673,8 @@ function scaleToDoors(doc, n) {
   d.G.evictions = (d.G.evictions || 0) * f;
   d.G.listings = (d.G.listings || 0) * f;
   d.G.moveIns = (d.G.moveIns || 0) * f;
+  // Same doors per owner as today, so owner entities grow with doors.
+  d.G.entities = (d.G.entities || 0) * f;
   forEachCostRow(d, function (r) { if (r.e === "claim" && d.ev[r.id] == null && r.n_ev != null) d.ev[r.id] = r.n_ev; });
   Object.keys(d.ev).forEach(function (k) { d.ev[k] = (d.ev[k] || 0) * f; });
   (d.addons || []).forEach(function (a) { if (a.basis === "events") a.amount = (a.amount || 0) * f; });
@@ -668,7 +729,10 @@ function acquisitionImpact(doc, deal, view) {
   var today = marginsAt(doc, doc.G.doors, view);
   var after = acquiredDoc(doc, deal, false), book = acquiredDoc(doc, deal, true);
   var cA = tierCost(after.doc, view), cB = tierCost(book.doc, view);
-  var mix = deal.mix || {}, mixSum = TIERS.reduce(function (s, t) { return s + (mix[t] || 0); }, 0) || 1;
+  // Owners only land in packages this scenario offers.
+  var mix = {};
+  TIERS.forEach(function (t) { mix[t] = tierOn(doc, t) ? ((deal.mix || {})[t] || 0) : 0; });
+  var mixSum = TIERS.reduce(function (s, t) { return s + mix[t]; }, 0) || 1;
   var tiers = {}, bookYr = 0, bookRevYr = 0;
   TIERS.forEach(function (t) {
     var mA = tierMargin(after.doc, t, cA.perDoor[t], view), mB = tierMargin(book.doc, t, cB.perDoor[t], view);
@@ -680,10 +744,14 @@ function acquisitionImpact(doc, deal, view) {
   // Resident revenue only comes from tenants Raynor placed or renewed. The book's tenants move onto Raynor leases as
   // their leases renew or turn over (spread evenly over one lease term), so year one collects only part of the
   // monthly items (RBP, pet rent, late fees). Renewal, admin and application fees happen at those events anyway.
-  var res = residentPerDoor(book.doc), term = Math.max(1, doc.pricing.term || 12);
+  var term = Math.max(1, doc.pricing.term || 12);
   var onRaynorYr1 = term >= 12 ? 6 / term : 1 - term / 24;
-  var monthlyRes = res.on ? res.items.rbp + res.items.pet + res.items.late : 0;
-  var residentRamp = book.kept * monthlyRes * 12 * (1 - onRaynorYr1);
+  // Pet rent and late fees can differ by package (matched to the management fee), so weight by the deal's tier mix.
+  var residentRamp = 0;
+  TIERS.forEach(function (t) {
+    var res = residentPerDoor(book.doc, t), monthlyRes = res.on ? res.items.rbp + res.items.pet + res.items.late : 0;
+    residentRamp += tiers[t].doors * monthlyRes * 12 * (1 - onRaynorYr1);
+  });
   return { tiers: tiers, kept: book.kept, doorsAfter: after.doc.G.doors, bookYr: bookYr, bookRevYr: bookRevYr, upfront: upfront,
     paybackMo: bookYr > 0 ? upfront / (bookYr / 12) : null, firstYearNet: bookYr - upfront - residentRamp, residentRamp: residentRamp,
     onRaynorYr1: onRaynorYr1, mixSum: mixSum, afterDoc: after.doc };
@@ -798,6 +866,11 @@ function normalizeDoc(raw) {
     });
   });
   if (!d.templates.some(function (t) { return t.id === d.at; })) d.at = d.templates[0].id;
+  // Packages offered: all three unless switched off, and never none.
+  var on = d.tierOn && typeof d.tierOn === "object" ? d.tierOn : {};
+  d.tierOn = {};
+  TIERS.forEach(function (t) { d.tierOn[t] = on[t] !== false; });
+  if (!TIERS.some(function (t) { return d.tierOn[t]; })) TIERS.forEach(function (t) { d.tierOn[t] = true; });
   if (d.G.hoursYr == null) d.G.hoursYr = 2080;
   if (d.G.wo == null) d.G.wo = 0;
   // v9 (2026-10-09): work orders follow doors by default, at today's rate per door.
@@ -908,6 +981,14 @@ function normalizeDoc(raw) {
     d.templates.forEach(function (t) { delete t.psk.ps_tax_docs; delete t.ck.ps_tax_docs; if (t.exclIgnore) delete t.exclIgnore.ps_tax_docs; });
     d.removed.ps_tax_docs = true;
   }
+  // v12 (2026-10-12): the move-in / move-out inspection service splits into two services under Inspections.
+  if (ver < 12 && d.MASTER.ps_insp_mimo) splitService(d, "ps_insp_mimo", [
+    { id: "ps_insp_movein", n: "Move-in inspection" },
+    { id: "ps_insp_moveout", n: "Move-out inspection" }
+  ]);
+  // v13 (2026-10-12): owner entities. The owner accounting fee is charged per entity, not per door (about 80 today).
+  if (d.G.entities == null) d.G.entities = Math.min(80, d.G.doors || 0);
+  if (ver < 13) d.addons.forEach(function (a) { if (a.id === "addon_acct" && a.basis === "door_yr" && (a.amount || 0) === 1) a.basis = "entity_yr"; });
   if (d.G.vacantDays == null) d.G.vacantDays = 0;
   // Move-ins a year across the portfolio (admin fees). Starts at one per door every average tenancy.
   if (d.G.moveIns == null) d.G.moveIns = d.G.tenancy > 0 ? Math.round((d.G.doors || 0) / d.G.tenancy) : 0;
@@ -917,6 +998,8 @@ function normalizeDoc(raw) {
     var cyc0 = leaseCycle({ G: d.G, pricing: { term: P.term || 12 } });
     if (cyc0.renewalsYr > 0) d.resident.renewalFee = Math.round(100 / cyc0.renewalsYr);
   }
+  // petMatch (2026-10-12, matched pet rent to the standard fee) became petAsRent: pet rent counted as rent.
+  if (d.resident && d.resident.petMatch != null) { if (d.resident.petAsRent == null) d.resident.petAsRent = !!d.resident.petMatch; delete d.resident.petMatch; }
   Object.keys(DEFAULT_RESIDENT).forEach(function (k) { if (d.resident[k] == null) d.resident[k] = JSON.parse(JSON.stringify(DEFAULT_RESIDENT[k])); });
   if (!Array.isArray(d.resident.rbp)) d.resident.rbp = JSON.parse(JSON.stringify(DEFAULT_RBP));
   d.resident.on = !!d.resident.on;
@@ -927,7 +1010,10 @@ function normalizeDoc(raw) {
   // v1 defaulted vacancy to 4% (an owner-side assumption from the fee-choice pricing file). Raynor only collects fees once a renter is placed, so v2 defaults it to 0.
   var vacancy = P.vacancyPct != null && (P.v || 1) >= 2 ? P.vacancyPct : (P.vacancyPct != null && P.vacancyPct !== 4 ? P.vacancyPct : DEFAULT_PRICING.vacancyPct);
   d.pricing = {
-    v: 9,
+    v: 13,
+    // v10 (2026-10-12): up-front discount, 10% off when the whole lease term is paid up front.
+    // v11: discount steps are set by the owner's monthly fee (atPct) instead of the share paid up front.
+    upfrontDiscount: normalizeDiscount(P.upfrontDiscount),
     term: P.term != null ? P.term : DEFAULT_PRICING.term,
     countVacancy: !!P.countVacancy,
     vacancyFee: P.vacancyFee != null ? P.vacancyFee : DEFAULT_PRICING.vacancyFee,
@@ -948,10 +1034,98 @@ function normalizeDoc(raw) {
   return d;
 }
 
+/*
+ * Replace one catalog service with several that keep its settings (category, tiers, owner, values) and its place in the
+ * list. Every per-service map at the top of the doc and in each template carries over to each new id.
+ */
+function splitService(d, oldId, parts) {
+  function copyInto(map) {
+    if (!map || typeof map !== "object" || Array.isArray(map) || !(oldId in map)) return map;
+    var out = {};
+    Object.keys(map).forEach(function (k) {
+      if (k !== oldId) { out[k] = map[k]; return; }
+      parts.forEach(function (p) {
+        var v = JSON.parse(JSON.stringify(map[k]));
+        if (map === d.MASTER) { v.id = p.id; v.n = p.n; }
+        out[p.id] = v;
+      });
+    });
+    return out;
+  }
+  Object.keys(d).forEach(function (k) { if (k !== "removed") d[k] = copyInto(d[k]); });
+  d.templates.forEach(function (t) { Object.keys(t).forEach(function (k) { t[k] = copyInto(t[k]); }); });
+  d.removed[oldId] = true;
+}
+
+function normalizeDiscount(x) {
+  if (!x || typeof x !== "object") return JSON.parse(JSON.stringify(DEFAULT_PRICING.upfrontDiscount));
+  var steps = [];
+  (Array.isArray(x.steps) ? x.steps : []).forEach(function (s) {
+    var at = s.atPct;
+    // v10 steps were "share paid up front"; only 100% (a 0% monthly fee) carries over the same for every tier.
+    if (at == null) { if ((+s.upfront || 0) >= 100) at = 0; else return; }
+    steps.push({ atPct: Math.min(30, Math.max(0, +at || 0)), pct: Math.min(100, Math.max(0, +s.pct || 0)) });
+  });
+  return { on: !!x.on, steps: steps };
+}
+
+/*
+ * Copy one add-on (or per-use fee) from scenario `src` into scenario `dst` (both normalized; dst is changed in place).
+ * A linked add-on brings its source with it when dst doesn't have it: the cost line (same group, its value, counts and
+ * tier checkboxes) or the catalog service (category, value, hours, owner). With `matchTiers`, dst's tier checkboxes for
+ * that source are set to src's, so the same packages include it and the rest sell it. Either way the add-on is sold
+ * only in the tiers of dst that leave the source out. Replaces any add-on in dst with the same id or the same source.
+ * Returns notes on anything that couldn't come across.
+ */
+function copyAddonInto(src, dst, addonId, matchTiers) {
+  var notes = [], a = (src.addons || []).find(function (x) { return x.id === addonId; });
+  if (!a) return ["That add-on isn't in this scenario."];
+  a = JSON.parse(JSON.stringify(a));
+  var sid = a.svc, kind = null;
+  var MAPS = ["vl", "ev", "bd", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "udest"];
+  function copyMaps(id) { MAPS.forEach(function (k) { if (src[k] && src[k][id] != null) { dst[k] = dst[k] || {}; dst[k][id] = JSON.parse(JSON.stringify(src[k][id])); } }); }
+  if (sid) {
+    var hit = null;
+    src.CG.forEach(function (g) { g.rows.forEach(function (r) { if (r.id === sid) hit = { g: g, r: r }; }); });
+    if (hit) {
+      kind = "ck";
+      if (!findRow(dst, sid)) {
+        var g2 = dst.CG.find(function (g) { return g.id === hit.g.id; });
+        if (g2) { g2.rows.push(JSON.parse(JSON.stringify(hit.r))); copyMaps(sid); if (dst.removed) delete dst.removed[sid]; matchTiers = true; }
+        else notes.push("Its cost group isn't in this scenario, so the cost line wasn't added.");
+      }
+    } else if (src.MASTER[sid]) {
+      kind = src.place[sid] === "scope" ? "psk" : "ck";
+      if (!dst.MASTER[sid]) { dst.MASTER[sid] = JSON.parse(JSON.stringify(src.MASTER[sid])); copyMaps(sid); if (dst.removed) delete dst.removed[sid]; matchTiers = true; }
+      else if (dst.place[sid] !== src.place[sid]) { dst.place[sid] = src.place[sid]; copyMaps(sid); }
+    }
+    if (kind && matchTiers) {
+      var flags = activeTemplate(src)[kind][sid] || { min: false, special: false, plus: false };
+      dst.templates.forEach(function (tp) { tp[kind] = tp[kind] || {}; tp[kind][sid] = JSON.parse(JSON.stringify(flags)); });
+    }
+    if (kind) {
+      var mine = activeTemplate(dst)[kind][sid] || {};
+      TIERS.forEach(function (t) {
+        if (mine[t]) a.tiers[t] = "off";
+        else if (a.tiers[t] === "off") a.tiers[t] = "charged";
+      });
+    }
+  }
+  if (a.kind === "bundle" && Array.isArray(a.items)) {
+    var before = a.items.length;
+    a.items = a.items.filter(function (i) { return (dst.addons || []).some(function (x) { return x.id === i; }); });
+    if (a.items.length < before) notes.push((before - a.items.length) + " of the package's add-ons aren't in this scenario and were left out.");
+  }
+  var at = (dst.addons || []).findIndex(function (x) { return x.id === a.id || (sid && x.svc === sid); });
+  dst.addons = (dst.addons || []).filter(function (x) { return !(x.id === a.id || (sid && x.svc === sid)); });
+  if (at < 0 || at > dst.addons.length) dst.addons.push(a); else dst.addons.splice(at, 0, a);
+  return notes;
+}
+
 function validDoc(d) {
   return d && typeof d === "object" && Array.isArray(d.CG) && Array.isArray(d.templates) && d.templates.length && d.G && d.af;
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { woYr: woYr, residentPerDoor: residentPerDoor, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { copyAddonInto: copyAddonInto, tierOn: tierOn, onTiers: onTiers, woYr: woYr, residentPerDoor: residentPerDoor, residentKeepPct: residentKeepPct, feeBase: feeBase, petRentMo: petRentMo, priceFrame: priceFrame, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, upfrontDiscountPct: upfrontDiscountPct, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }

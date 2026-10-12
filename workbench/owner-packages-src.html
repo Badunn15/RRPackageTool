@@ -141,6 +141,29 @@
   .bar{ display:flex; height:18px; border-radius:5px; overflow:hidden; background:var(--rule-soft); }
   .bar span{ height:100%; transition:width .2s ease; }
   .vs{ font-size:12.5px; color:var(--ink-3); }
+  .quote dd s{ font-size:13px; font-weight:500; color:var(--ink-3); margin-left:6px; }
+  .save{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; padding:12px 14px; border-radius:10px; background:var(--good-bg); color:var(--good); font-size:14px; }
+  .save[hidden]{ display:none; }
+  .save strong{ font-family:var(--font-data); font-size:22px; }
+  .save .tag{ font-weight:700; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
+  .term{ display:flex; flex-direction:column; gap:8px; }
+  .term-h{ font-size:13px; font-weight:600; color:var(--ink-2); }
+  .term-sum{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; margin:0; }
+  .term-sum div{ background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .term-sum dt{ font-size:12px; color:var(--ink-3); }
+  .term-sum dd{ margin:0; font-family:var(--font-data); font-weight:600; font-size:17px; }
+  .term-sum .saves{ background:var(--good-bg); border-color:transparent; }
+  .term-sum .saves dt, .term-sum .saves dd{ color:var(--good); }
+  .term-sum .costs dd{ color:var(--gold); }
+  .yby{ border:1px solid var(--rule-soft); border-radius:10px; background:var(--panel); }
+  .yby > summary{ cursor:pointer; padding:9px 12px; font-size:13.5px; font-weight:600; color:var(--accent-ink); }
+  .yby-b{ display:flex; flex-direction:column; gap:14px; padding:4px 12px 12px; }
+  table.yt{ width:100%; border-collapse:collapse; font-size:13px; }
+  .yt th, .yt td{ padding:6px 8px; border-bottom:1px solid var(--rule-soft); text-align:right; font-family:var(--font-data); }
+  .yt th{ font-family:var(--font-ui); font-size:12px; color:var(--ink-3); font-weight:600; }
+  .yt th:first-child, .yt td:first-child{ text-align:left; font-family:var(--font-ui); }
+  .yt tfoot td{ font-weight:700; border-bottom:none; }
+  .yt td.saves{ color:var(--good); } .yt td.costs{ color:var(--gold); }
   .vs.more{ color:var(--gold); font-weight:600; }
   .legend{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; color:var(--ink-2); }
   .legend span{ display:inline-flex; align-items:center; gap:6px; }
@@ -153,7 +176,7 @@
     .calc{ grid-template-columns:minmax(0,1fr); }
     .calc-in{ border-right:none; border-bottom:1px solid var(--rule-soft); }
   }
-  @media (max-width:420px){ .quote{ grid-template-columns:minmax(0,1fr); } .fees dd{ font-size:15px; } }
+  @media (max-width:420px){ .quote, .term-sum{ grid-template-columns:minmax(0,1fr); } .fees dd{ font-size:15px; } }
 </style>
 
 <header class="masthead">
@@ -184,7 +207,7 @@
 
   <section aria-labelledby="cl-h">
     <div class="sec-h"><span class="kicker">Fee calculator</span><h2 id="cl-h">Pay more monthly, or more at lease signing</h2>
-      <p class="lead">You choose how your fees are split. A lower monthly fee means higher leasing and renewal fees, and a higher monthly fee shrinks them. Up to the point where the renewal fee reaches $0, each lease term costs you the same total.</p></div>
+      <p class="lead">You choose how your fees are split. A lower monthly fee means higher leasing and renewal fees, and a higher monthly fee shrinks them. Up to the point where the renewal fee reaches $0, each lease term costs you the same total. Pay the whole lease term up front and you get 10% off.</p></div>
     <div class="calc">
       <div class="calc-in">
         <div class="field"><span id="tier-lab">Package</span><div class="seg" role="group" aria-labelledby="tier-lab" id="tier-seg"></div></div>
@@ -204,14 +227,29 @@
           <div><dt><i style="background:var(--seg-renew)"></i>Renewal fee</dt><dd id="q-renew">$0</dd></div>
           <div><dt>Due when a new lease is signed</dt><dd id="q-sign">$0</dd></div>
         </dl>
-        <div class="years">
-          <div class="year"><div class="year-h"><span>A year with a new tenant</span><b id="y-turn">$0</b></div><div class="bar" id="b-turn"></div><span class="vs" id="v-turn"></span></div>
-          <div class="year"><div class="year-h"><span>A year your tenant renews</span><b id="y-renew">$0</b></div><div class="bar" id="b-renew"></div><span class="vs" id="v-renew"></span></div>
+        <div class="save" id="save" hidden></div>
+        <div class="term">
+          <div class="term-h" id="term-h">Over a typical 4-year tenancy</div>
+          <dl class="term-sum">
+            <div><dt>Standard mix</dt><dd id="t-std">$0</dd></div>
+            <div><dt>Your fees</dt><dd id="t-you">$0</dd></div>
+            <div id="t-diff-box"><dt id="t-diff-l">Difference</dt><dd id="t-diff">$0</dd></div>
+          </dl>
+          <details class="yby">
+            <summary>See it year by year</summary>
+            <div class="yby-b">
+              <div class="years">
+                <div class="year"><div class="year-h"><span>A year with a new tenant</span><b id="y-turn">$0</b></div><div class="bar" id="b-turn"></div><span class="vs" id="v-turn"></span></div>
+                <div class="year"><div class="year-h"><span>A year your tenant renews</span><b id="y-renew">$0</b></div><div class="bar" id="b-renew"></div><span class="vs" id="v-renew"></span></div>
+              </div>
+              <div class="legend"><span><i style="background:var(--seg-monthly)"></i>Monthly fees for 12 months</span><span><i style="background:var(--seg-lease)"></i>Leasing fee</span><span><i style="background:var(--seg-renew)"></i>Renewal fee</span></div>
+              <div class="table-wrap"><table class="yt" id="yt"></table></div>
+            </div>
+          </details>
         </div>
-        <div class="legend"><span><i style="background:var(--seg-monthly)"></i>Monthly fees for 12 months</span><span><i style="background:var(--seg-lease)"></i>Leasing fee</span><span><i style="background:var(--seg-renew)"></i>Renewal fee</span></div>
       </div>
     </div>
-    <p class="fine" style="margin-top:12px">Figures are estimates for a 12-month lease at the rent you enter. The monthly fee is charged on rent collected. Fees such as maintenance coordination, the annual accounting fee and the fee while vacant are separate and listed above.</p>
+    <p class="fine" style="margin-top:12px">Figures are estimates for 12-month leases at the rent you enter, with the same tenant renewing each year after the first. The monthly fee is charged on rent collected. Fees such as maintenance coordination, the annual accounting fee and the fee while vacant are separate and listed above.</p>
   </section>
 </main>
 
@@ -219,16 +257,21 @@
 /* Standard pricing per package, from Raynor Realty Bottom Line's official numbers. */
 var TERM = 12;
 var TIERS = [
-  { id: "min", name: "Minimum Management", short: "Minimum", monthlyPct: 8, leasePct: 75, renewal: 250,
+  { id: "min", name: "Minimum Management", short: "Minimum", monthlyPct: 8, leasePct: 50, renewal: 250,
     pitch: "Full-service management with the essentials. Add the extras you want.",
     adds: [] },
   { id: "special", name: "Raynor Special", short: "Special", monthlyPct: 10, leasePct: 50, renewal: 250,
     pitch: "Everything in Minimum, plus guarantees, yearly reviews and vacancy care.",
-    adds: ["Eviction guarantee and lease break waiver", "Yearly management inspection and portfolio review", "Vacancy checks, cameras and utility handling", "No $75 coordination fee on work orders", "Annual accounting and tax documents included"] },
+    adds: ["Eviction guarantee and lease break waiver", "Yearly management inspection and portfolio review", "Vacancy checks, cameras and utility handling", "No $75 coordination fee on work orders", "Annual accounting and tax documents included", "Professional listing photography included", "Move-out inspections and ownership changes included"] },
   { id: "plus", name: "Protection Plus", short: "Plus", monthlyPct: 12, leasePct: 50, renewal: 250,
     pitch: "Everything in Raynor Special, plus planning and our most hands-on care.",
     adds: ["Budget and CapEx planning with you", "Proactive property report", "Pre-vacancy listing and deadbolts included", "No coordination fees at all", "No fee while your unit is vacant"] }
 ];
+/* Discount, as on Bottom Line's Prices page: when the owner's monthly fee is at or below atPct% of rent, pct% comes off
+   the leasing and renewal fees. 0% monthly means the whole lease term is paid up front. The biggest step reached wins. */
+var DISCOUNT = { on: true, steps: [{ atPct: 0, pct: 10 }] };
+/* A typical tenancy in years (Bottom Line's Portfolio average): year 1 has a new tenant, the rest are renewals. */
+var TENANCY = 4;
 /* Rows that differ. Each mark: "yes", "add" (available as an add-on), "no", or a fee string. */
 var DIFF = [
   { group: "Guarantees", rows: [
@@ -238,7 +281,10 @@ var DIFF = [
   { group: "Fees", rows: [
     { n: "Maintenance coordination", note: "Per work order", m: ["$75", "Included", "Included"] },
     { n: "Special-circumstance coordination", note: "Per work order, in place of the $75 fee", m: ["$150", "$150", "Included"] },
-    { n: "Annual accounting and tax documents", note: "Per door, once a year", m: ["$125/yr", "Included", "Included"] },
+    { n: "Annual accounting and tax documents", note: "Once a year per owner, however many properties", m: ["$125/yr", "Included", "Included"] },
+    { n: "Move-out inspection", note: "Each time a tenant moves out", m: ["$200", "Included", "Included"] },
+    { n: "Ownership change", note: "New owner setup when the property changes hands", m: ["$500", "Included", "Included"] },
+    { n: "Professional listing photography", note: "Each time the unit is listed for a new tenant", m: ["$350", "Included", "Included"] },
     { n: "Fee while vacant", note: "Each month the unit sits empty between tenants", m: ["$99/mo", "$99/mo", "Included"] }
   ]},
   { group: "Maintenance", rows: [
@@ -267,7 +313,8 @@ var ALL = {
   "Maintenance": ["Work order triage and dispatch", "Emergency and after-hours coordination", "Property manager handles complex repairs", "Vendor communication", "Invoice review and approval"],
   "Accounting": ["Weekly owner distributions", "Monthly owner statement review", "Weekly rent roll review", "Vendor invoice processing"],
   "Tenants and owners": ["Owner communication", "Online owner and tenant portal", "Resident support at every level", "Delinquency and collections", "Pet guarantee"],
-  "Property and compliance": ["Move-in and move-out inspections", "Resident-led inspection review", "Key management, lockbox and rekeys", "Compliance and enforcement", "Eviction service, if eligible", "Owner onboarding and ownership changes"]
+  "Inspections": ["Move-in inspection", "Resident-led inspection review"],
+  "Property and compliance": ["Key management, lockbox and rekeys", "Compliance and enforcement", "Eviction service, if eligible"]
 };
 
 var $ = function (id) { return document.getElementById(id); };
@@ -282,14 +329,22 @@ function frame(t, rent) {
   return { turnTerm: turnTerm, renewTerm: renewTerm,
     zeroRenewalPct: rent > 0 ? renewTerm / TERM / rent * 100 : 0, zeroLeasePct: rent > 0 ? turnTerm / TERM / rent * 100 : 0 };
 }
+function discountFor(p) {
+  var best = 0;
+  if (DISCOUNT.on) DISCOUNT.steps.forEach(function (s) { if (p <= s.atPct + 0.001 && s.pct > best) best = s.pct; });
+  return best;
+}
 function quote(t, rent, p) {
   var f = frame(t, rent), monthly = p / 100 * rent, perTerm = monthly * TERM;
-  return { f: f, monthly: monthly, lease: Math.max(0, f.turnTerm - perTerm), renewal: Math.max(0, f.renewTerm - perTerm) };
+  var lease = Math.max(0, f.turnTerm - perTerm), renewal = Math.max(0, f.renewTerm - perTerm);
+  var share = f.turnTerm > 0 ? lease / f.turnTerm * 100 : 0, disc = discountFor(p);
+  return { f: f, monthly: monthly, share: share, disc: disc, leaseFull: lease, renewalFull: renewal,
+    lease: lease * (1 - disc / 100), renewal: renewal * (1 - disc / 100) };
 }
 
 /* ---------- packages ---------- */
 $("tiers").innerHTML = TIERS.map(function (t, i) {
-  var base = i === 0 ? '<li class="base">Leasing, rent collection, maintenance and accounting</li><li class="base">Move-in and move-out inspections</li><li class="base">Weekly owner distributions</li><li class="base">Online owner portal</li>'
+  var base = i === 0 ? '<li class="base">Leasing, rent collection, maintenance and accounting</li><li class="base">Move-in inspection</li><li class="base">Weekly owner distributions</li><li class="base">Online owner portal</li>'
     : t.adds.map(function (a) { return "<li>" + esc(a) + "</li>"; }).join("");
   return '<article class="tier' + (i === 2 ? " top" : "") + '" aria-labelledby="t-' + t.id + '">' +
     '<h3 id="t-' + t.id + '">' + esc(t.name) + '</h3><p class="pitch">' + esc(t.pitch) + "</p>" +
@@ -357,18 +412,25 @@ function render() {
     ["Standard (" + t.monthlyPct + "%)", t.monthlyPct],
     ["Renewal fee $0 (" + pct(f.zeroRenewalPct) + ")", f.zeroRenewalPct],
     ["No up-front fees (" + pct(f.zeroLeasePct) + ")", f.zeroLeasePct]
-  ].map(function (p) { return '<button type="button" class="btn" data-pick="' + p[1] + '">' + esc(p[0]) + "</button>"; }).join("");
+  ].concat(DISCOUNT.on ? DISCOUNT.steps.map(function (st) {
+    return [(st.atPct <= 0 ? "Pay it all up front" : pct(st.atPct) + " monthly") + " (" + st.pct + "% off)", st.atPct];
+  }) : []).map(function (p) { return '<button type="button" class="btn" data-pick="' + p[1] + '">' + esc(p[0]) + "</button>"; }).join("");
 
   var hint;
   if (Math.abs(state.pick - t.monthlyPct) < 0.01) hint = "This is " + t.name + "'s standard mix.";
   else if (state.pick < t.monthlyPct) hint = "A lower monthly fee moves cost into the leasing and renewal fees. Each lease term costs the same total as the standard mix.";
   else if (state.pick <= f.zeroRenewalPct + 0.01) hint = "A higher monthly fee shrinks the leasing and renewal fees. Each lease term still costs the same total as the standard mix.";
   else hint = "Past " + pct(f.zeroRenewalPct) + ", the renewal fee is already $0, so a renewal year costs more than the standard mix. A new-tenant year still costs the same.";
+  if (q.disc > 0) hint = q.disc + "% discount applied for paying up front.";
   $("hint").textContent = hint;
 
   $("q-monthly").innerHTML = money(q.monthly) + "<small> /mo</small>";
-  $("q-lease").innerHTML = money(q.lease) + "<small> " + (rent > 0 ? pct(q.lease / rent * 100, 0) + " of 1 month" : "") + "</small>";
-  $("q-renew").textContent = money(q.renewal);
+  $("q-lease").innerHTML = money(q.lease) + (q.disc > 0 ? "<s>" + money(q.leaseFull) + "</s>" : "") + "<small> " + (rent > 0 ? pct(q.lease / rent * 100, 0) + " of 1 month" : "") + "</small>";
+  $("q-renew").innerHTML = money(q.renewal) + (q.disc > 0 ? "<s>" + money(q.renewalFull) + "</s>" : "");
+  var save = $("save");
+  save.hidden = !(q.disc > 0);
+  if (q.disc > 0) save.innerHTML = '<span class="tag">' + q.disc + '% discount</span><span>You save <strong>' + money(q.leaseFull - q.lease) +
+    "</strong> on the leasing fee and <strong>" + money(q.renewalFull - q.renewal) + "</strong> on each renewal</span>";
   $("q-sign").innerHTML = money(q.lease + q.monthly) + "<small> leasing + first month</small>";
 
   var scale = Math.max(f.turnTerm, f.renewTerm, q.monthly * TERM + q.lease, 1);
@@ -385,6 +447,25 @@ function render() {
     e.textContent = Math.abs(d) < 0.5 ? "Same as the standard mix" : (d > 0 ? money(d) + " more" : money(-d) + " less") + " than the standard mix (" + money(std) + ")";
   }
   vs("v-turn", yTurn, f.turnTerm); vs("v-renew", yRenew, f.renewTerm);
+
+  // Over a typical tenancy: year 1 with a new tenant, then renewal years, against the standard mix.
+  var rows = [], stdSum = 0, youSum = 0;
+  for (var y = 1; y <= TENANCY; y++) {
+    var std = y === 1 ? f.turnTerm : f.renewTerm, you = y === 1 ? yTurn : yRenew;
+    stdSum += std; youSum += you;
+    rows.push([y === 1 ? "Year 1, new tenant" : "Year " + y + ", renewal", std, you]);
+  }
+  function diffCell(d) { return Math.abs(d) < 0.5 ? "<td>—</td>" : '<td class="' + (d > 0 ? "saves" : "costs") + '">' + (d > 0 ? "−" : "+") + money(Math.abs(d)) + "</td>"; }
+  $("term-h").textContent = "Over a typical " + TENANCY + "-year tenancy";
+  $("t-std").textContent = money(stdSum);
+  $("t-you").textContent = money(youSum);
+  var tDiff = stdSum - youSum, box = $("t-diff-box");
+  box.className = tDiff > 0.5 ? "saves" : tDiff < -0.5 ? "costs" : "";
+  $("t-diff-l").textContent = tDiff > 0.5 ? "You save" : tDiff < -0.5 ? "You pay more" : "Difference";
+  $("t-diff").textContent = Math.abs(tDiff) < 0.5 ? "$0" : money(Math.abs(tDiff));
+  $("yt").innerHTML = "<thead><tr><th scope=\"col\">Year</th><th scope=\"col\">Standard mix</th><th scope=\"col\">Your fees</th><th scope=\"col\">Difference</th></tr></thead><tbody>" +
+    rows.map(function (r) { return "<tr><td>" + r[0] + "</td><td>" + money(r[1]) + "</td><td>" + money(r[2]) + "</td>" + diffCell(r[1] - r[2]) + "</tr>"; }).join("") +
+    "</tbody><tfoot><tr><td>Total</td><td>" + money(stdSum) + "</td><td>" + money(youSum) + "</td>" + diffCell(tDiff) + "</tr></tfoot>";
 }
 
 $("tier-seg").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) setTier(b.dataset.tier); });

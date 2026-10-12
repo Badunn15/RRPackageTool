@@ -38,6 +38,73 @@
   function round(n) { return String(Math.round(n * 100) / 100); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function tierList(focus) { return focus === "all" ? TIERS : [focus]; }
+  // The open scenario, for blanking packages it doesn't offer (set on each render of App).
+  var TIER_DOC = null;
+  // Saved scenarios and how to write them (set on each render of App), for copying an add-on into other scenarios.
+  var SCEN_CTX = null;
+
+  /*
+   * "Copy to other scenarios": puts this add-on (and the cost line or service it's sold from, if a scenario lacks it)
+   * into the saved scenarios picked here, and saves each one. The open scenario isn't touched.
+   */
+  function CopyToScenarios(props) {
+    var doc = props.doc, a = doc.addons.find(function (x) { return x.id === props.id; });
+    var _o = useState(false), open = _o[0], setOpen = _o[1];
+    var _p = useState(null), picked = _p[0], setPicked = _p[1];
+    var _m = useState(true), match = _m[0], setMatch = _m[1];
+    var _b = useState(false), busy = _b[0], setBusy = _b[1];
+    var ctx = SCEN_CTX;
+    if (!a || !ctx) return null;
+    var cloud = ctx.cloud, lists = ctx.lists, cur = ctx.scen;
+    if (!cloud.db) return html`<p class="tiny faint" style=${{ margin: 0 }}>Copying to other scenarios works on the published Planner.</p>`;
+    var targets = [];
+    if (lists.official) targets.push({ kind: "official", x: lists.official });
+    lists.mine.forEach(function (x) { targets.push({ kind: "private", x: x }); });
+    lists.shared.forEach(function (x) { targets.push({ kind: "shared", x: x }); });
+    targets = targets.filter(function (o) {
+      var s = { kind: o.kind, id: o.kind === "official" ? "default" : o.x.id, by: o.x.by };
+      if (s.kind === cur.kind && (s.kind === "official" || s.id === cur.id)) return false;
+      return canWrite(cloud, s);
+    });
+    var key = function (o) { return o.kind + ":" + (o.kind === "official" ? "default" : o.x.id); };
+    var sel = picked || targets.map(key);
+    var src = a.svc ? (findCostRow(doc, a.svc) ? rowName(doc, findCostRow(doc, a.svc).row) : doc.MASTER[a.svc] && doc.MASTER[a.svc].n) : null;
+    function run() {
+      var chosen = targets.filter(function (o) { return sel.indexOf(key(o)) >= 0; });
+      if (!chosen.length) return;
+      setBusy(true);
+      var notes = [];
+      Promise.all(chosen.map(function (o) {
+        var d = normalizeDoc(o.x.doc);
+        copyAddonInto(doc, d, a.id, match).forEach(function (n) { notes.push((o.x.name || "Official numbers") + ": " + n); });
+        var s = { kind: o.kind, id: o.kind === "official" ? "default" : o.x.id };
+        return scenRef(cloud, s).set({ name: o.kind === "official" ? "Official numbers" : o.x.name, by: o.kind === "official" ? cloud.uid : o.x.by || null, savedAt: Date.now(), doc: d });
+      })).then(function () {
+        setBusy(false); setOpen(false);
+        ctx.setMsg({ kind: "good", text: "Copied " + a.name + " to " + chosen.map(function (o) { return o.x.name || "Official numbers"; }).join(", ") + "." + (notes.length ? " " + notes.join(" ") : "") });
+      }, function (e) { setBusy(false); ctx.setMsg({ kind: "bad", text: "Couldn't copy " + a.name + " (" + ((e && e.code) || "error") + "). Scenarios already copied keep it." }); });
+    }
+    if (!open) return html`<button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} disabled=${!targets.length}
+      title=${targets.length ? "Add this to your other saved scenarios" : "No other scenarios you can save to"}
+      onClick=${function () { setOpen(true); }}>Copy to other scenarios…</button>`;
+    return html`<div class="copy-box">
+      <div class="small strong">Copy "${a.name}" to</div>
+      ${targets.map(function (o) {
+        var k = key(o), on = sel.indexOf(k) >= 0;
+        return html`<label key=${k} class="switch small" for=${"cp-" + k}><input type="checkbox" id=${"cp-" + k} checked=${on}
+          onChange=${function () { setPicked(on ? sel.filter(function (x) { return x !== k; }) : sel.concat([k])); }} />
+          ${o.x.name || "Official numbers"} <span class="faint tiny">${KIND_LABEL[o.kind]}</span></label>`;
+      })}
+      ${src ? html`<label class="switch small" for="cp-match"><input type="checkbox" id="cp-match" checked=${match} onChange=${function (e) { setMatch(e.target.checked); }} />
+        Also match which packages include "${src}"</label>
+        <p class="tiny faint" style=${{ margin: 0 }}>Brings "${src}" along where a scenario doesn't have it. Unticked, each scenario keeps its own checkboxes and the add-on is sold only where "${src}" is left out.</p>` : null}
+      <div style=${{ display: "flex", gap: "8px" }}>
+        <button type="button" class="btn sm primary" disabled=${busy || !sel.length} onClick=${run}>${busy ? "Copying…" : "Copy and save"}</button>
+        <button type="button" class="btn sm" onClick=${function () { setOpen(false); }}>Cancel</button>
+      </div>
+    </div>`;
+  }
+  function off(t) { return !tierOn(TIER_DOC, t); }
 
   function load() {
     try {
@@ -210,6 +277,7 @@
   }
   function TierHeads(props) {
     return TIERS.map(function (t) {
+      if (off(t)) return html`<th key=${t} class="c tcol t-off" title="Not offered in this scenario">${TIER_SHORT[t]}</th>`;
       return html`<th key=${t} class=${"c tcol" + (props.focus === t ? " focus" : "")}>${TIER_SHORT[t]}</th>`;
     });
   }
@@ -252,10 +320,10 @@
 
   /* ------------------------------ rail ------------------------------ */
   function Deltas(props) {
-    if (TIERS.every(function (t) { return Math.abs(props.d[t].door) < 0.005; })) {
+    if (onTiers(TIER_DOC).every(function (t) { return Math.abs(props.d[t].door) < 0.005; })) {
       return html`<div class="deltas"><span class="same">No margin change at ${VIEW_NAMES[props.view]}${props.view !== "loaded" ? ". It may count only at a heavier cost view." : "."}</span></div>`;
     }
-    return html`<div class="deltas">${TIERS.map(function (t) {
+    return html`<div class="deltas">${onTiers(TIER_DOC).map(function (t) {
       var d = props.d[t], cls = Math.abs(d.door) < 0.005 ? "same" : d.door > 0 ? "up" : "down";
       return html`<span key=${t} class=${cls}>${TIER_SHORT[t]} ${cls === "same" ? "no change" : (d.door > 0 ? "+" : "−") + money(Math.abs(d.door), 2) + " · " + (d.pts > 0 ? "+" : "−") + Math.abs(d.pts).toFixed(1) + " pts"}</span>`;
     })}</div>`;
@@ -281,7 +349,7 @@
           onClick=${function () { props.setUi(function (u) { u.railHidden = false; }); }}>
           <span class="rail-tab-arrow" aria-hidden="true">‹</span>
           <span class="rail-tab-label">Live margin</span>
-          ${TIERS.map(function (t) {
+          ${onTiers(doc).map(function (t) {
             var m = C.margins[t];
             return html`<span key=${t} class=${"rail-tab-m " + verdict(m, P.targetPct).cls}>${TIER_SHORT[t].charAt(0)} ${pct(m.marginPct, 0)}</span>`;
           })}
@@ -302,7 +370,7 @@
             "Change which view a group counts at on the Costs page."
           ]} />
         </${RailHead}>
-        ${marginShut ? html`<div class="rail-mini">${TIERS.map(function (t) {
+        ${marginShut ? html`<div class="rail-mini">${onTiers(doc).map(function (t) {
           var m = C.margins[t];
           return html`<span key=${t} class=${verdict(m, P.targetPct).cls}>${TIER_SHORT[t]} <b>${pct(m.marginPct)}</b></span>`;
         })}</div>` : html`<${React.Fragment}>
@@ -320,6 +388,7 @@
           })}
         </div>
         ${TIERS.map(function (t) {
+          if (off(t)) return html`<div key=${t} class="tcard t-off"><span class="tn">${TIER_NAMES[t]}</span><span class="td">Not offered</span></div>`;
           var m = C.margins[t], v = verdict(m, P.targetPct), on = ui.focus === t;
           return html`<button key=${t} type="button" class=${"tcard " + v.cls + (on ? " on" : "")} aria-pressed=${on}
             title=${on ? "Stop focusing " + TIER_NAMES[t] : "Focus " + TIER_NAMES[t] + " across every page"}
@@ -360,7 +429,7 @@
 
   /* ------------------------------ inspector ------------------------------ */
   function TierChecks(props) {
-    return html`<div class="tiers-inline">${TIERS.map(function (t) {
+    return html`<div class="tiers-inline">${onTiers(TIER_DOC).map(function (t) {
       return html`<label key=${t} for=${props.idp + "-" + t}><input type="checkbox" id=${props.idp + "-" + t} checked=${!!props.flags[t]}
         onChange=${function () { props.onToggle(t); }} /> ${TIER_SHORT[t]}</label>`;
     })}</div>`;
@@ -368,7 +437,7 @@
   function Impact(props) {
     return html`<table class="impact">
       <thead><tr><th>Tier</th><th>${props.head}</th><th>Margin</th></tr></thead>
-      <tbody>${TIERS.map(function (t) {
+      <tbody>${onTiers(TIER_DOC).map(function (t) {
         var v = props.vals[t], rev = props.C.margins[t].revenue;
         return html`<tr key=${t}><td>${TIER_SHORT[t]}</td>
           <td>${v.text != null ? html`<span class="faint">${v.text}</span>` : money(v.amt, 2)}</td>
@@ -524,6 +593,7 @@
       </div>
       <p class="note">For sale in: ${TIERS.filter(function (t) { return ad.tiers[t] !== "off"; }).map(function (t) { return TIER_SHORT[t]; }).join(", ") || "no tier"}. Tiers that include it don't sell it. Fine-tune on the Add-ons page.</p>
       <button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () { update(function (d) { d.addons = d.addons.filter(function (x) { return x.svc !== id; }); }, "Stopped selling " + name + " as an add-on"); }}>Stop selling as an add-on</button>
+      <${CopyToScenarios} doc=${doc} id=${ad.id} />
     </div>`;
   }
 
@@ -563,6 +633,7 @@
           onClick=${function () { benchAddon(update, a); done(); }}>${a.svc ? "Stop selling as an add-on" : "Move to bench"}</button>
         <button type="button" class="btn sm danger" onClick=${function () { removeAddon(update, a); done(); }}>Delete add-on</button>
       </div>
+      <${CopyToScenarios} doc=${doc} id=${a.id} />
     </div>`;
   }
 
@@ -663,7 +734,8 @@
           : evictionHandled(doc, t) ? TIER_SHORT[t] + " has no Eviction guarantee, so every eviction is billed." : "Eviction service is off for " + TIER_SHORT[t] + ", so nothing is billed.")
       : ADDON_POOL[a.basis]
         ? fmtNum(Math.round(share * 10) / 10) + "% of the " + fmtNum(Math.round(woYr(doc))) + " work orders a year" + (isRest ? ": whatever the other work-order fees in " + TIER_SHORT[t] + " don't claim." : ".")
-        : a.basis === "door_yr" ? fmtNum(a.amount || 0) + " per door a year × " + fmtNum(doc.G.doors) + " doors." : "Counted across the whole portfolio."
+        : a.basis === "door_yr" ? fmtNum(a.amount || 0) + " per door a year × " + fmtNum(doc.G.doors) + " doors."
+        : a.basis === "entity_yr" ? fmtNum(a.amount || 0) + " per owner entity a year × " + fmtNum(doc.G.entities || 0) + " entities (Portfolio), spread over " + fmtNum(doc.G.doors) + " doors." : "Counted across the whole portfolio."
     ];
   }
 
@@ -692,6 +764,7 @@
       </div>
       <div class="math">${feeLines(doc, a, props.C.margins[t0] ? t0 : "min").map(function (l, i) { return html`<div key=${i}>${l}</div>`; })}</div>
       <${Impact} head="Net/door/mo" vals=${vals} C=${props.C} costLike=${false} />
+      <${CopyToScenarios} doc=${doc} id=${a.id} />
       <p class="note">${ev ? "Which evictions are billed follows the Eviction guarantee (Costs) and Eviction service (Services) checkboxes, so it can't disagree with them." : "Charged: you bill it and carry its cost. Included: you do it without billing. Off: not offered."}</p>
     </div>`;
   }
@@ -699,25 +772,31 @@
   /* ------------------------------ pages ------------------------------ */
   /* The resident revenue breakdown, for tooltips. */
   function residentLines(doc, r) {
-    var lines = [(r.on ? "Counted: " : "Switched off. It would add ") + money(r.full, 2) + "/door/mo, the same in every package."];
+    var R = doc.resident, varies = R.lateMatch;
+    var lines = [(r.on ? "Counted: " : "Switched off. It would add ") + money(r.full, 2) + "/door/mo" + (varies ? " on Minimum. Late fees follow each package's management fee, so other packages differ." : ", the same in every package.")];
     Object.keys(r.items).forEach(function (k) { lines.push(RESIDENT_NAMES[k] + ": " + money(r.items[k], 2) + "/mo (" + money(r.items[k] * 12) + "/yr)"); });
     lines.push("Set under Portfolio → Resident revenue.");
     return lines;
   }
 
-  /* Resident revenue's pieces under its subtotal on the Summary. They're the same in every package; N/A in the owners-only view. */
+  /* Resident revenue's pieces under its subtotal on the Summary, per package; N/A in the owners-only view. */
   function residentRows(doc, C, row) {
     var r = C.margins.min.resident, R = doc.resident, c = r.cycle, G = doc.G;
+    function keepText(which) {
+      if (which === "pet" && R.petAsRent) return " counted as rent (in the management fee, not here)";
+      if (R[which + "Match"]) return " × the package's management fee (" + TIERS.map(function (t) { return TIER_SHORT[t] + " " + pct(doc.pricing.tiers[t].monthlyPct, 0); }).join(", ") + ") kept";
+      return R[which + "Keep"] < 100 ? " × " + R[which + "Keep"] + "% kept" : "";
+    }
     var how = {
       rbp: [money(rbpSpread(R), 2) + "/mo average spread of the " + R.rbp.length + " packages" + (R.raynorPct < 100 ? " × " + R.raynorPct + "% of leases enrolled" : "") + "."],
       renewal: [money(R.renewalFee) + " per renewal × " + c.renewalsYr.toFixed(2) + " renewals a door a year ÷ 12."],
       admin: [money(R.adminFee) + " per move-in × " + fmtNum(G.moveIns || 0) + " move-ins a year ÷ " + fmtNum(G.doors) + " doors ÷ 12."],
-      pet: [money(R.petYr) + "/door/yr" + (R.petKeep < 100 ? " × " + R.petKeep + "% kept" : "") + " ÷ 12."],
-      late: [money(R.lateYr) + "/door/yr" + (R.lateKeep < 100 ? " × " + R.lateKeep + "% kept" : "") + " ÷ 12."],
+      pet: [money(R.petYr) + "/door/yr" + keepText("pet") + " ÷ 12."],
+      late: [money(R.lateYr) + "/door/yr" + keepText("late") + " ÷ 12."],
       app: [money(R.appYr, 2) + "/door/yr ÷ 12."]
     };
     return Object.keys(r.items).map(function (k) {
-      return html`<${React.Fragment} key=${k}>${row(RESIDENT_NAMES[k], function () { return r.on ? money(r.items[k], 2) : html`<span class="faint">N/A</span>`; }, "sub2", how[k])}</${React.Fragment}>`;
+      return html`<${React.Fragment} key=${k}>${row(RESIDENT_NAMES[k], function (t) { var rt = C.margins[t].resident; return rt.on ? money(rt.items[k], 2) : html`<span class="faint">N/A</span>`; }, "sub2", how[k])}</${React.Fragment}>`;
     });
   }
 
@@ -745,7 +824,7 @@
     var showRev = !shut["sum:rev"], showOwn = showRev && !shut["sum:own"], showRes = showRev && !shut["sum:res"], showCost = !shut["sum:cost"];
     function row(label, fn, cls, info) {
       return html`<tr class=${cls || ""}><td>${label}${info ? html`<${Info} plain=${true} lines=${info} />` : null}</td>
-        ${TIERS.map(function (t) { return html`<td key=${t} class=${fc(t)}>${fn(t)}</td>`; })}</tr>`;
+        ${TIERS.map(function (t) { return off(t) ? html`<td key=${t} class="t-off"></td>` : html`<td key=${t} class=${fc(t)}>${fn(t)}</td>`; })}</tr>`;
     }
     return html`<div class="page">
       <${PageHead} kicker="Raynor Realty · Internal" title="Is each package making money?"
@@ -757,6 +836,7 @@
             <button type="button" class="mini" style=${{ marginLeft: "4px" }} onClick=${function () { setAll(false); }}>Expand all</button></span></div>
           <div class="table-wrap"><table class="compare">
             <thead><tr><th></th>${TIERS.map(function (t) {
+              if (off(t)) return html`<th key=${t} class="t-off">${TIER_NAMES[t]}<br /><span class="pill">Not offered</span></th>`;
               var v = verdict(C.margins[t], P.targetPct);
               return html`<th key=${t} class=${fc(t)}>${TIER_NAMES[t]}<br /><span class=${"pill " + v.cls}>${v.label}</span></th>`;
             })}</tr></thead>
@@ -800,6 +880,8 @@
     { title: "Residential", fields: [
       { id: "f-doors", label: "Long-term residential doors", suffix: "doors", get: function (d) { return d.G.doors; }, set: function (d, v) { d.G.doors = Math.max(1, Math.round(v)); d.af.rd = afResUnits(d); }, step: 1, min: 1,
         help: "Doors on the three packages. Package revenue and margin are per one of these doors. STR and commercial units are set below." },
+      { id: "f-entities", label: "Owner entities", suffix: "owners", get: function (d) { return d.G.entities; }, set: function (d, v) { d.G.entities = Math.max(0, Math.round(v)); }, step: 1, min: 0,
+        help: function (d) { return "Separate owners (each LLC or person billed on its own). An owner with several doors counts once. The owner accounting fee is charged per entity: " + fmtNum(d.G.entities) + " ÷ " + fmtNum(d.G.doors) + " doors = " + (d.G.doors ? (d.G.entities / d.G.doors).toFixed(2) : "0") + " a door a year. Grows with doors on Growth and Acquisitions."; } },
       { id: "f-rent", label: "Average rent", prefix: "$", suffix: "/mo", get: function (d) { return d.G.rent; }, set: function (d, v) { d.G.rent = v; }, step: 25, min: 0,
         help: "Average monthly rent across managed units. Every percentage fee (monthly and leasing) is figured on this." },
       { id: "f-tenancy", label: "Average tenancy", suffix: "years", get: function (d) { return d.G.tenancy; }, set: function (d, v) { d.G.tenancy = v; }, step: 0.5, min: 0.25,
@@ -828,13 +910,24 @@
       { id: "f-admin", label: "Admin fee at move-in", prefix: "$", suffix: "/move-in", get: function (d) { return d.resident.adminFee; }, set: function (d, v) { d.resident.adminFee = v; }, step: 5, min: 0,
         help: function (d) { var n = d.G.moveIns || 0, per = d.G.doors ? d.resident.adminFee * n / d.G.doors : 0; return "Charged once per move-in × " + fmtNum(n) + " move-ins a year (Portfolio → Yearly activity) ÷ " + fmtNum(d.G.doors) + " doors = " + money(per, 2) + "/door/yr."; } },
       { id: "f-pet", label: "Pet rent", prefix: "$", suffix: "/door/yr", get: function (d) { return d.resident.petYr; }, set: function (d, v) { d.resident.petYr = v; }, step: 1, min: 0,
-        help: "Last year's pet rent averaged over every door." },
-      { id: "f-petkeep", label: "Pet rent Raynor keeps", suffix: "%", get: function (d) { return d.resident.petKeep; }, set: function (d, v) { d.resident.petKeep = Math.min(100, v); }, step: 5, min: 0, max: 100,
-        help: "Raynor keeps all of it today, which is what pays for the pet guarantee. Lower it to see the numbers if part goes to the owner." },
+        help: function (d) { return "Last year's pet rent averaged over every door." + (d.resident.petAsRent ? " Counted as rent: " + money(d.resident.petYr / 12, 2) + "/mo is added to the rent the management fee is charged on." : ""); },
+        chip: function (d) { return d.resident.petAsRent ? "Counted as rent" : fmtNum(d.resident.petKeep) + "% kept"; },
+        more: [
+          { id: "f-petrent", label: "Count pet rent as rent", toggle: function (d) { return !!d.resident.petAsRent; }, setToggle: function (d, on) { d.resident.petAsRent = on; },
+            help: "On: the average pet rent is added to rent, so the monthly management fee is charged on it and follows the owner's pick (at 0% monthly it moves into the leasing and renewal fees). It leaves resident revenue. The leasing fee stays a % of one month's rent." },
+          { id: "f-petkeep", label: "Pet rent Raynor keeps", suffix: "%", hide: function (d) { return !!d.resident.petAsRent; }, get: function (d) { return d.resident.petKeep; }, set: function (d, v) { d.resident.petKeep = Math.min(100, v); }, step: 5, min: 0, max: 100,
+            help: "Raynor keeps all of it today, which is what pays for the pet guarantee. Lower it to see the numbers if part goes to the owner." }
+        ] },
       { id: "f-late", label: "Late fees", prefix: "$", suffix: "/door/yr", get: function (d) { return d.resident.lateYr; }, set: function (d, v) { d.resident.lateYr = v; }, step: 1, min: 0,
-        help: "Last year's late fees averaged over every door." },
-      { id: "f-latekeep", label: "Late fees Raynor keeps", suffix: "%", get: function (d) { return d.resident.lateKeep; }, set: function (d, v) { d.resident.lateKeep = Math.min(100, v); }, step: 5, min: 0, max: 100,
+        help: "Last year's late fees averaged over every door.",
+        chip: function (d) { return d.resident.lateMatch ? TIERS.map(function (t) { return fmtNum(d.pricing.tiers[t].monthlyPct); }).join(" / ") + "% kept" : fmtNum(d.resident.lateKeep) + "% kept"; },
+        more: [] },
+      { id: "f-latematch", label: "Late fees kept match management fee", toggle: function (d) { return !!d.resident.lateMatch; }, setToggle: function (d, on) { d.resident.lateMatch = on; },
+        help: "On: Raynor keeps each package's standard monthly management fee % of late fees, like rent, and the owner gets the rest. Off: set the % below." },
+      { id: "f-latekeep", label: "Late fees Raynor keeps", suffix: "%", hide: function (d) { return !!d.resident.lateMatch; }, get: function (d) { return d.resident.lateKeep; }, set: function (d, v) { d.resident.lateKeep = Math.min(100, v); }, step: 5, min: 0, max: 100,
         help: "Raynor keeps all of it today, which is what pays for the eviction guarantee. Lower it to see the numbers if part goes to the owner." },
+      { id: "f-latekeepm", label: "Late fees Raynor keeps", hide: function (d) { return !d.resident.lateMatch; }, suffix: "%", readonly: function (d) { return TIERS.map(function (t) { return fmtNum(d.pricing.tiers[t].monthlyPct); }).join(" / "); },
+        help: "Each package's standard monthly management fee (Minimum / Special / Plus), from the Prices page." },
       { id: "f-app", label: "Application fees", prefix: "$", suffix: "/door/yr", get: function (d) { return d.resident.appYr; }, set: function (d, v) { d.resident.appYr = v; }, step: 0.5, min: 0,
         help: "Net from last year: $75 charged, about $35 cost, per applicant. Follows how many people apply, not move-ins." }
     ] },
@@ -856,14 +949,18 @@
         help: "On: work orders are a rate per door, so changing the door count moves them with it. Off: a fixed yearly count." },
       { id: "f-worate", label: "Work orders per door", suffix: "/door/yr", hide: function (d) { return !d.G.woByDoor; },
         get: function (d) { return d.G.woPerDoor; }, set: function (d, v) { d.G.woPerDoor = v; }, step: 0.1, min: 0,
+        chip: function () { return "Follows doors"; }, more: ["f-wobydoor"],
         help: function (d) { return "Residential work orders a door a year × " + fmtNum(d.G.doors) + " doors = " + fmtNum(Math.round(woYr(d))) + " a year. Not STR or commercial, whose fees already cover coordination. Coordination fees are billed on these."; } },
       { id: "f-wo", label: "Work orders", suffix: "/yr", hide: function (d) { return !!d.G.woByDoor; },
         get: function (d) { return d.G.wo; }, set: function (d, v) { d.G.wo = v; }, step: 10, min: 0,
+        chip: function () { return "Fixed count"; }, more: ["f-wobydoor"],
         help: function (d) { return "Residential work orders over the last 12 months (" + (d.G.doors ? fmtNum(d.G.wo / d.G.doors) : 0) + " a door). Not STR or commercial, whose fees already cover coordination. Coordination fees are billed on these, spread over the residential doors."; } },
       { id: "f-movein", label: "Move-ins", suffix: "/yr", get: function (d) { return d.G.moveIns; }, set: function (d, v) { d.G.moveIns = v; }, step: 1, min: 0,
         help: function (d) { return "New tenants moved in over the last 12 months. The " + money(d.resident.adminFee) + " admin fee is charged on each. Starts at " + fmtNum(d.G.tenancy > 0 ? Math.round(d.G.doors / d.G.tenancy) : 0) + " (doors ÷ average tenancy). Leasing fees still follow average tenancy."; } },
       { id: "f-evictions", label: "Evictions", suffix: "/yr", get: function (d) { return d.G.evictions; }, set: function (d, v) { d.G.evictions = v; }, step: 1, min: 0,
-        help: "Evictions filed over the last 12 months. Used by both the billed eviction fee and the Eviction guarantee." },
+        help: "Evictions filed over the last 12 months. Used by both the billed eviction fee and the Eviction guarantee.",
+        chip: function (d) { return money(d.G.courtFee) + " court · " + fmtNum(d.G.evictNotPlacedPct) + "% not placed"; },
+        more: [] },
       { id: "f-court", label: "Court fees per eviction", prefix: "$", suffix: "/eviction", get: function (d) { return d.G.courtFee; }, set: function (d, v) { d.G.courtFee = v; }, step: 1, min: 0,
         help: "$96 filing + $30 per tenant. Comes out of the $750 when the owner is billed. Raynor pays it when the guarantee covers the eviction." },
       { id: "f-notplaced", label: "Tenant we didn't place", suffix: "%", get: function (d) { return d.G.evictNotPlacedPct; }, set: function (d, v) { d.G.evictNotPlacedPct = Math.min(100, v); }, step: 5, min: 0, max: 100,
@@ -896,6 +993,33 @@
         help: "When a tier leaves out a service, the PM time it would take is freed. On takes that value off the tier's cost. Off only shows it." }
     ] }
   ];
+
+  /*
+   * Some lines carry related settings folded under them (field.more): a chip on the line shows their state and opens
+   * them. `more` lists fields inline, or names other fields in the same section by id; an empty list takes the
+   * fields right after it whose id starts with the line's id (f-late → f-latematch, f-latekeep, ...) or that it names.
+   */
+  var FOLD_MEMBERS = { "f-late": ["f-latematch", "f-latekeep", "f-latekeepm"], "f-evictions": ["f-court", "f-notplaced"] };
+  function foldOf(grp, f) {
+    if (!f.more) return [];
+    var named = f.more.length ? f.more : FOLD_MEMBERS[f.id] || [];
+    return named.map(function (x) { return typeof x === "string" ? grp.fields.find(function (g) { return g.id === x; }) : x; }).filter(Boolean);
+  }
+  /* The lines shown at the top level of a section: everything not folded under another line. */
+  function topFields(grp) {
+    var folded = {};
+    grp.fields.forEach(function (f) { foldOf(grp, f).forEach(function (x) { folded[x.id] = true; }); });
+    return grp.fields.filter(function (f) { return !folded[f.id]; });
+  }
+  /* Every field once, folded ones included (for Compare and links into Portfolio), with the line that holds it. */
+  function allFields() {
+    var out = [], seen = {};
+    FIELD_GROUPS.forEach(function (g) {
+      function add(f, parent) { if (seen[f.id]) return; seen[f.id] = true; out.push({ f: f, grp: g, parent: parent }); }
+      g.fields.forEach(function (f) { add(f, null); foldOf(g, f).forEach(function (x) { if (!seen[x.id]) { seen[x.id] = true; out.push({ f: x, grp: g, parent: f }); } else out.forEach(function (o) { if (o.f.id === x.id) o.parent = f; }); }); });
+    });
+    return out;
+  }
 
   /* A field's current value as short text, for the one-line summary of a collapsed Portfolio section. */
   function fieldText(doc, f) {
@@ -933,6 +1057,18 @@
 
   function Portfolio(props) {
     var doc = props.doc, update = props.update, shut = props.ui.pfShut;
+    function fieldRow(f, chip, cls) {
+      var help = typeof f.help === "function" ? f.help(doc) : f.help;
+      var ctrl = f.readonly ? html`<span class="affix ro slots"><span class="pre"></span><span class="ro-v">${f.readonly(doc)}</span><span class="suf">${f.suffix || ""}</span></span>`
+        : f.toggle ? html`<label class="toggle-box" for=${f.id}><input type="checkbox" id=${f.id} checked=${f.toggle(doc)} onChange=${function (e) { var on = e.target.checked; update(function (d) { f.setToggle(d, on); }, f.label + (on ? " on" : " off")); }} /><span>${f.toggle(doc) ? "On" : "Off"}</span></label>`
+        : html`<${Affix} slots=${true} id=${f.id} prefix=${f.prefix} suffix=${f.suffix} step=${f.step} min=${f.min} max=${f.max} label=${f.label}
+            value=${f.get(doc)} onChange=${function (v) { update(function (d) { f.set(d, v); }, f.label); }} />`;
+      return html`<div key=${f.id} class=${"frow" + cls} id=${"row-" + f.id}>
+        <label for=${f.id}>${f.label}</label>
+        <div class="fctrl">${ctrl}</div>
+        <div class="help">${chip}${help}</div>
+      </div>`;
+    }
     var allShut = FIELD_GROUPS.every(function (g) { return shut[g.title]; });
     function setAll(v) { props.setUi(function (u) { FIELD_GROUPS.forEach(function (g) { u.pfShut[g.title] = v; }); }); }
     return html`<div class="page">
@@ -947,21 +1083,19 @@
               onClick=${function () { props.setUi(function (u) { u.pfShut[grp.title] = !isShut; }); }}>
               <span class="caret-i" aria-hidden="true">${isShut ? "▸" : "▾"}</span>
               <span class="sec-name">${grp.title}</span>
-              ${isShut ? html`<span class="sec-sum">${grp.fields.filter(function (f) { return !(f.hide && f.hide(doc)); }).map(function (f) { return f.label + " " + fieldText(doc, f); }).join(" · ")}</span>` : null}
+              ${isShut ? html`<span class="sec-sum">${topFields(grp).filter(function (f) { return !(f.hide && f.hide(doc)); }).map(function (f) { return f.label + " " + fieldText(doc, f); }).join(" · ")}</span>` : null}
             </button>
           </h2>
-          ${isShut ? null : html`<div class="panel-b fieldset">${grp.fields.filter(function (f) { return !(f.hide && f.hide(doc)); }).map(function (f) {
-            var help = typeof f.help === "function" ? f.help(doc) : f.help;
+          ${isShut ? null : html`<div class="panel-b fieldset">${topFields(grp).filter(function (f) { return !(f.hide && f.hide(doc)); }).map(function (f) {
             if (f.rbp) return html`<${RbpTable} key=${f.id} f=${f} doc=${doc} update=${update} ui=${props.ui} setUi=${props.setUi} />`;
-            var ctrl = f.readonly ? html`<span class="affix ro slots"><span class="pre"></span><span class="ro-v">${f.readonly(doc)}</span><span class="suf">${f.suffix || ""}</span></span>`
-              : f.toggle ? html`<label class="toggle-box" for=${f.id}><input type="checkbox" id=${f.id} checked=${f.toggle(doc)} onChange=${function (e) { var on = e.target.checked; update(function (d) { f.setToggle(d, on); }, f.label + (on ? " on" : " off")); }} /><span>${f.toggle(doc) ? "On" : "Off"}</span></label>`
-              : html`<${Affix} slots=${true} id=${f.id} prefix=${f.prefix} suffix=${f.suffix} step=${f.step} min=${f.min} max=${f.max} label=${f.label}
-                  value=${f.get(doc)} onChange=${function (v) { update(function (d) { f.set(d, v); }, f.label); }} />`;
-            return html`<div key=${f.id} class="frow" id=${"row-" + f.id}>
-              <label for=${f.id}>${f.label}</label>
-              <div class="fctrl">${ctrl}</div>
-              <div class="help">${help}</div>
-            </div>`;
+            var fold = foldOf(grp, f).filter(function (x) { return !(x.hide && x.hide(doc)); });
+            var openKey = "more:" + f.id, isOpen = !!shut[openKey];
+            var chip = f.chip ? html`<button type="button" class=${"fchip" + (isOpen ? " on" : "")} aria-expanded=${isOpen}
+              onClick=${function () { props.setUi(function (u) { u.pfShut[openKey] = !isOpen; }); }}>${f.chip(doc)} <span aria-hidden="true">${isOpen ? "▴" : "▾"}</span></button>` : null;
+            return html`<${React.Fragment} key=${f.id}>
+              ${fieldRow(f, chip, "")}
+              ${isOpen ? fold.map(function (x) { return fieldRow(x, null, " sub"); }) : null}
+            </${React.Fragment}>`;
           })}</div>`}
         </section>`;
       })}
@@ -1044,6 +1178,7 @@
                 <td></td>
                 <td class="mono">${money(gDoor, 2)}</td>
                 ${TIERS.map(function (t) {
+                  if (off(t)) return html`<td key=${t} class="c tcol t-off" aria-label=${TIER_SHORT[t] + ": not offered"}></td>`;
                   var out = ids.filter(function (id) { return !(ck[id] && ck[id][t]); }).length, on = ids.length && out === 0;
                   return html`<td key=${t} class=${"c tcol" + (focus === t ? " focus" : "")}>
                     <button type="button" class="mini" title=${(on ? "Uncheck" : "Check") + " every " + g.label + " line for " + TIER_SHORT[t]}
@@ -1079,6 +1214,7 @@
                     : r.e === "annual" ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
                   <td class="mono">${isLb ? lbText : money(perDoor, 2)}</td>
                   ${TIERS.map(function (t) {
+                    if (off(t)) return html`<td key=${t} class="c tcol t-off" aria-label=${TIER_SHORT[t] + ": not offered"}></td>`;
                     return html`<td key=${t} class=${"c tcol" + (focus === t ? " focus" : "")}><input type="checkbox" id=${"ck-" + r.id + "-" + t} aria-label=${name + " in " + TIER_SHORT[t]}
                       checked=${!!f[t]} onChange=${function () { toggleCk(update, "ck", r.id, t, name); }} /></td>`;
                   })}
@@ -1129,7 +1265,7 @@
             <span>Take it off each tier's cost</span></label>
         </div>
         <div class="panel-b" style=${{ display: "flex", gap: "22px", flexWrap: "wrap" }}>
-          ${TIERS.map(function (t) {
+          ${onTiers(doc).map(function (t) {
             return html`<div key=${t}><div class="small muted">${TIER_NAMES[t]}</div><div class="mono strong">${money(C.cost.freed[t], 2)} <span class="small faint">from ${C.cost.freedCount[t]} left out</span></div></div>`;
           })}
         </div>
@@ -1164,6 +1300,7 @@
                     <button type="button" class="caret" aria-expanded=${!cCollapsed} aria-label=${(cCollapsed ? "Expand " : "Collapse ") + c}
                       onClick=${function () { props.setUi(function (u) { u.cats[key] = !cCollapsed; }); }}>${cCollapsed ? "▸" : "▾"}</button>${c} · ${cIds.length}</td>
                     ${TIERS.map(function (t) {
+                      if (off(t)) return html`<td key=${t} class="c tcol t-off" aria-label=${TIER_SHORT[t] + ": not offered"}></td>`;
                       var on = cIds.every(function (id) { return psk[id] && psk[id][t]; });
                       return html`<td key=${t} class=${"c tcol" + (focus === t ? " focus" : "")}><button type="button" class="mini" title=${(on ? "Uncheck" : "Check") + " all " + c + " for " + TIER_SHORT[t]}
                         onClick=${function () { setAll(cIds, t, !on, c); }}>${on ? "none" : "all"}</button></td>`;
@@ -1189,6 +1326,7 @@
                         onChange=${function (val) { update(function (d) { d.ev[id] = val; }, svc.n + ": events"); }} />` : null}</td>
                       <td class="mono muted">${money(scopePerDoorMo(doc, id), 2)}</td>
                       ${TIERS.map(function (t) {
+                        if (off(t)) return html`<td key=${t} class="c tcol t-off" aria-label=${TIER_SHORT[t] + ": not offered"}></td>`;
                         return html`<td key=${t} class=${"c tcol" + (focus === t ? " focus" : "")}><input type="checkbox" id=${"psk-" + id + "-" + t} aria-label=${svc.n + " in " + TIER_SHORT[t]}
                           checked=${!!f[t]} onChange=${function () { toggleCk(update, "psk", id, t, svc.n); }} /></td>`;
                       })}
@@ -1238,7 +1376,7 @@
     var doc = props.doc, update = props.update, focus = props.ui.focus;
     var sel = props.ui.sel && props.ui.sel.kind === "fee" ? props.ui.sel.id : null;
     function edit(id, fn, label) { update(function (d) { var a = d.addons.find(function (x) { return x.id === id; }); if (a) fn(a); }, label); }
-    var unit = { wo: "% of WOs", wo_rest: "% of WOs", events: "/yr", door_yr: "/door/yr" };
+    var unit = { wo: "% of WOs", wo_rest: "% of WOs", events: "/yr", door_yr: "/door/yr", entity_yr: "/entity/yr" };
     return html`<${React.Fragment}>
       <section class="panel">
         <${ShutHead} k="sec:fees" ui=${props.ui} setUi=${props.setUi} title="Services billed per use"
@@ -1273,6 +1411,7 @@
                       onChange=${function (v) { edit(a.id, function (x) { x.amount = ADDON_POOL[x.basis] ? Math.min(100, v) : v; }, a.name + ": how often"); }} />`}</td>
                 <td class="mono">${money(net, 2)}</td>
                 ${TIERS.map(function (t) {
+                  if (off(t)) return html`<td key=${t} class="c tcol t-off" aria-label=${TIER_SHORT[t] + ": not offered"}></td>`;
                   var cls = "c tcol" + (focus === t ? " focus" : "");
                   if (ev) {
                     var lbl = !evictionHandled(doc, t) ? "Off" : evictionGuaranteed(doc, t) ? "Not placed" : "All";
@@ -1344,6 +1483,7 @@
                 <td><${OftenCell} a=${a} name=${a.name} idp=${"af-" + a.id} edit=${function (fn, label) { edit(a.id, fn, a.name + ": " + label); }} /></td>
                 <td><${Affix} id=${"au-" + a.id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label=${"Share of owners who buy " + a.name} value=${a.uptake || 0} onChange=${function (v) { edit(a.id, function (x) { x.uptake = Math.min(100, v); }, a.name + ": owners who buy"); }} /></td>
                 ${TIERS.map(function (t) {
+                  if (off(t)) return html`<td key=${t} class="c tcol-wide t-off"></td>`;
                   return html`<td key=${t} class=${"c tcol-wide" + (focus === t ? " focus" : "")}>${stateCell(a, t)}</td>`;
                 })}
                 ${(function () {
@@ -1400,6 +1540,7 @@
                   </div>
                   <div class="sub-h">By tier</div>
                   <div class="bundle-tiers">${TIERS.map(function (t) {
+                    if (off(t)) return html`<div key=${t} class="t-off"><span class="small">${TIER_SHORT[t]}</span><span class="small faint">Not offered</span></div>`;
                     var n = netFor(b, t);
                     return html`<div key=${t} class=${focus === t ? "focus" : ""}><span class="small strong">${TIER_SHORT[t]}</span>${stateCell(b, t)}
                       <span class=${"mono small " + (n != null && n < 0 ? "bad" : "")}>${n == null ? "—" : (n >= 0 ? "+" : "") + money(n, 2) + "/door"}</span></div>`;
@@ -1427,27 +1568,37 @@
   function OwnerTermCost(props) {
     var doc = props.doc, m = props.m, q = m.rev.quote, G = doc.G, term = Math.max(1, doc.pricing.term || 12);
     var years = Math.max(1, Math.round(G.tenancy || 1)), perUseYr = m.addon.rev * 12, renewalsYr = 12 / term;
-    var rows = [];
+    var rows = [], disc = q.discountPct > 0;
+    // Leasing fee in year 1 (plus any extra renewals that year), renewal fees after. `full` picks the undiscounted fees.
+    function signingYr(y, full) {
+      var lease = full ? q.leaseUpFull : q.leaseUp, renew = full ? q.renewalFull : q.renewal;
+      return y === 1 ? lease + (renewalsYr > 1 ? renew * (renewalsYr - 1) : 0) : renew * renewalsYr;
+    }
     for (var y = 1; y <= years; y++) {
-      var leaseOrRenew = y === 1 ? q.leaseUp + (renewalsYr > 1 ? q.renewal * (renewalsYr - 1) : 0) : q.renewal * renewalsYr;
-      rows.push({ y: y, monthly: q.monthly * 12, signing: leaseOrRenew, perUse: perUseYr, total: q.monthly * 12 + leaseOrRenew + perUseYr });
+      var leaseOrRenew = signingYr(y, false);
+      var fullSigning = signingYr(y, true);
+      rows.push({ y: y, monthly: q.monthly * 12, signing: leaseOrRenew, signingFull: fullSigning, saved: fullSigning - leaseOrRenew, perUse: perUseYr,
+        total: q.monthly * 12 + leaseOrRenew + perUseYr, totalFull: q.monthly * 12 + fullSigning + perUseYr });
     }
     var sum = function (k) { return rows.reduce(function (a, r) { return a + r[k]; }, 0); };
     var total = sum("total");
+    // With the discount: the new amount, and the undiscounted one struck through after it.
+    function cut(now, was) { return disc ? html`${money(now)} <s class="was">${money(was)}</s>` : money(now); }
     return html`<details class="term-cost">
-      <summary>Owner's cost over a ${years}-year tenancy <b class="mono">${money(total)}</b></summary>
+      <summary>Owner's cost over a ${years}-year tenancy <b class="mono">${cut(total, sum("totalFull"))}</b>${disc ? html`<span class="good small mono">saves ${money(sum("saved"))}</span>` : null}</summary>
       <table class="yr-table">
-        <thead><tr><th>Year</th><th>Monthly</th><th title="Leasing fee in year 1, renewal fees after">Lease / renew</th><th>Per-use</th><th>Total</th></tr></thead>
+        <thead><tr><th>Year</th><th>Monthly</th><th title="Leasing fee in year 1, renewal fees after">Lease / renew</th>${disc ? html`<th title="What the discount takes off the leasing and renewal fees">Saved</th>` : null}<th>Per-use</th><th>Total</th></tr></thead>
         <tbody>${rows.map(function (r) {
-          return html`<tr key=${r.y}><td>${r.y}${r.y === 1 ? " new" : ""}</td><td>${money(r.monthly)}</td><td>${money(r.signing)}</td><td>${money(r.perUse)}</td><td class="strong">${money(r.total)}</td></tr>`;
+          return html`<tr key=${r.y}><td>${r.y}${r.y === 1 ? " new" : ""}</td><td>${money(r.monthly)}</td><td>${cut(r.signing, r.signingFull)}</td>${disc ? html`<td class="good">${money(r.saved)}</td>` : null}<td>${money(r.perUse)}</td><td class="strong">${cut(r.total, r.totalFull)}</td></tr>`;
         })}</tbody>
-        <tfoot><tr><td>All</td><td>${money(sum("monthly"))}</td><td>${money(sum("signing"))}</td><td>${money(sum("perUse"))}</td><td>${money(total)}</td></tr></tfoot>
+        <tfoot><tr><td>All</td><td>${money(sum("monthly"))}</td><td>${cut(sum("signing"), sum("signingFull"))}</td>${disc ? html`<td class="good">${money(sum("saved"))}</td>` : null}<td>${money(sum("perUse"))}</td><td>${cut(total, sum("totalFull"))}</td></tr></tfoot>
       </table>
       <p class="tiny muted" style=${{ margin: "6px 0 0" }}>${money(total / years / 12)}/mo on average, ${pct(G.rent > 0 ? total / years / 12 / G.rent * 100 : 0)} of ${money(G.rent)} rent.
         <${Info} plain=${true} label="How the owner's cost is figured" lines=${[
           "At the owner's pick of " + pct(q.pct, 2) + " monthly, on " + money(G.rent) + " rent, over one " + fmtNum(G.tenancy) + "-year average tenancy (Portfolio).",
           "Year 1 pays the leasing fee for the new tenant; each later year pays the renewal fee (" + fmtNum(term) + "-month leases).",
           "Per-use is this package's average per door: coordination fees, the accounting fee, billed evictions and any add-ons, from the Services and Add-ons pages.",
+          disc ? "Struck-through amounts are without the " + pct(q.discountPct, 0) + " discount, if the owner keeps paying up front each year." : null,
           "A filled unit: vacant months aren't counted."
         ]} /></p>
     </details>`;
@@ -1516,14 +1667,15 @@
       </div>
       <dl class="quote">
         <div><dt>Monthly</dt><dd>${money(q.monthly)}</dd></div>
-        <div><dt>Leasing${doc.G.rent > 0 ? " · " + pct(q.leaseUp / doc.G.rent * 100, 0) : ""}</dt><dd>${money(q.leaseUp)}</dd></div>
-        <div><dt>Renewal</dt><dd>${money(q.renewal)}</dd></div>
+        <div><dt>Leasing${doc.G.rent > 0 ? " · " + pct(q.leaseUp / doc.G.rent * 100, 0) : ""}</dt><dd>${money(q.leaseUp)}${q.discountPct > 0 ? html`<s>${money(q.leaseUpFull)}</s>` : null}</dd></div>
+        <div><dt>Renewal</dt><dd>${money(q.renewal)}${q.discountPct > 0 ? html`<s>${money(q.renewalFull)}</s>` : null}</dd></div>
         <div><dt>At signing</dt><dd>${money(q.dueAtSigning)}</dd></div>
       </dl>
-      <p class="small muted" style=${{ margin: 0 }}>${zoneText}</p>
+      ${q.discountPct > 0 ? html`<span class="pill good" style=${{ alignSelf: "flex-start" }}>${pct(q.discountPct, 0)} discount applied</span>` : Math.abs(p.shift || 0) > 0.001 ? html`<p class="small muted" style=${{ margin: 0 }}>${zoneText}</p>` : null}
       <div class="range-line">Any owner pick: <b class=${"mono " + lv.cls}>${pct(range.lo.marginPct)}</b> to <b class=${"mono " + hv.cls}>${pct(range.hi.marginPct)}</b>
         <${Info} plain=${true} label="Why margin moves with the owner's pick" lines=${[
           "Wherever the owner sets it, each lease term costs them the same total, so margin holds steady up to " + pct(range.zeroRenewalPct, 2) + ".",
+          P.upfrontDiscount.on && P.upfrontDiscount.steps.length ? "Except where the discount kicks in: a pick at or below a discount step pays less, so margin drops there." : null,
           "Past that, the renewal fee can't go below $0, so each renewal year pays the full monthly fee and brings in more. Worst case sits at " + pct(range.lo.pct, 2) + "."
         ]} /></div>
       ${Math.abs(p.shift || 0) > 0.001 ? html`<button type="button" class="link small" style=${{ alignSelf: "flex-start" }} onClick=${function () { set("shift", 0, "back to standard mix"); }}>Back to standard mix</button>` : null}
@@ -1531,10 +1683,88 @@
     </article>`;
   }
 
+  /*
+   * Discount for owners who pick a low monthly fee (more paid up front). Same for every tier. The "Discount" button on the
+   * Prices header opens the steps: when the owner's monthly fee is at or below X%, Y% comes off the leasing and renewal fees.
+   */
+  function DiscountMenu(props) {
+    var D = props.doc.pricing.upfrontDiscount;
+    var edit = function (fn, label) { props.update(function (d) { fn(d.pricing.upfrontDiscount); }, "Discount: " + label); };
+    // Close when clicking anywhere outside the open dropdown.
+    var ref = useRef(null);
+    useEffect(function () {
+      function away(e) { var el = ref.current; if (el && el.open && !el.contains(e.target)) el.open = false; }
+      document.addEventListener("pointerdown", away);
+      return function () { document.removeEventListener("pointerdown", away); };
+    }, []);
+    var summary = !D.on || !D.steps.length ? "off" : D.steps.map(function (s) { return pct(s.pct, 0) + " off at " + pct(s.atPct, s.atPct % 1 ? 2 : 0); }).join(", ");
+    return html`<details class="disc-drop" ref=${ref}>
+      <summary class="btn">Discount <span class="faint small">${summary}</span></summary>
+      <div class="disc-pop">
+        <div class="row-b"><span class="small strong">Discount for paying up front</span>
+          <${Info} plain=${true} label="How the discount works" lines=${[
+            "Each step: when the owner's monthly fee (their pick on a tier card) is at or below this %, the discount comes off the leasing and renewal fees.",
+            "0% monthly means the whole lease term is paid up front. The monthly fee itself isn't discounted, and the biggest step reached wins.",
+            "It changes margin only where an owner's pick reaches a step. The 'any owner pick' range on each card includes it."
+          ]} /></div>
+        <label class="switch small" for="disc-on"><input type="checkbox" id="disc-on" checked=${D.on}
+          onChange=${function (e) { var on = e.target.checked; edit(function (x) { x.on = on; }, on ? "on" : "off"); }} />
+          ${D.on ? "On" : "Off"}</label>
+        ${D.on ? html`<div class="disc-steps">${D.steps.map(function (st, i) {
+          return html`<div key=${i} class="disc-step">
+            <span class="small">Monthly fee at</span>
+            <${Affix} id=${"disc-at-" + i} suffix="%" cls="w-sm" min=${0} max=${30} step=${0.5} label=${"Step " + (i + 1) + ": monthly fee at or below"} value=${st.atPct}
+              onChange=${function (v) { edit(function (x) { x.steps[i].atPct = Math.min(30, Math.max(0, v)); }, "step " + (i + 1) + " monthly fee"); }} />
+            <span class="small">or less gets</span>
+            <${Affix} id=${"disc-pct-" + i} suffix="% off" cls="w-sm" min=${0} max=${100} step=${1} label=${"Step " + (i + 1) + ": discount"} value=${st.pct}
+              onChange=${function (v) { edit(function (x) { x.steps[i].pct = Math.min(100, Math.max(0, v)); }, "step " + (i + 1) + " discount"); }} />
+            <button type="button" class="x" aria-label=${"Remove step " + (i + 1)} onClick=${function () { edit(function (x) { x.steps.splice(i, 1); }, "removed step " + (i + 1)); }}>×</button>
+          </div>`;
+        })}
+          <button type="button" class="link small" style=${{ alignSelf: "flex-start" }} onClick=${function () {
+            edit(function (x) { var top = x.steps.reduce(function (m, s) { return Math.max(m, s.atPct); }, -2); x.steps.push({ atPct: top + 2, pct: 5 }); }, "added a step");
+          }}>+ Add a step</button></div>` : null}
+      </div>
+    </details>`;
+  }
+
+  /* Which packages this scenario offers. Up to three; at least one stays on. A switched-off package keeps its settings. */
+  function PackagesMenu(props) {
+    var doc = props.doc, n = onTiers(doc).length;
+    var ref = useRef(null);
+    useEffect(function () {
+      function away(e) { var el = ref.current; if (el && el.open && !el.contains(e.target)) el.open = false; }
+      document.addEventListener("pointerdown", away);
+      return function () { document.removeEventListener("pointerdown", away); };
+    }, []);
+    return html`<details class="disc-drop" ref=${ref}>
+      <summary class="btn">Packages <span class="faint small">${n === 3 ? "all 3" : onTiers(doc).map(function (t) { return TIER_SHORT[t]; }).join(" + ")}</span></summary>
+      <div class="disc-pop">
+        <div class="row-b"><span class="small strong">Packages this scenario offers</span>
+          <${Info} plain=${true} label="Switching packages off" lines=${[
+            "A package that's off is blanked out on every page, so the others stay where they are. Its prices and checkboxes are kept for when you turn it back on.",
+            "Acquisitions only places owners in packages that are on. Save scenarios with different packages to set them side by side on Compare."
+          ]} /></div>
+        ${TIERS.map(function (t) {
+          var on = tierOn(doc, t), last = on && n === 1;
+          return html`<label key=${t} class="switch small" for=${"pk-" + t} title=${last ? "At least one package stays on" : ""}>
+            <input type="checkbox" id=${"pk-" + t} checked=${on} disabled=${last}
+              onChange=${function (e) { var v = e.target.checked; props.update(function (d) { d.tierOn[t] = v; }, TIER_NAMES[t] + (v ? " offered" : " switched off")); }} />
+            ${TIER_NAMES[t]}</label>`;
+        })}
+      </div>
+    </details>`;
+  }
+
   function Prices(props) {
     return html`<div class="page">
-      <${PageHead} kicker="Step 5" title="Prices" lead="Set each tier's standard monthly, leasing and renewal fees. Red marks break-even and green your target. Below that, the owner's fee choice shows what happens when an owner trades a lower monthly fee for bigger leasing and renewal fees, or the other way around." />
+      <${PageHead} kicker="Step 5" title="Prices" lead="Set each tier's standard monthly, leasing and renewal fees. Red marks break-even and green your target. Below that, the owner's fee choice shows what happens when an owner trades a lower monthly fee for bigger leasing and renewal fees, or the other way around."
+        right=${html`<div class="head-tools"><${PackagesMenu} doc=${props.doc} update=${props.update} /><${DiscountMenu} doc=${props.doc} update=${props.update} /></div>`} />
       <div class="price-cols">${TIERS.map(function (t) {
+        if (off(t)) return html`<article key=${t} class="pcard t-off-card" aria-label=${TIER_NAMES[t] + ": not offered"}>
+          <div class="row-b"><h3>${TIER_NAMES[t]}</h3><span class="pill">Not offered</span></div>
+          <p class="small muted" style=${{ margin: 0 }}>Switched off in this scenario. Its prices and checkboxes are kept; turn it back on under Packages.</p>
+        </article>`;
         return html`<${PriceCard} key=${t} tier=${t} doc=${props.doc} C=${props.C} update=${props.update} focus=${props.ui.focus} />`;
       })}</div>
       <${Next} go=${props.go} to="summary" label="See the summary" text="Compare all three tiers side by side, or try a bigger portfolio under Growth." />
@@ -1583,11 +1813,12 @@
         </div>
         <div class="table-wrap"><table class="compare growth-table">
           <thead><tr><th></th>${cols.map(function (c, ci) { return html`<th key=${ci} colspan="3">${ci ? "" : "Today · "}<span class="door-n">${fmtNum(c.n)} doors</span></th>`; })}</tr>
-            <tr><th></th>${cols.map(function (c, ci) { return TIERS.map(function (t) { return html`<th key=${ci + t} class="small cmp-pkg">${TIER_SHORT[t]}</th>`; }); })}</tr></thead>
+            <tr><th></th>${cols.map(function (c, ci) { return TIERS.map(function (t) { return html`<th key=${ci + t} class=${"small cmp-pkg" + (off(t) ? " t-off" : "")}>${TIER_SHORT[t]}</th>`; }); })}</tr></thead>
           <tbody>${rowsDef.map(function (r) {
             return html`<tr key=${r[0]} class=${r[0].indexOf("Margin") === 0 ? "total" : ""}><td>${r[0]}</td>
               ${cols.map(function (c, ci) {
                 return TIERS.map(function (t) {
+                  if (off(t)) return html`<td key=${ci + t} class=${"t-off" + (t === "min" && ci ? " colstart" : "")}></td>`;
                   // Green marks the door count that's ahead for Raynor on this package, as on Compare.
                   var vals = cols.map(function (x) { return Math.round(r[2](x.m[t]) * 100) * r[3]; });
                   var best = Math.max.apply(null, vals), mine = Math.round(r[2](c.m[t]) * 100) * r[3];
@@ -1630,7 +1861,7 @@
       </div>`;
     }
     var r = acquisitionImpact(doc, deal, doc.cv);
-    var mixLeft = 100 - TIERS.reduce(function (s, t) { return s + (deal.mix[t] || 0); }, 0);
+    var mixLeft = 100 - onTiers(doc).reduce(function (s, t) { return s + (deal.mix[t] || 0); }, 0);
     function num(key, label, o) {
       o = o || {};
       var blank = o.rate && (deal[key] == null || deal[key] === "");
@@ -1665,6 +1896,7 @@
             ${num("tenancy", "Average tenancy", { suffix: "yrs", step: 0.5, help: "How long their tenants stay." })}
             <div class="frow acq-row"><label>Package mix <span class="faint small">(share of their owners)</span></label>
               <div class="acq-mix">${TIERS.map(function (t) {
+                if (off(t)) return html`<span key=${t} class="acq-mix-t t-off"><span class="small">${TIER_SHORT[t]}</span><span class="small faint">Not offered</span></span>`;
                 return html`<label key=${t} class="acq-mix-t" for=${"acq-mix-" + t}><span class="small">${TIER_SHORT[t]}</span>
                   <${Affix} id=${"acq-mix-" + t} suffix="%" cls="w-sm" step=${5} min=${0} max=${100} label=${TIER_SHORT[t] + " share"} value=${deal.mix[t] || 0}
                     onChange=${function (v) { edit(function (x) { x.mix[t] = Math.min(100, v); }, TIER_SHORT[t] + " share"); }} /></label>`;
@@ -1685,6 +1917,7 @@
             <div class="table-wrap"><table class="compare">
               <thead><tr><th>Package</th><th>Cost today</th><th>Cost after</th><th>Margin today</th><th>Margin after</th><th>Change</th></tr></thead>
               <tbody>${TIERS.map(function (t) {
+                if (off(t)) return html`<tr key=${t} class="t-off"><td><b>${TIER_NAMES[t]}</b></td><td colspan="5" class="faint small">Not offered</td></tr>`;
                 var x = r.tiers[t], d = x.after.marginPct - x.today.marginPct;
                 return html`<tr key=${t}><td><b>${TIER_NAMES[t]}</b></td>
                   <td>${money(x.today.cost, 2)}</td><td>${money(x.after.cost, 2)}</td>
@@ -1732,6 +1965,7 @@
             <div class="sub-h acq-sub">Where their owners land</div>
             <div class="frow acq-row"><label>Package mix <span class="faint small">(share of their owners)</span></label>
               <div class="acq-mix">${TIERS.map(function (t) {
+                if (off(t)) return html`<span key=${t} class="acq-mix-t t-off"><span class="small">${TIER_SHORT[t]}</span><span class="small faint">Not offered</span></span>`;
                 return html`<label key=${t} class="acq-mix-t" for=${"acq-mix-" + t}><span class="small">${TIER_SHORT[t]}</span>
                   <${Affix} id=${"acq-mix-" + t} suffix="%" cls="w-sm" step=${5} min=${0} max=${100} label=${TIER_SHORT[t] + " share"} value=${deal.mix[t] || 0}
                     onChange=${function (v) { edit(function (x) { x.mix[t] = Math.min(100, v); }, TIER_SHORT[t] + " share"); }} /></label>`;
@@ -1771,6 +2005,7 @@
             <div class="table-wrap"><table class="compare">
               <thead><tr><th>Package</th><th>Today</th><th>After</th><th>Change</th><th>Book door</th><th>Book per year</th></tr></thead>
               <tbody>${TIERS.map(function (t) {
+                if (off(t)) return html`<tr key=${t} class="t-off"><td><b>${TIER_NAMES[t]}</b></td><td colspan="5" class="faint small">Not offered</td></tr>`;
                 var x = r.tiers[t], d = x.after.marginPct - x.today.marginPct;
                 return html`<tr key=${t}><td><b>${TIER_NAMES[t]}</b></td>
                   <td>${money(x.today.margin, 2)}<div class="tiny faint">${pct(x.today.marginPct)}</div></td>
@@ -1911,11 +2146,17 @@
       num(TIER_SHORT[t] + " renewal fee", pa.renewal, pb.renewal, function (v) { return money(v); });
       if (!!pa.vacancyCharge !== !!pb.vacancyCharge) put(TIER_SHORT[t] + " vacancy fee: " + (pa.vacancyCharge ? "charged" : "included") + " → " + (pb.vacancyCharge ? "charged" : "included"));
     });
+    (function () {
+      var da = a.pricing.upfrontDiscount, db = b.pricing.upfrontDiscount;
+      function txt(x) { return !x || !x.on ? "off" : x.steps.map(function (s) { return pct(s.pct, 0) + " off at " + pct(s.atPct, 2) + " monthly"; }).join(", ") || "on, no steps"; }
+      if (txt(da) !== txt(db)) put("Up-front discount: " + txt(da) + " → " + txt(db));
+    })();
+    TIERS.forEach(function (t) { if (tierOn(a, t) !== tierOn(b, t)) put(TIER_NAMES[t] + ": " + (tierOn(b, t) ? "offered" : "not offered")); });
     open("portfolio", "Portfolio and settings");
-    FIELD_GROUPS.forEach(function (g) { g.fields.forEach(function (f) {
+    allFields().forEach(function (o) { var f = o.f; (function () {
       if (f.get) num(f.label, f.get(a), f.get(b), f.rbp ? function (v) { return money(v, 2) + " average spread"; } : fmtNum);
       if (f.toggle && f.toggle(a) !== f.toggle(b)) put(f.label + ": " + (f.toggle(a) ? "on" : "off") + " → " + (f.toggle(b) ? "on" : "off"));
-    }); });
+    })(); });
     var ca = activeTemplate(a), cb = activeTemplate(b);
     var rowsA = {}, rowsB = {};
     forEachCostRow(a, function (r) { rowsA[r.id] = r; });
@@ -1996,7 +2237,7 @@
     });
     function setPicks(p) { props.update(function (d) { d.cmp = p; }, "Compare: picked scenarios"); }
     function setPick(i, k) { var p = picks.slice(); if (k) p[i] = k; else p.splice(i, 1); setPicks(p); }
-    function sells(d, t) { var p = d.pricing.tiers[t]; return p.monthlyPct > 0 || p.leasePct > 0 || p.renewal > 0; }
+    function sells(d, t) { var p = d.pricing.tiers[t]; return tierOn(d, t) && (p.monthlyPct > 0 || p.leasePct > 0 || p.renewal > 0); }
     // [label, shown value, number, +1 when higher is better for Raynor / -1 when lower is better]
     var rowsDef = [
       ["Revenue / door / mo", function (m) { return money(m.revenue, 2); }, function (m) { return m.revenue; }, 1],
@@ -2022,7 +2263,7 @@
         </div>
         <div class="table-wrap"><table class="compare">
           <thead><tr><th></th>${cols.map(function (c) { return html`<th key=${c.key} colspan="3">${c.label}</th>`; })}</tr>
-            <tr><th></th>${cols.map(function (c) { return TIERS.map(function (t) { return html`<th key=${c.key + t} class="small cmp-pkg">${TIER_SHORT[t]}</th>`; }); })}</tr></thead>
+            <tr><th></th>${cols.map(function (c) { return TIERS.map(function (t) { return html`<th key=${c.key + t} class=${"small cmp-pkg" + (tierOn(c.doc, t) ? "" : " t-off")}>${TIER_SHORT[t]}</th>`; }); })}</tr></thead>
           <tbody>${rowsDef.map(function (r) {
             return html`<tr key=${r[0]} class=${r[0].indexOf("Margin") === 0 ? "total" : ""}><td>${r[0]}</td>
               ${cols.map(function (c, ci) {
@@ -2036,6 +2277,7 @@
                     var best = Math.max.apply(null, vals), mine = Math.round(r[2](v) * 100) * r[3];
                     if (vals.length > 1 && mine === best && vals.some(function (x) { return x !== best; })) cls = "good";
                   }
+                  if (!tierOn(c.doc, t)) return html`<td key=${c.key + t} class=${"t-off" + (t === "min" && ci ? " colstart" : "")}></td>`;
                   return html`<td key=${c.key + t} class=${cls + (t === "min" && ci ? " colstart" : "")}>${r[1](v)}</td>`;
                 });
               })}</tr>`;
@@ -2251,12 +2493,16 @@
       setUi(function (u) {
         u.page = x.page; if (x.sel) u.sel = x.sel;
         // Open the Portfolio section that holds the field being jumped to.
-        if (x.field) FIELD_GROUPS.forEach(function (g) { if (g.fields.some(function (f) { return f.id === x.field; })) u.pfShut[g.title] = false; });
+        if (x.field) allFields().forEach(function (o) { if (o.f.id === x.field) { u.pfShut[o.grp.title] = false; if (o.parent) u.pfShut["more:" + o.parent.id] = true; } });
       });
       window.scrollTo(0, 0);
       if (x.field) setPendingField(x.field);
     }
 
+    TIER_DOC = doc;
+    SCEN_CTX = { cloud: cloud, lists: lists, scen: scen, setMsg: setMsg };
+    // Focus can't sit on a package the scenario doesn't offer.
+    if (ui.focus !== "all" && !tierOn(doc, ui.focus)) ui = Object.assign({}, ui, { focus: "all" });
     var C = useMemo(function () { return compute(doc); }, [doc]);
 
     function onImport(e) {

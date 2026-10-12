@@ -146,9 +146,14 @@
   .fctrl .affix.slots .pre{ width:22px; padding:0; text-align:center; }
   .fctrl .affix.slots .suf{ width:68px; padding:0 8px 0 6px; text-align:left; }
   .fctrl .affix.ro.slots{ padding:0; }
-  .fctrl .affix.ro.slots .ro-v{ flex:1 1 auto; text-align:right; padding:0 6px; }
+  .fctrl .affix.ro.slots .ro-v{ flex:1 1 auto; text-align:right; padding:0 6px; white-space:nowrap; }
   .toggle-box{ display:flex; align-items:center; gap:8px; height:32px; padding-inline:9px; border:1px solid var(--rule); border-radius:7px; background:var(--panel); cursor:pointer; font-size:12.5px; font-weight:600; }
   .frow:first-child{ border-top:none; }
+  .frow.sub{ border-top:1px dashed var(--rule-soft); background:var(--panel-2); margin:0 -14px; padding-left:14px; padding-right:14px; }
+  .frow.sub label{ font-weight:500; color:var(--ink-2); padding-left:14px; }
+  .fchip{ display:inline-flex; align-items:center; gap:4px; margin:0 8px 2px 0; padding:2px 9px; border-radius:999px; border:1px solid var(--rule);
+    background:var(--panel-2); color:var(--accent-ink); font:600 11.5px var(--font-data); cursor:pointer; vertical-align:middle; }
+  .fchip:hover, .fchip.on{ border-color:var(--accent); }
   .frow label{ font-weight:600; font-size:13px; }
   .frow .help{ font-size:12px; color:var(--ink-2); line-height:1.45; }
   .frow .help b{ color:var(--ink); font-weight:600; }
@@ -261,6 +266,26 @@
   @media (max-width:1200px){ .two{ grid-template-columns:minmax(0,1fr); } }
 
   /* ---------- prices ---------- */
+  .copy-box{ display:flex; flex-direction:column; gap:7px; padding:10px; border:1px solid var(--rule); border-radius:9px; background:var(--panel-2); }
+  .head-tools{ display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start; }
+  .disc-drop{ position:relative; }
+  /* A package the scenario doesn't offer: blanked out in place so the other columns don't move. */
+  .t-off{ background:repeating-linear-gradient(135deg, transparent 0 6px, var(--rule-soft) 6px 7px) !important; color:var(--ink-3) !important; }
+  th.t-off, .cmp-pkg.t-off{ color:var(--ink-3); font-weight:500; }
+  .tcard.t-off{ cursor:default; opacity:.75; }
+  .tcard.t-off::before{ background:var(--rule); }
+  .pcard.t-off-card{ border-style:dashed; background:repeating-linear-gradient(135deg, var(--panel) 0 8px, var(--panel-2) 8px 9px); color:var(--ink-3); }
+  .pcard.t-off-card h3{ color:var(--ink-3); }
+  s.was{ display:block; color:var(--ink-3); font-weight:500; font-size:.8em; line-height:1.2; }
+  .quote dd s{ display:block; font-size:10.5px; font-weight:500; color:var(--ink-3); }
+  .disc-drop > summary{ list-style:none; cursor:pointer; }
+  .disc-drop > summary::-webkit-details-marker{ display:none; }
+  .disc-drop > summary::after{ content:"\25BE"; color:var(--ink-3); font-size:11px; }
+  .disc-drop[open] > summary::after{ content:"\25B4"; }
+  .disc-pop{ position:absolute; right:0; top:calc(100% + 6px); z-index:25; width:min(440px, calc(100vw - 32px)); background:var(--panel);
+    border:1px solid var(--rule); border-radius:10px; box-shadow:var(--shadow); padding:12px; display:flex; flex-direction:column; gap:10px; }
+  .disc-steps{ display:flex; flex-direction:column; gap:8px; }
+  .disc-step{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
   .price-cols{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; }
   @media (max-width:980px){ .price-cols{ grid-template-columns:minmax(0,1fr); } }
   .pcard{ background:var(--panel); border:1px solid var(--rule); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; min-width:0; }
@@ -304,6 +329,7 @@
   .yr-table td{ font-family:var(--font-data); text-align:right; padding:3px 2px; border-bottom:1px solid var(--rule-soft); white-space:nowrap; }
   .yr-table th:first-child, .yr-table td:first-child{ text-align:left; font-family:var(--font-ui); }
   .yr-table tfoot td{ font-weight:700; border-top:1px solid var(--rule); border-bottom:none; color:var(--ink); }
+  .yr-table td.good{ color:var(--good); }
   .divider{ border-top:1px solid var(--rule-soft); }
 
   /* ---------- rail ---------- */
