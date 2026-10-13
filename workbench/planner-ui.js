@@ -478,6 +478,8 @@
   }
 
   /* Lines split with the brokerage: everything in the Brokerage Split group, and any line given a PM share. */
+  /* Burden (payroll taxes, benefits) only applies to people: Staffing and Executive lines, or any line already given one. */
+  function showsBurden(doc, r, g) { return g.id === "staff" || g.id === "exec" || (doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0)) > 0; }
   function splitLine(doc, r, g) { return !CALC_ROWS[r.id] && r.e !== "af" && (g.id === "brok" || (doc.pmShare && doc.pmShare[r.id] != null)); }
 
   function CostInspector(props) {
@@ -504,7 +506,7 @@
         ${calc || r.e === "claim" ? html`<span>${isLb ? "Lease breaks" : r.id === "evict_g" ? "Attorney uses" : "Events"}</span><${Affix} id=${"i-ev-" + r.id} suffix="/yr" cls="w-sm" min=${0}
           label="Per year across the portfolio" value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)}
           onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />` : null}
-        ${r.e === "annual" && !calc ? html`<span>Burden</span><${Affix} id=${"i-bd-" + r.id} suffix="%" cls="w-sm" label="Burden %"
+        ${r.e === "annual" && !calc && showsBurden(doc, r, g) ? html`<span>Burden</span><${Affix} id=${"i-bd-" + r.id} suffix="%" cls="w-sm" label="Burden %"
           value=${doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0)} onChange=${function (val) { update(function (d) { d.bd[r.id] = val; }, name + ": burden"); }} />` : null}
         ${r.e === "seat" && !calc ? html`<span>Seats</span><${Affix} id=${"i-st-" + r.id} cls="w-sm" min=${0} label=${"Seats paid for " + name}
           value=${doc.seats[r.id] != null ? doc.seats[r.id] : doc.G.seats}
@@ -1221,7 +1223,7 @@
                   <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : BASIS_NAMES[r.e]}</td>
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
                       value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)} onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />`
-                    : r.e === "annual" ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
+                    : r.e === "annual" && showsBurden(doc, r, g) ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
                   <td class="mono">${isLb ? lbText : money(perDoor, 2)}</td>
                   ${TIERS.map(function (t) {
                     if (off(t)) return html`<td key=${t} class="c tcol t-off" aria-label=${TIER_SHORT[t] + ": not offered"}></td>`;
