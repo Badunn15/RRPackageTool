@@ -508,6 +508,8 @@
           onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />` : null}
         ${r.e === "annual" && !calc && showsBurden(doc, r, g) ? html`<span>Burden</span><${Affix} id=${"i-bd-" + r.id} suffix="%" cls="w-sm" label="Burden %"
           value=${doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0)} onChange=${function (val) { update(function (d) { d.bd[r.id] = val; }, name + ": burden"); }} />` : null}
+        ${r.e === "seat" && !calc ? html`<span>Base</span><${Affix} id=${"i-sb-" + r.id} prefix="$" suffix="/mo" cls="w-sm" min=${0} label=${"Flat monthly base for " + name}
+          value=${seatBaseOf(doc, r.id)} onChange=${function (val) { update(function (d) { if (val) d.seatBase[r.id] = val; else delete d.seatBase[r.id]; }, name + ": base"); }} />` : null}
         ${r.e === "seat" && !calc ? html`<span>Seats</span><${Affix} id=${"i-st-" + r.id} cls="w-sm" min=${0} label=${"Seats paid for " + name}
           value=${doc.seats[r.id] != null ? doc.seats[r.id] : doc.G.seats}
           onChange=${function (val) { update(function (d) { if (val === d.G.seats) delete d.seats[r.id]; else d.seats[r.id] = val; }, name + ": seats"); }} />` : null}
@@ -1223,6 +1225,7 @@
                   <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : BASIS_NAMES[r.e]}</td>
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
                       value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)} onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />`
+                    : r.e === "seat" && seatBaseOf(doc, r.id) ? html`<span class="small faint" title="Flat monthly base on top of the per-seat price. Change it in the line's details.">+ ${money(seatBaseOf(doc, r.id))}/mo base</span>`
                     : splitLine(doc, r, g) && pmShareOf(doc, r.id) !== 100 ? html`<span class="small faint" title="PM's share of the P&L total. Change it in the line's details.">${fmtNum(Math.round(pmShareOf(doc, r.id)))}% PM · ${money((doc.vl[r.id] != null ? doc.vl[r.id] : r.v) * pmShareOf(doc, r.id) / 100)}${BASIS_NAMES[r.e].replace("$", "")}</span>`
                     : r.e === "annual" && showsBurden(doc, r, g) ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
                   <td class="mono">${isLb ? lbText : money(perDoor, 2)}</td>
@@ -2183,6 +2186,7 @@
       if (!ra) { put("Added: " + nm); return; }
       var va = a.vl[id] != null ? a.vl[id] : ra.v, vb = b.vl[id] != null ? b.vl[id] : rb.v;
       if (va !== vb) put(nm + ": " + money(va || 0, 2) + " → " + money(vb || 0, 2));
+      if (seatBaseOf(a, id) !== seatBaseOf(b, id)) put(nm + " base: " + money(seatBaseOf(a, id)) + "/mo → " + money(seatBaseOf(b, id)) + "/mo");
       if (pmShareOf(a, id) !== pmShareOf(b, id)) put(nm + " PM share: " + fmtNum(Math.round(pmShareOf(a, id))) + "% → " + fmtNum(Math.round(pmShareOf(b, id))) + "%");
       tiersLine(nm, ca.ck[id] || {}, cb.ck[id] || {});
     });
