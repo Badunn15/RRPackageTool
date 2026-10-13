@@ -294,10 +294,14 @@ function addonEventsYr(doc, a, tier) {
   return a.amount || 0;
 }
 
-/* Add-on revenue and cost per door per month for a tier, at a cost view (an add-on can be set to count only from a view up). */
+/*
+ * Add-on revenue and cost per door per month for a tier, at a cost view (an add-on can be set to count only from a view up).
+ * Split two ways: per-use fees (kind "fee": driven by work orders, evictions, doors) and optional extras owners choose to buy
+ * (kind "addon" and "bundle"). rev/cost are the totals of both.
+ */
 function addonPerDoor(doc, tier, view) {
   view = view || doc.cv;
-  var doors = doc.G.doors || 0, out = { rev: 0, cost: 0, items: [] };
+  var doors = doc.G.doors || 0, out = { rev: 0, cost: 0, feeRev: 0, feeCost: 0, extraRev: 0, extraCost: 0, items: [] };
   (doc.addons || []).forEach(function (a) {
     // The billed eviction is always billed; which evictions it covers comes from the guarantee and service checkboxes.
     var state = a.basis === "evict_billed" ? "charged" : addonState(a, tier);
@@ -315,6 +319,8 @@ function addonPerDoor(doc, tier, view) {
       cost = bundleCostPerDoorYr(doc, a) / 12 * on;
     }
     out.rev += rev; out.cost += cost;
+    if (a.kind === "addon" || a.kind === "bundle") { out.extraRev += rev; out.extraCost += cost; }
+    else { out.feeRev += rev; out.feeCost += cost; }
     out.items.push({ addon: a, state: state, rev: rev, cost: cost, eventsYr: eventsYr, share: addonShare(doc, a, tier) });
   });
   return out;

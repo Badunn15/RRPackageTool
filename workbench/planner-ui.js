@@ -864,13 +864,15 @@
               ${showOwn ? (!P.countVacancy ? null : row("Vacancy fee", function (t) { return P.tiers[t].vacancyCharge ? money(C.margins[t].rev.vacancy, 2) : html`<span class="faint">Included</span>`; }, "sub2", [money(P.vacancyFee) + "/mo while a unit sits vacant, in tiers that charge it (Prices page).", G.vacantDays ? fmtNum(G.vacantDays) + " vacant days per turnover." : "It's $0 until days vacant per turnover is set (Portfolio → Residential)."])) : null}
               ${showOwn ? (row("Leasing fees", function (t) { return money(C.margins[t].rev.leasing, 2); }, "sub2", ["Leasing fee × " + C.margins.min.rev.turnsYr.toFixed(2) + " placements a year (1 ÷ " + fmtNum(G.tenancy) + "-yr average tenancy) ÷ 12."])) : null}
               ${showOwn ? (row("Renewal fees", function (t) { return money(C.margins[t].rev.renewal, 2); }, "sub2", ["Renewal fee × " + C.margins.min.rev.renewalsYr.toFixed(2) + " renewals a year ÷ 12."])) : null}
-              ${showOwn ? (row("Per-use fees and add-ons", function (t) { return money(C.margins[t].addon.rev, 2); }, "sub2", ["Per-use service fees (step 3) and optional add-ons and benefits packages (step 4)."])) : null}
+              ${showOwn ? (row("Per-use fees", function (t) { return money(C.margins[t].addon.feeRev, 2); }, "sub2", ["Fees billed when the work happens: maintenance coordination, billed evictions, the owner accounting fee (Services page).", "Driven by work orders, evictions and doors, so every owner on the package pays them."])) : null}
+              ${showOwn ? (row("Add-ons", function (t) { return money(C.margins[t].addon.extraRev, 2); }, "sub2", ["Optional extras and benefits packages owners choose to buy (Add-ons page): price × how often × share of owners who buy."])) : null}
               ${showRev ? (row(tog("sum:res", "Resident revenue"), function (t) { var r = C.margins[t].resident; return r.on ? money(r.total, 2) : html`<span class="faint">N/A</span>`; }, "sub mid", residentLines(doc, C.margins.min.resident))) : null}
               ${showRes ? residentRows(doc, C, row) : null}
               ${row(tog("sum:cost", "Cost"), function (t) { return money(C.margins[t].cost, 2); }, "total cost-row", ["Cost lines checked for the tier and counted at " + VIEW_NAMES[doc.cv] + ", plus add-on costs and the lease break waiver" + (P.scopeSavings ? ", less freed PM capacity." : ".")])}
               ${showCost ? (groupRowsOut.map(function (x) { return html`<${React.Fragment} key=${x.g.id}>${row(x.g.label, function (t) { return money(x.vals[t], 2); }, "sub")}</${React.Fragment}>`; })) : null}
               ${showCost ? (lbAny ? row("Lease break waiver", function (t) { return money(C.margins[t].leaseBreak.cost, 2); }, "sub", ["The leasing fee a tier waives when it re-places a tenant who broke their lease. Guarantees group."]) : null) : null}
-              ${showCost ? (row("Fee and add-on costs", function (t) { return money(C.margins[t].addon.cost, 2); }, "sub", ["Court fees and the PM's split on billed evictions, what add-ons and benefits packages cost you, and any cost you set on a fee."])) : null}
+              ${showCost ? (row("Per-use fee costs", function (t) { return money(C.margins[t].addon.feeCost, 2); }, "sub", ["Court fees and the PM's split on billed evictions, and any cost you set on a per-use fee."])) : null}
+              ${showCost ? (row("Add-on costs", function (t) { return money(C.margins[t].addon.extraCost, 2); }, "sub", ["What the add-ons and benefits packages cost you: sold ones for the owners who buy them, included ones for every door."])) : null}
               ${showCost ? (P.scopeSavings ? row("Less freed PM capacity", function (t) { return "−" + money(C.cost.freed[t], 2); }, "sub", ["Services a tier leaves out, valued at the PM time they free."]) : null) : null}
               ${row("Margin", function (t) { return html`<span class=${verdict(C.margins[t], P.targetPct).cls}>${money(C.margins[t].margin, 2)}</span>`; }, "total big")}
               ${row("Margin %", function (t) { return html`<span class=${verdict(C.margins[t], P.targetPct).cls}>${pct(C.margins[t].marginPct)}</span>`; }, "total")}
@@ -1583,7 +1585,7 @@
    */
   function OwnerTermCost(props) {
     var doc = props.doc, m = props.m, q = m.rev.quote, G = doc.G, term = Math.max(1, doc.pricing.term || 12);
-    var years = Math.max(1, Math.round(G.tenancy || 1)), perUseYr = m.addon.rev * 12, renewalsYr = 12 / term;
+    var years = Math.max(1, Math.round(G.tenancy || 1)), perUseYr = m.addon.feeRev * 12, addOnYr = m.addon.extraRev * 12, renewalsYr = 12 / term;
     var rows = [], disc = q.discountPct > 0;
     // Leasing fee in year 1 (plus any extra renewals that year), renewal fees after. `full` picks the undiscounted fees.
     function signingYr(y, full) {
@@ -1593,8 +1595,8 @@
     for (var y = 1; y <= years; y++) {
       var leaseOrRenew = signingYr(y, false);
       var fullSigning = signingYr(y, true);
-      rows.push({ y: y, monthly: q.monthly * 12, signing: leaseOrRenew, signingFull: fullSigning, saved: fullSigning - leaseOrRenew, perUse: perUseYr,
-        total: q.monthly * 12 + leaseOrRenew + perUseYr, totalFull: q.monthly * 12 + fullSigning + perUseYr });
+      rows.push({ y: y, monthly: q.monthly * 12, signing: leaseOrRenew, signingFull: fullSigning, saved: fullSigning - leaseOrRenew, perUse: perUseYr, addOn: addOnYr,
+        total: q.monthly * 12 + leaseOrRenew + perUseYr + addOnYr, totalFull: q.monthly * 12 + fullSigning + perUseYr + addOnYr });
     }
     var sum = function (k) { return rows.reduce(function (a, r) { return a + r[k]; }, 0); };
     var total = sum("total");
@@ -1603,17 +1605,17 @@
     return html`<details class="term-cost">
       <summary>Owner's cost over a ${years}-year tenancy <b class="mono">${cut(total, sum("totalFull"))}</b>${disc ? html`<span class="good small mono">saves ${money(sum("saved"))}</span>` : null}</summary>
       <table class="yr-table">
-        <thead><tr><th>Year</th><th>Monthly</th><th title="Leasing fee in year 1, renewal fees after">Lease / renew</th>${disc ? html`<th title="What the discount takes off the leasing and renewal fees">Saved</th>` : null}<th>Per-use</th><th>Total</th></tr></thead>
+        <thead><tr><th>Year</th><th>Monthly</th><th title="Leasing fee in year 1, renewal fees after">Lease / renew</th><th title="Fees billed when the work happens: coordination, billed evictions, accounting">Per-use</th><th title="Optional extras owners buy, at the share who buy them">Add-ons</th><th>Total</th></tr></thead>
         <tbody>${rows.map(function (r) {
-          return html`<tr key=${r.y}><td>${r.y}${r.y === 1 ? " new" : ""}</td><td>${money(r.monthly)}</td><td>${cut(r.signing, r.signingFull)}</td>${disc ? html`<td class="good">${money(r.saved)}</td>` : null}<td>${money(r.perUse)}</td><td class="strong">${cut(r.total, r.totalFull)}</td></tr>`;
+          return html`<tr key=${r.y}><td title=${r.y === 1 ? "Year 1: new tenant" : "Renewal year"}>${r.y}</td><td>${money(r.monthly)}</td><td>${cut(r.signing, r.signingFull)}</td><td>${money(r.perUse)}</td><td>${money(r.addOn)}</td><td class="strong">${cut(r.total, r.totalFull)}</td></tr>`;
         })}</tbody>
-        <tfoot><tr><td>All</td><td>${money(sum("monthly"))}</td><td>${cut(sum("signing"), sum("signingFull"))}</td>${disc ? html`<td class="good">${money(sum("saved"))}</td>` : null}<td>${money(sum("perUse"))}</td><td>${cut(total, sum("totalFull"))}</td></tr></tfoot>
+        <tfoot><tr><td>All</td><td>${money(sum("monthly"))}</td><td>${cut(sum("signing"), sum("signingFull"))}</td><td>${money(sum("perUse"))}</td><td>${money(sum("addOn"))}</td><td>${cut(total, sum("totalFull"))}</td></tr></tfoot>
       </table>
       <p class="tiny muted" style=${{ margin: "6px 0 0" }}>${money(total / years / 12)}/mo on average, ${pct(G.rent > 0 ? total / years / 12 / G.rent * 100 : 0)} of ${money(G.rent)} rent.
         <${Info} plain=${true} label="How the owner's cost is figured" lines=${[
           "At the owner's pick of " + pct(q.pct, 2) + " monthly, on " + money(G.rent) + " rent, over one " + fmtNum(G.tenancy) + "-year average tenancy (Portfolio).",
           "Year 1 pays the leasing fee for the new tenant; each later year pays the renewal fee (" + fmtNum(term) + "-month leases).",
-          "Per-use is this package's average per door: coordination fees, the accounting fee, billed evictions and any add-ons, from the Services and Add-ons pages.",
+          "Per-use is this package's average per door for coordination fees, the accounting fee and billed evictions (Services page). Add-ons are the optional extras owners buy, at the share who buy them (Add-ons page).",
           disc ? "Struck-through amounts are without the " + pct(q.discountPct, 0) + " discount, if the owner keeps paying up front each year." : null,
           "A filled unit: vacant months aren't counted."
         ]} /></p>
