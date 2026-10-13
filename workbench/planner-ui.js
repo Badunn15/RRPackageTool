@@ -567,7 +567,7 @@
   /* How often an optional add-on happens: a number and a unit (see ADDON_PER in the engine). */
   function OftenCell(props) {
     var a = props.a, name = props.name, idp = props.idp, per = a.per || "door_yr";
-    return html`<span style=${{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
+    return html`<span style=${{ display: "inline-flex", flexWrap: "wrap", gap: "4px", alignItems: "center", minWidth: 0 }}>
       <${Affix} id=${idp + "-n"} cls="w-sm" min=${0} step=${0.25} label=${"How often " + name} value=${a.freq || 0} onChange=${function (v) { props.edit(function (x) { x.freq = v; }, "how often"); }} />
       <select id=${idp + "-u"} aria-label=${"How often unit for " + name} value=${per} onChange=${function (e) { var v = e.target.value; props.edit(function (x) { x.per = v; }, "how often"); }}>
         ${Object.keys(ADDON_PER).map(function (k) { return html`<option key=${k} value=${k} title=${ADDON_PER[k]}>${ADDON_PER_SHORT[k]}</option>`; })}
