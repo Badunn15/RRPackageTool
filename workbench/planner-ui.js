@@ -1223,6 +1223,7 @@
                   <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : BASIS_NAMES[r.e]}</td>
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
                       value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)} onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />`
+                    : splitLine(doc, r, g) && pmShareOf(doc, r.id) !== 100 ? html`<span class="small faint" title="PM's share of the P&L total. Change it in the line's details.">${fmtNum(Math.round(pmShareOf(doc, r.id)))}% PM · ${money((doc.vl[r.id] != null ? doc.vl[r.id] : r.v) * pmShareOf(doc, r.id) / 100)}${BASIS_NAMES[r.e].replace("$", "")}</span>`
                     : r.e === "annual" && showsBurden(doc, r, g) ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
                   <td class="mono">${isLb ? lbText : money(perDoor, 2)}</td>
                   ${TIERS.map(function (t) {
