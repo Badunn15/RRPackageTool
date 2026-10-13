@@ -2087,10 +2087,11 @@
     var mine = canWrite(cloud, scen) && scen.kind !== "official";
     function item(s, kind) {
       var on = scen.kind === kind && scen.id === s.id;
-      return html`<li key=${kind + s.id}><button type="button" class=${"scen-item" + (on ? " on" : "")} onClick=${function () { props.open(kind, s); }}>
+      return html`<li key=${kind + s.id} class="scen-row"><button type="button" class=${"scen-item" + (on ? " on" : "")} onClick=${function () { props.open(kind, s); }}>
         <span class="scen-name">${s.name || "Untitled"}</span>
         <span class="tiny faint">${kind === "shared" ? "by " + byName(cloud, names, s.by) + " · " : ""}${ago(s.savedAt)}</span>
-      </button></li>`;
+      </button><button type="button" class="mini" title=${"Save a copy of " + (s.name || "Untitled") + (cloud.uid ? " to My scenarios" : " to Shared") + ". What you have open stays open."}
+        aria-label=${"Duplicate " + (s.name || "Untitled")} onClick=${function () { props.duplicate(kind, s); }}>Duplicate</button></li>`;
     }
     if (!cloud.db) {
       return html`<div class="menu scen-menu" role="dialog" aria-label="Scenarios">
@@ -2462,6 +2463,14 @@
         setMsg({ kind: "good", text: "Saved " + name + (s2.kind === "shared" ? ". Everyone with access can open it now." : ". Only you can see it.") });
       }, fail("save"));
     }
+    /* Copies any listed scenario as it was last saved, without opening it, so unsaved edits here are never touched. */
+    function duplicate(kind, x) {
+      var name = (kind === "official" ? "Official numbers" : x.name || "Untitled") + " (copy)";
+      var s2 = { kind: cloud.uid ? "private" : "shared", id: newId() };
+      scenRef(cloud, s2).set({ name: name, by: cloud.uid || null, savedAt: Date.now(), doc: x.doc }).then(function () {
+        setMsg({ kind: "good", text: "Saved " + name + " in " + (s2.kind === "private" ? "My scenarios" : "Shared") + ". Open it from Scenarios to work on it." });
+      }, fail("duplicate " + name));
+    }
     function rename(name) {
       scenRef(cloud, scen).update({ name: name }).then(function () { setScen(Object.assign({}, scen, { name: name })); setSource("Scenario: " + name); }, fail("rename"));
     }
@@ -2588,7 +2597,7 @@
               title="Open, save, share and compare scenarios">
               <span class="scen-btn-name" title=${scen.name}>${scen.name}</span>${dirty ? html`<span class="unsaved" title="Unsaved changes">●</span>` : null} ▾</button>
             ${menu === "scen" ? html`<${ScenarioMenu} cloud=${cloud} scen=${scen} lists=${lists} names=${names} dirty=${dirty} saving=${saving}
-              save=${save} saveAs=${saveAs} rename=${rename} move=${move} remove=${remove} makeOfficial=${makeOfficial} open=${openScen} startNew=${startNew}
+              save=${save} saveAs=${saveAs} duplicate=${duplicate} rename=${rename} move=${move} remove=${remove} makeOfficial=${makeOfficial} open=${openScen} startNew=${startNew}
               compare=${function () { setMenu(false); go("compare"); }} />` : null}
           </div>
           <div class="menu-wrap">
