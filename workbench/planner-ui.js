@@ -2108,6 +2108,9 @@
           <div class="row-b"><button type="submit" class="btn primary sm">${mode === "saveas" ? "Save" : "Rename"}</button>
             <button type="button" class="link small" onClick=${function () { setMode(null); }}>Cancel</button></div>
         </form>`
+        : mode === "official" ? html`<div class="scen-form"><p class="small"><b>Replace the official numbers with "${scen.name}"?</b> Everyone's new scenarios start from the official numbers.${lists.official ? " The current official numbers (saved " + ago(lists.official.savedAt) + ") are kept as a private backup scenario you can reopen." : ""}</p>
+          <div class="row-b"><button type="button" class="btn danger sm" onClick=${function () { props.makeOfficial(); setMode(null); }}>Replace official numbers</button>
+            <button type="button" class="link small" onClick=${function () { setMode(null); }}>Cancel</button></div></div>`
         : mode === "delete" ? html`<div class="scen-form"><p class="small">Delete "${scen.name}" for good? ${scen.kind === "shared" ? "Everyone loses it." : ""}</p>
           <div class="row-b"><button type="button" class="btn danger sm" onClick=${function () { props.remove(); setMode(null); }}>Delete</button>
             <button type="button" class="link small" onClick=${function () { setMode(null); }}>Cancel</button></div></div>`
@@ -2118,7 +2121,7 @@
           ${mine && scen.kind === "private" ? html`<button type="button" class="btn sm" onClick=${function () { props.move("shared"); }}>Share</button>` : null}
           ${mine && scen.kind === "shared" && cloud.uid ? html`<button type="button" class="btn sm" onClick=${function () { props.move("private"); }}>Make private</button>` : null}
           ${mine ? html`<button type="button" class="btn sm danger" onClick=${function () { setMode("delete"); }}>Delete</button>` : null}
-          ${cloud.owner && scen.kind !== "official" ? html`<button type="button" class="btn sm" onClick=${props.makeOfficial} title="Everyone's new scenarios start from these numbers">Set as official numbers</button>` : null}
+          ${cloud.owner && scen.kind !== "official" ? html`<button type="button" class="btn sm" onClick=${function () { setMode("official"); }} title="Everyone's new scenarios start from these numbers">Set as official numbers…</button>` : null}
         </div>`}
         ${scen.kind === "shared" && !canWrite(cloud, scen) ? html`<p class="tiny faint">Only its creator can change a shared scenario. Save a copy to make it yours.</p>` : null}
         ${scen.kind === "official" && !cloud.owner ? html`<p class="tiny faint">Only the owner can change the official numbers. Save a copy to make your own.</p>` : null}
@@ -2469,13 +2472,17 @@
       }, fail("delete"));
     }
     function makeOfficial() {
-      var b = scenBody("Official numbers", cloud.uid);
-      cloud.db.doc("official/default").set(b).then(function () {
+      var b = scenBody("Official numbers", cloud.uid), old = lists.official;
+      // Keep what's being replaced as a backup scenario (private when possible), so a slip can be undone from the page.
+      var backup = old ? { kind: cloud.uid ? "private" : "shared", id: newId() } : null;
+      var stamp = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      var first = backup ? scenRef(cloud, backup).set({ name: "Official numbers backup (" + stamp + ")", by: cloud.uid || null, savedAt: Date.now(), doc: old.doc }) : Promise.resolve();
+      first.then(function () { return cloud.db.doc("official/default").set(b); }).then(function () {
         if (scen.kind === "local" || scen.kind === "new") {
           setScen({ kind: "official", id: "default", name: "Official numbers", by: cloud.uid || null, savedAt: b.savedAt });
           setDirty(false); setSource("Scenario: Official numbers");
         }
-        setMsg({ kind: "good", text: "These are now the official numbers. New scenarios start from them." }); setMenu(false);
+        setMsg({ kind: "good", text: "These are now the official numbers. New scenarios start from them." + (backup ? " The previous ones are saved as \"Official numbers backup (" + stamp + ")\" in " + (backup.kind === "private" ? "My scenarios" : "Shared") + "." : "") }); setMenu(false);
       }, fail("set the official numbers"));
     }
     function loadScenario(kind, x) {
