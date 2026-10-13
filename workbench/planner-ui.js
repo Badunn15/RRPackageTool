@@ -391,15 +391,20 @@
           if (off(t)) return html`<div key=${t} class="tcard t-off"><span class="tn">${TIER_NAMES[t]}</span><span class="td">Not offered</span></div>`;
           var m = C.margins[t], v = verdict(m, P.targetPct), on = ui.focus === t;
           return html`<button key=${t} type="button" class=${"tcard " + v.cls + (on ? " on" : "")} aria-pressed=${on}
-            title=${on ? "Stop focusing " + TIER_NAMES[t] : "Focus " + TIER_NAMES[t] + " across every page"}
+            title=${v.label + ". " + (on ? "Stop focusing " + TIER_NAMES[t] : "Focus " + TIER_NAMES[t] + " across every page")}
             onClick=${function () { props.setUi(function (u) { u.focus = on ? "all" : t; }); }}>
             <span class="tn">${TIER_NAMES[t]}</span>
             <span class="tp">${pct(m.marginPct)}</span>
-            <span class="td">${money(m.margin, 2)}/door · ${money(m.portfolioMo * 12)}/yr · ${v.label}</span>
-            ${P.scopeSavings && C.cost.freed[t] > 0.004 ? html`<span class="td freed" title="Count freed PM capacity is on (Portfolio → Model settings). Without it this tier's margin would be ${money(m.margin - C.cost.freed[t], 2)}/door, ${pct(m.revenue ? (m.margin - C.cost.freed[t]) / m.revenue * 100 : 0)}.">Includes ${money(C.cost.freed[t], 2)} freed PM capacity · +${(m.revenue ? C.cost.freed[t] / m.revenue * 100 : 0).toFixed(1)} pts</span>` : null}
+            <span class="tstats">
+              <span class="rpu"><i>RPU</i><b>${money(m.revenue, 2)}</b></span>
+              <span class="cpu"><i>CPU</i><b>${money(m.cost, 2)}</b></span>
+              <span class="mpu"><i>Margin</i><b>${money(m.margin, 2)}</b></span>
+            </span>
+            <span class="sr-only">${v.label}</span>
+            ${P.scopeSavings && C.cost.freed[t] > 0.004 ? html`<span class="td freed" title="Count freed PM capacity is on (Portfolio → Model settings). Without it this tier's margin would be ${money(m.margin - C.cost.freed[t], 2)}/door, ${pct(m.revenue ? (m.margin - C.cost.freed[t]) / m.revenue * 100 : 0)}.">${money(C.cost.freed[t], 2)} freed PM capacity · +${(m.revenue ? C.cost.freed[t] / m.revenue * 100 : 0).toFixed(1)} pts</span>` : null}
           </button>`;
         })}
-        <p class="tiny faint" style=${{ margin: 0 }}>${VIEW_NAMES[doc.cv]} · ${fmtNum(doc.G.doors)} doors · ${P.targetPct}% target · ${doc.resident.on ? "resident revenue counted" : "owner revenue only"}${P.scopeSavings ? " · freed PM capacity counted" : ""}. Click a tier to focus it.</p>
+        <p class="tiny faint" style=${{ margin: 0 }}>Per door per month · ${VIEW_NAMES[doc.cv]} · ${P.targetPct}% target (green on target, yellow below, red losing money) · ${doc.resident.on ? "resident revenue counted" : "owner revenue only"}${P.scopeSavings ? " · freed PM capacity counted" : ""}. Click a tier to focus it.</p>
         </${React.Fragment}>`}
       </section>
 
