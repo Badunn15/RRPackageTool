@@ -1163,7 +1163,7 @@
         </div>
         <div class="table-wrap"><table class="grid">
           <thead><tr>
-            <th class="l">Line</th><th>Amount</th><th class="l">Per</th><th>Yearly count / burden / PM share</th><th>$/door/mo</th>
+            <th class="l">Line</th><th>Amount</th><th class="l">Per</th><th>Yearly count / burden</th><th>$/door/mo</th>
             <${TierHeads} focus=${focus} />
           </tr></thead>
           ${groups.map(function (G) {
@@ -1221,8 +1221,6 @@
                   <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : BASIS_NAMES[r.e]}</td>
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
                       value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)} onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />`
-                    : splitLine(doc, r, g) ? html`<${Affix} id=${"ps-" + r.id} cls="w-sm" suffix="% PM" min=${0} max=${100} step=${5} label=${"PM's share of " + name}
-                      value=${Math.round(pmShareOf(doc, r.id) * 100) / 100} onChange=${function (val) { update(function (d) { d.pmShare[r.id] = Math.min(100, Math.max(0, val)); }, name + ": PM share"); }} />`
                     : r.e === "annual" ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
                   <td class="mono">${isLb ? lbText : money(perDoor, 2)}</td>
                   ${TIERS.map(function (t) {
