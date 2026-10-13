@@ -477,6 +477,9 @@
     }, name + ": " + TIER_SHORT[t] + " toggled");
   }
 
+  /* Lines split with the brokerage: everything in the Brokerage Split group, and any line given a PM share. */
+  function splitLine(doc, r, g) { return !CALC_ROWS[r.id] && r.e !== "af" && (g.id === "brok" || (doc.pmShare && doc.pmShare[r.id] != null)); }
+
   function CostInspector(props) {
     var doc = props.doc, found = findCostRow(doc, props.id), update = props.update;
     if (!found) return html`<p class="small muted">That line was removed.</p>`;
@@ -492,7 +495,7 @@
       <div class="kv">
         ${isAf ? html`<span>Amount</span><span class="small">Set under Portfolio → AppFolio</span>`
           : isLb ? html`<span>Amount</span><span class="small">Each tier's own leasing fee</span>`
-          : html`<span>${r.id === "evict_g" ? "Attorney cap" : "Amount"}</span><${Affix} id=${"i-v-" + r.id} prefix="$" cls="w-lg" label=${"Amount for " + name}
+          : html`<span>${r.id === "evict_g" ? "Attorney cap" : splitLine(doc, r, g) ? "P&L total" : "Amount"}</span><${Affix} id=${"i-v-" + r.id} prefix="$" cls="w-lg" label=${"Amount for " + name}
             value=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v} onChange=${function (val) { update(function (d) { d.vl[r.id] = val; }, name + ": amount"); }} />`}
         ${calc ? null : html`<span>Per</span><select id=${"i-b-" + r.id} aria-label="Per" value=${r.e}
           onChange=${function (e) { var val = e.target.value; update(function (d) { if (r.promoted) d.pbase[r.id] = val; else d.CG.find(function (x) { return x.id === g.id; }).rows.find(function (x) { return x.id === r.id; }).e = val; }, name + ": basis"); }}>
@@ -506,6 +509,8 @@
         ${r.e === "seat" && !calc ? html`<span>Seats</span><${Affix} id=${"i-st-" + r.id} cls="w-sm" min=${0} label=${"Seats paid for " + name}
           value=${doc.seats[r.id] != null ? doc.seats[r.id] : doc.G.seats}
           onChange=${function (val) { update(function (d) { if (val === d.G.seats) delete d.seats[r.id]; else d.seats[r.id] = val; }, name + ": seats"); }} />` : null}
+        ${splitLine(doc, r, g) ? html`<span>PM share</span><${Affix} id=${"i-ps-" + r.id} suffix="%" cls="w-sm" min=${0} max=${100} step=${5} label="PM's share"
+          value=${Math.round(pmShareOf(doc, r.id) * 100) / 100} onChange=${function (val) { update(function (d) { d.pmShare[r.id] = Math.min(100, Math.max(0, val)); }, name + ": PM share"); }} />` : null}
         <span>Counts from</span><select id=${"i-iv-" + r.id} aria-label="Counts from" value=${doc.itemView[r.id] || ""}
           onChange=${function (e) { var val = e.target.value; update(function (d) { if (val) d.itemView[r.id] = val; else delete d.itemView[r.id]; }, name + ": counts from"); }}>
           <option value="">Same as ${g.label} (${VIEW_NAMES[doc.secView[g.id] || "direct"]})</option>
@@ -1158,7 +1163,7 @@
         </div>
         <div class="table-wrap"><table class="grid">
           <thead><tr>
-            <th class="l">Line</th><th>Amount</th><th class="l">Per</th><th>Yearly count / burden</th><th>$/door/mo</th>
+            <th class="l">Line</th><th>Amount</th><th class="l">Per</th><th>Yearly count / burden / PM share</th><th>$/door/mo</th>
             <${TierHeads} focus=${focus} />
           </tr></thead>
           ${groups.map(function (G) {
@@ -1216,6 +1221,8 @@
                   <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : BASIS_NAMES[r.e]}</td>
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
                       value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)} onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />`
+                    : splitLine(doc, r, g) ? html`<${Affix} id=${"ps-" + r.id} cls="w-sm" suffix="% PM" min=${0} max=${100} step=${5} label=${"PM's share of " + name}
+                      value=${Math.round(pmShareOf(doc, r.id) * 100) / 100} onChange=${function (val) { update(function (d) { d.pmShare[r.id] = Math.min(100, Math.max(0, val)); }, name + ": PM share"); }} />`
                     : r.e === "annual" ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
                   <td class="mono">${isLb ? lbText : money(perDoor, 2)}</td>
                   ${TIERS.map(function (t) {
@@ -2172,6 +2179,7 @@
       if (!ra) { put("Added: " + nm); return; }
       var va = a.vl[id] != null ? a.vl[id] : ra.v, vb = b.vl[id] != null ? b.vl[id] : rb.v;
       if (va !== vb) put(nm + ": " + money(va || 0, 2) + " → " + money(vb || 0, 2));
+      if (pmShareOf(a, id) !== pmShareOf(b, id)) put(nm + " PM share: " + fmtNum(Math.round(pmShareOf(a, id))) + "% → " + fmtNum(Math.round(pmShareOf(b, id))) + "%");
       tiersLine(nm, ca.ck[id] || {}, cb.ck[id] || {});
     });
     Object.keys(rowsA).forEach(function (id) { if (!rowsB[id]) put("Removed: " + rowName(a, rowsA[id])); });

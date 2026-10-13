@@ -409,7 +409,16 @@ function seatsFor(doc, id) {
   return doc.seats && doc.seats[id] != null ? doc.seats[id] : doc.G.seats;
 }
 
-function cmo(row, doc) {
+/*
+ * PM's share of a cost line (doc.pmShare, a %; 100 when unset). Lines split with the brokerage hold the full P&L total
+ * as their amount, and the tool takes PM's share of it.
+ */
+function pmShareOf(doc, id) { var s = doc.pmShare && doc.pmShare[id]; return s == null ? 100 : s; }
+
+function cmo(row, doc) { return cmoFull(row, doc) * pmShareOf(doc, row.id) / 100; }
+
+/* A cost line's full monthly cost, before PM's share. */
+function cmoFull(row, doc) {
   var v = doc.vl[row.id] != null ? doc.vl[row.id] : row.v;
   var bd = doc.bd[row.id] != null ? doc.bd[row.id] : (row.n_bd || 0);
   var ev = doc.ev[row.id] != null ? doc.ev[row.id] : (row.n_ev || 0);
@@ -771,9 +780,9 @@ function usd(n) { return (n < 0 ? "-$" : "$") + fmtN(Math.abs(n)); }
 
 function formulaLines(row, doc, groupId, view) {
   var v = doc.vl[row.id] != null ? doc.vl[row.id] : row.v;
-  var G = doc.G, mo = cmo(row, doc), resOnly = residentialOnly(row, groupId);
+  var G = doc.G, mo = cmo(row, doc), resOnly = residentialOnly(row, groupId), share = pmShareOf(doc, row.id);
   var perDoor = linePerDoor(doc, mo, row, groupId);
-  var tail = " = " + usd(mo) + "/mo → " + usd(perDoor) + "/door/mo" + (otherUnits(doc) ? (resOnly ? " (package doors only)" : " (spread over " + fmtN(allUnits(doc)) + " units)") : "");
+  var tail = " = " + (share !== 100 ? usd(cmoFull(row, doc)) + "/mo × " + fmtN(Math.round(share * 100) / 100) + "% PM share" : "") + (share !== 100 ? " = " : "") + usd(mo) + "/mo → " + usd(perDoor) + "/door/mo" + (otherUnits(doc) ? (resOnly ? " (package doors only)" : " (spread over " + fmtN(allUnits(doc)) + " units)") : "");
   var lines = [];
   if (CALC_ROWS[row.id]) return calcRowLines(row, doc, groupId, view);
   switch (row.e) {
@@ -848,7 +857,7 @@ function scopeFormulaLines(doc, id) {
 
 function normalizeDoc(raw) {
   var d = JSON.parse(JSON.stringify(raw));
-  ["vl", "bd", "ev", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "secView", "MASTER", "removed", "udest", "seats"].forEach(function (k) {
+  ["vl", "bd", "ev", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "secView", "MASTER", "removed", "udest", "seats", "pmShare"].forEach(function (k) {
     if (!d[k] || typeof d[k] !== "object") d[k] = {};
   });
   if (!Array.isArray(d.CATS)) d.CATS = [];
@@ -989,6 +998,27 @@ function normalizeDoc(raw) {
   // v13 (2026-10-12): owner entities. The owner accounting fee is charged per entity, not per door (about 80 today).
   if (d.G.entities == null) d.G.entities = Math.min(80, d.G.doors || 0);
   if (ver < 13) d.addons.forEach(function (a) { if (a.id === "addon_acct" && a.basis === "door_yr" && (a.amount || 0) === 1) a.basis = "entity_yr"; });
+  // v14 (2026-10-13): brokerage-split lines hold the full P&L total and a PM share, instead of a share worked out by
+  // hand. Converts the lines entered as PM's share, only where the amount is still the one entered.
+  if (ver < 14) {
+    var SPLIT = {
+      goshen: [375, 750, 50, null],
+      education: [1018, 2036, 50, "Education and training on the 2025 P&L. PM's share below; brokerage covers the rest."],
+      events: [1984, 3968, 50, "Events and meetings on the 2025 P&L. PM's share below; brokerage covers the rest."],
+      office_rent: [9600, 14400, 200 / 3, "Office rent on the 2025 P&L ($1,200/mo). PM's share below; brokerage covers the rest."],
+      meals: [5633, 11265.68, 50, "Meals and entertainment on the 2025 P&L. PM's share below; brokerage covers the rest."],
+      fuel_auto: [4076, 8151.08, 50, "Fuel and auto on the 2025 P&L (fuel $6,742, repairs $1,004, other $405). PM's share below; brokerage covers the rest."],
+      bank_fees: [787, 1181.11, 200 / 3, "Bank charges and fees on the 2025 P&L. 2026 is running over 5x higher ($6,252 to Oct 12), likely payment processing: worth checking. PM's share below."]
+    };
+    Object.keys(SPLIT).forEach(function (id) {
+      var r = findRow(d, id), x = SPLIT[id];
+      if (!r || d.pmShare[id] != null) return;
+      var v = d.vl[id] != null ? d.vl[id] : r.v;
+      if (Math.abs(v - x[0]) > 1) return;
+      d.vl[id] = x[1]; d.pmShare[id] = x[2];
+      if (x[3]) r.d = x[3];
+    });
+  }
   if (d.G.vacantDays == null) d.G.vacantDays = 0;
   // Move-ins a year across the portfolio (admin fees). Starts at one per door every average tenancy.
   if (d.G.moveIns == null) d.G.moveIns = d.G.tenancy > 0 ? Math.round((d.G.doors || 0) / d.G.tenancy) : 0;
@@ -1010,7 +1040,7 @@ function normalizeDoc(raw) {
   // v1 defaulted vacancy to 4% (an owner-side assumption from the fee-choice pricing file). Raynor only collects fees once a renter is placed, so v2 defaults it to 0.
   var vacancy = P.vacancyPct != null && (P.v || 1) >= 2 ? P.vacancyPct : (P.vacancyPct != null && P.vacancyPct !== 4 ? P.vacancyPct : DEFAULT_PRICING.vacancyPct);
   d.pricing = {
-    v: 13,
+    v: 14,
     // v10 (2026-10-12): up-front discount, 10% off when the whole lease term is paid up front.
     // v11: discount steps are set by the owner's monthly fee (atPct) instead of the share paid up front.
     upfrontDiscount: normalizeDiscount(P.upfrontDiscount),
@@ -1082,7 +1112,7 @@ function copyAddonInto(src, dst, addonId, matchTiers) {
   if (!a) return ["That add-on isn't in this scenario."];
   a = JSON.parse(JSON.stringify(a));
   var sid = a.svc, kind = null;
-  var MAPS = ["vl", "ev", "bd", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "udest"];
+  var MAPS = ["vl", "ev", "bd", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "udest", "pmShare"];
   function copyMaps(id) { MAPS.forEach(function (k) { if (src[k] && src[k][id] != null) { dst[k] = dst[k] || {}; dst[k][id] = JSON.parse(JSON.stringify(src[k][id])); } }); }
   if (sid) {
     var hit = null;
@@ -1127,5 +1157,5 @@ function validDoc(d) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { copyAddonInto: copyAddonInto, tierOn: tierOn, onTiers: onTiers, woYr: woYr, residentPerDoor: residentPerDoor, residentKeepPct: residentKeepPct, feeBase: feeBase, petRentMo: petRentMo, priceFrame: priceFrame, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, upfrontDiscountPct: upfrontDiscountPct, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { pmShareOf: pmShareOf, cmoFull: cmoFull, copyAddonInto: copyAddonInto, tierOn: tierOn, onTiers: onTiers, woYr: woYr, residentPerDoor: residentPerDoor, residentKeepPct: residentKeepPct, feeBase: feeBase, petRentMo: petRentMo, priceFrame: priceFrame, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, upfrontDiscountPct: upfrontDiscountPct, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }
