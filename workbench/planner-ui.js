@@ -1216,7 +1216,7 @@
                     ${calc ? html`<span class="tag link">linked</span>` : null}${vt ? html`<span class="tag">${vt}</span>` : null}
                   </td>
                   <td>${isAf ? html`<span class="small faint">AppFolio rates</span>` : isLb ? html`<span class="small faint">tier's leasing fee</span>`
-                    : html`<${Affix} id=${"v-" + r.id} prefix="$" label=${"Amount for " + name} value=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v}
+                    : html`<${Affix} id=${"v-" + r.id} prefix="$" cls="w-amt" label=${"Amount for " + name} value=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v}
                       onChange=${function (val) { update(function (d) { d.vl[r.id] = val; }, name + ": amount"); }} />`}</td>
                   <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : BASIS_NAMES[r.e]}</td>
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
