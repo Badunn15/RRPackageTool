@@ -238,7 +238,7 @@
         <dl class="quote">
           <div><dt><i style="background:var(--seg-monthly)"></i>Monthly fee</dt><dd id="q-monthly">$0</dd></div>
           <div><dt><i style="background:var(--seg-lease)"></i>Leasing fee</dt><dd id="q-lease">$0</dd></div>
-          <div><dt><i style="background:var(--seg-renew)"></i>Renewal fee</dt><dd id="q-renew">$0</dd></div>
+          <div><dt><i style="background:var(--seg-renew)"></i>Renewal fee, only if they renew</dt><dd id="q-renew">$0</dd></div>
           <div><dt>Due when a new lease is signed</dt><dd id="q-sign">$0</dd></div>
         </dl>
         <div class="save" id="save" hidden></div>
@@ -471,8 +471,11 @@ function render() {
   $("q-renew").innerHTML = money(q.renewal) + (q.disc > 0 ? "<s>" + money(q.renewalFull) + "</s>" : "");
   var save = $("save");
   save.hidden = !(q.disc > 0);
+  // The renewal discount isn't automatic: a renewal fee is only due if the tenant renews, and it's only discounted if the
+  // owner pays that next lease term in full up front again. They can choose a different way to pay at each renewal.
   if (q.disc > 0) save.innerHTML = '<span class="tag">' + q.disc + '% discount</span><span>You save <strong>' + money(q.leaseFull - q.lease) +
-    "</strong> on the leasing fee and <strong>" + money(q.renewalFull - q.renewal) + "</strong> on each renewal</span>";
+    '</strong> on the leasing fee. If your tenant renews, you save <strong>' + money(q.renewalFull - q.renewal) +
+    '</strong> on that renewal too, as long as you pay that lease term in full up front again. You can change how you pay at each renewal.</span>';
   $("q-sign").innerHTML = money(q.lease + q.monthly) + "<small> leasing + first month</small>";
 
   var scale = Math.max(f.turnTerm, f.renewTerm, q.monthly * TERM + q.lease, 1);
