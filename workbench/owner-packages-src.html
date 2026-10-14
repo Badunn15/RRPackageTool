@@ -351,7 +351,7 @@ var TENANCY = 4;
 /* What the owner wants solved, and the package built around it. "numbers" jumps to the proposal. */
 var GOALS = [
   { t: "Someone reliable for the day to day", d: "Rent, repairs and tenants handled. I'll make the big calls.", tier: "min" },
-  { t: "Fewer surprise fees", d: "I'd rather pay one fee than get a bill for every work order.", tier: "special" },
+  { t: "One simple monthly fee", d: "I'd rather have repairs handled without a charge for each work order.", tier: "special" },
   { t: "Knowing my home is cared for", d: "Inspections, photos and someone watching it when it's empty.", tier: "special" },
   { t: "Growing my portfolio", d: "Help planning repairs, reviewing deals and looking ahead.", tier: "plus" },
   { t: "Just the numbers", d: "I know what I need. Show me fees and returns.", tier: null }
@@ -370,9 +370,10 @@ var CORE = [
 var COMPARE = [
   { group: "What's the same", sub: "Every package", open: false, rows: [
     { n: "Marketing and showings" }, { n: "Tenant screening" }, { n: "Lease preparation, signing and renewals" },
-    { n: "Move-in orientation and inspection" }, { n: "Maintenance triage and after-hours emergency coverage" },
-    { n: "Rent collection and owner accounting" }, { n: "Delinquency follow-up" },
-    { n: "Weekly distributions, monthly statements and 1099s" }, { n: "Online owner and tenant portal" },
+    { n: "Move-in orientation and inspection" },
+    { n: "Maintenance triage and coordination", note: "With after-hours emergency coverage. Included in Special and Plus; Minimum is $75 per work order." },
+    { n: "Rent collection and owner accounting", note: "We handle the financial side: delinquency follow-up, weekly distributions, monthly statements, bookkeeping and 1099s." },
+    { n: "Online owner and tenant portal" },
     { n: "Lease violations and notices" }, { n: "Fair housing, HOA and city compliance" }
   ].map(function (r) { r.m = ["yes", "yes", "yes"]; return r; }) },
   { group: "What's different", sub: "Fees", open: true, rows: [
