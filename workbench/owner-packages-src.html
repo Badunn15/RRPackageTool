@@ -10,6 +10,7 @@
     --navy:#17345c; --accent:#2b5a9e; --accent-ink:#1f477f; --accent-tint:#e2ebf7; --sky:#8fb6e6;
     --gold:#8f6428; --gold-line:#d2ad6c; --gold-tint:#f7efe1;
     --good:#1b7a4c; --good-bg:#e1f2e8; --bad:#b0412e; --bad-bg:#f8e6e2;
+    --glow-gold:#d9a03a; --glow-gold-soft:rgba(217,160,58,.35); --glow-blue:#2f7bf0; --glow-blue-soft:rgba(47,123,240,.33);
     --lift:0 14px 30px -18px rgba(23,52,92,.45);
     --font-display:"Newsreader", "Iowan Old Style", Georgia, serif;
     --font-ui:"Schibsted Grotesk", "Segoe UI", system-ui, sans-serif;
@@ -23,6 +24,7 @@
       --navy:#0f2440; --accent:#7ba6e8; --accent-ink:#a3c2f2; --accent-tint:#1c2b40; --sky:#5d86bf;
       --gold:#dfb469; --gold-line:#7d6236; --gold-tint:#2c2416;
       --good:#55cf95; --good-bg:#12301f; --bad:#f08a76; --bad-bg:#3a1b15;
+      --glow-gold:#f2c260; --glow-gold-soft:rgba(242,194,96,.4); --glow-blue:#6aa8ff; --glow-blue-soft:rgba(106,168,255,.4);
       --lift:0 14px 30px -16px rgba(0,0,0,.7);
     }
   }
@@ -33,6 +35,7 @@
     --navy:#0f2440; --accent:#7ba6e8; --accent-ink:#a3c2f2; --accent-tint:#1c2b40; --sky:#5d86bf;
     --gold:#dfb469; --gold-line:#7d6236; --gold-tint:#2c2416;
     --good:#55cf95; --good-bg:#12301f; --bad:#f08a76; --bad-bg:#3a1b15;
+    --glow-gold:#f2c260; --glow-gold-soft:rgba(242,194,96,.4); --glow-blue:#6aa8ff; --glow-blue-soft:rgba(106,168,255,.4);
     --lift:0 14px 30px -16px rgba(0,0,0,.7);
   }
   *{ box-sizing:border-box; }
@@ -88,6 +91,7 @@
   .quiz-bar i{ display:block; height:100%; background:var(--gold-line); transition:width .25s ease; }
   .quiz-q{ margin:4px 0 2px; font-family:var(--font-display); font-weight:600; font-size:21px; }
   .quiz .goal{ min-height:64px; justify-content:center; }
+  .quiz-close{ margin:0; font-size:13.5px; color:var(--ink-2); }
   .quiz-result{ display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
   .quiz-result h3{ margin:0; font-family:var(--font-display); font-weight:600; font-size:26px; }
   .quiz-result .promise{ margin:-4px 0 0; color:var(--accent-ink); font-weight:600; }
@@ -99,19 +103,17 @@
   /* plan cards */
   .tiers{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; }
   .tier{ position:relative; background:var(--panel); border:1px solid var(--rule); border-radius:14px; padding:20px 18px 18px; display:flex; flex-direction:column; gap:12px; min-width:0; }
-  .tier.rec{ border-color:var(--gold-line); box-shadow:inset 0 3px 0 var(--gold-line); }
-  .tier.rec.lift:hover{ border-color:var(--gold-line); box-shadow:inset 0 3px 0 var(--gold-line), var(--lift); }
+  .tier.rec{ border-color:var(--glow-gold); box-shadow:0 0 0 1px var(--glow-gold), 0 0 22px var(--glow-gold-soft); }
+  .tier.rec.lift:hover{ border-color:var(--glow-gold); box-shadow:0 0 0 1px var(--glow-gold), 0 0 26px var(--glow-gold-soft), var(--lift); }
   .tier{ cursor:pointer; }
-  .tier.sel, .tier.sel.rec{ border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
-  .tier.sel.lift:hover, .tier.sel.rec.lift:hover{ border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent), var(--lift); }
+  .tier.sel, .tier.sel.rec{ border-color:var(--glow-blue); box-shadow:0 0 0 1px var(--glow-blue), 0 0 22px var(--glow-blue-soft); }
+  .tier.sel.lift:hover, .tier.sel.rec.lift:hover{ border-color:var(--glow-blue); box-shadow:0 0 0 1px var(--glow-blue), 0 0 26px var(--glow-blue-soft), var(--lift); }
   .diff thead th:not(:first-child){ cursor:pointer; }
-  .diff .col-rec{ box-shadow:inset 2px 0 0 var(--gold-line), inset -2px 0 0 var(--gold-line); }
-  .diff th.col-rec{ box-shadow:inset 2px 0 0 var(--gold-line), inset -2px 0 0 var(--gold-line), inset 0 2px 0 var(--gold-line); }
-  .diff td.col-rec.col-bot{ box-shadow:inset 2px 0 0 var(--gold-line), inset -2px 0 0 var(--gold-line), inset 0 -2px 0 var(--gold-line); }
-  .diff .col-sel{ box-shadow:inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
-  .diff th.col-sel{ box-shadow:inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent), inset 0 2px 0 var(--accent); }
-  .diff td.col-sel.col-bot{ box-shadow:inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent), inset 0 -2px 0 var(--accent); }
-  .badge{ position:absolute; top:-11px; left:16px; background:var(--gold-tint); color:var(--gold); border:1px solid var(--gold-line); border-radius:999px; padding:1px 10px; font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+
+  .col-glow{ position:absolute; pointer-events:none; border-radius:12px; border:2px solid; transition:left .2s ease, width .2s ease; }
+  .col-glow.rec{ border-color:var(--glow-gold); box-shadow:0 0 18px var(--glow-gold-soft), inset 0 0 14px var(--glow-gold-soft); }
+  .col-glow.sel{ border-color:var(--glow-blue); box-shadow:0 0 18px var(--glow-blue-soft), inset 0 0 14px var(--glow-blue-soft); }
+  .badge{ position:absolute; top:-11px; left:16px; background:var(--gold-tint); color:var(--gold); border:1px solid var(--glow-gold); border-radius:999px; padding:1px 10px; font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
   .tier h3{ margin:0; font-family:var(--font-display); font-weight:600; font-size:24px; }
   .tier .promise{ margin:-8px 0 0; color:var(--accent-ink); font-weight:600; font-size:15px; }
   .price{ display:flex; align-items:baseline; gap:8px; }
@@ -327,8 +329,8 @@
 
 <main class="wrap">
   <section aria-labelledby="goal-h">
-    <div class="sec-h"><span class="kicker">Help me choose</span><h2 id="goal-h">Take a 1-minute quiz</h2>
-      <p class="lead">Four quick questions, then we'll point you to the package built around your answers.</p></div>
+    <div class="sec-h"><span class="kicker">Help me choose</span><h2 id="goal-h">Find your package in 2 minutes</h2>
+      <p class="lead">Ten quick questions about you, your home and how you like to work. We'll point you to the package built around your answers.</p></div>
     <div class="quiz" id="quiz" aria-live="polite"></div>
   </section>
 
@@ -449,26 +451,53 @@ var VACANT_FEE = 99, ACCOUNTING = 125;
 /* The proposal forecasts one 12-month year. The optional long view runs this many years: a new tenant, then renewals. */
 var FORECAST_YEARS = 4;
 
-/* The "Help me choose" quiz. Each answer adds points to packages (p) and gives a reason (why) the result can quote.
-   The package with the most points is built for them; a tie goes to Special, where most owners land.
-   A placeholder set: mostly-Minimum answers land on Minimum, mostly-Plus on Plus, anything mixed on Special. */
+/* The "Help me choose" quiz: ten questions, each on a different thing that separates the packages.
+   Each answer adds points (p) to the package it fits: 2 for a clear fit, 1 each when it sits between two.
+   why is how the result quotes the answer back. The most points wins; a tie goes to Special, where most owners land.
+   Minimum: hands-on owners who want the lowest monthly fee and pay per service.
+   Special: owners who want the home looked after (inspections, vacancy care, fewer fees, the leasing guarantee).
+   Plus: owners who want planning, older homes, growing or reorganizing portfolios, and nearly everything included. */
 var QUIZ = [
-  { q: "How did you end up with this rental?", a: [
-    { t: "I moved or inherited it. I didn't plan on being a landlord.", p: { special: 2 }, why: "You didn't plan on being a landlord, so you want it looked after." },
-    { t: "I bought it as an investment", p: { min: 2 }, why: "You bought it as an investment and know what you need." },
-    { t: "I'm building a portfolio", p: { plus: 2 }, why: "You're building a portfolio and want help planning ahead." } ] },
-  { q: "How involved do you want to be?", a: [
-    { t: "I want to approve most decisions", p: { min: 2 }, why: "You'd like to approve most decisions yourself." },
-    { t: "Check in now and then", p: { special: 2 }, why: "You want to check in now and then, not run it day to day." },
-    { t: "Hand it off completely", p: { plus: 2 }, why: "You want to hand it off completely." } ] },
-  { q: "What worries you most?", a: [
-    { t: "The monthly cost", p: { min: 2 }, why: "Keeping the monthly fee low matters most to you." },
-    { t: "Surprise bills and the home's condition", p: { special: 2 }, why: "You want fewer surprise bills and a regular look at the home." },
-    { t: "Big repairs and long-term value", p: { plus: 2 }, why: "You're thinking about big repairs and long-term value." } ] },
-  { q: "How many doors do you own, or plan to in the next 3 years?", a: [
-    { t: "1", p: { min: 1, special: 1 }, why: "" },
-    { t: "2 to 4", p: { special: 2 }, why: "With a few doors, fewer per-work-order fees add up." },
-    { t: "5 or more", p: { plus: 2 }, why: "At 5 or more doors you'd also get our portfolio discount." } ] }
+  { q: "Which sounds most like you?", a: [
+    { t: "I've owned rentals before and know the drill", p: { min: 2 }, why: "You've owned rentals before and know what you need." },
+    { t: "I didn't plan on being a landlord. I moved, inherited it or couldn't sell", p: { special: 2 }, why: "You didn't plan on being a landlord, so you want it looked after." },
+    { t: "I'm building a portfolio on purpose", p: { plus: 2 }, why: "You're building a portfolio on purpose." } ] },
+  { q: "How close do you live to the property?", a: [
+    { t: "Close enough to stop by", p: { min: 2 }, why: "You live close enough to keep an eye on it yourself." },
+    { t: "A long drive or another state", p: { special: 2 }, why: "You live far enough away that you need eyes on the home." },
+    { t: "It doesn't matter. I won't be visiting.", p: { special: 1, plus: 1 }, why: "" } ] },
+  { q: "How old is the home?", a: [
+    { t: "Built in the last 15 years", p: { min: 2 }, why: "The home is newer, so fewer big repairs are coming." },
+    { t: "15 to 40 years old", p: { special: 2 }, why: "The home is old enough that a yearly inspection pays off." },
+    { t: "Over 40, or the roof and HVAC are getting up there", p: { plus: 2 }, why: "The home is older, so planning for big repairs matters." } ] },
+  { q: "When something breaks, what do you want from us?", a: [
+    { t: "Send me the details. I'll approve each repair.", p: { min: 2 }, why: "You want to approve each repair yourself." },
+    { t: "Handle the routine fixes. Call me on the big ones.", p: { special: 2 }, why: "You want routine repairs handled without a call every time." },
+    { t: "Handle it and keep me posted", p: { plus: 2 }, why: "You want repairs handled and a report afterward." } ] },
+  { q: "How do you feel about paying for services one at a time?", a: [
+    { t: "Fine, if it keeps the monthly fee low", p: { min: 2 }, why: "You'd rather pay per service and keep the monthly fee low." },
+    { t: "I'd rather most things be included", p: { special: 2 }, why: "You'd rather most things be included." },
+    { t: "I want nearly everything included", p: { plus: 2 }, why: "You want nearly everything included in one fee." } ] },
+  { q: "Which surprise would bother you most?", a: [
+    { t: "A higher monthly bill", p: { min: 2 }, why: "Keeping your monthly cost down matters most." },
+    { t: "Finding damage at move-out I didn't know about", p: { special: 2 }, why: "You want to catch problems before move-out, not after." },
+    { t: "A big repair I didn't budget for", p: { plus: 2 }, why: "You want big repairs planned and budgeted ahead of time." } ] },
+  { q: "When the home is empty between tenants, what matters most?", a: [
+    { t: "Just get it rented. I'll handle the rest.", p: { min: 2 }, why: "Between tenants, you'll take care of the home yourself." },
+    { t: "Someone checking on it and handling the utilities", p: { special: 2 }, why: "You want someone checking on the home while it's empty." },
+    { t: "Listing it before the tenant moves out", p: { plus: 2 }, why: "You want it listed before the current tenant moves out." } ] },
+  { q: "How many rental doors do you expect to own in 3 years?", a: [
+    { t: "Just this one", p: { min: 1, special: 1 }, why: "" },
+    { t: "2 to 4", p: { special: 2 }, why: "With a few doors, included coordination adds up." },
+    { t: "5 or more", p: { plus: 2 }, why: "At 5 or more doors you'd also get our portfolio discount." } ] },
+  { q: "How is the property owned, or will it be?", a: [
+    { t: "In my own name, and that won't change", p: { min: 1, special: 1 }, why: "" },
+    { t: "In an LLC or trust, or I plan to move it into one", p: { plus: 2 }, why: "Ownership changes like an LLC or trust are included." },
+    { t: "I might sell in the next few years", p: { plus: 2 }, why: "If you sell with an outside agent, listing assistance is included." } ] },
+  { q: "What would help you most this year?", a: [
+    { t: "The lowest cost to run it", p: { min: 2 }, why: "Your top goal this year is the lowest cost to run it." },
+    { t: "Peace of mind that it's cared for", p: { special: 2 }, why: "Your top goal this year is peace of mind." },
+    { t: "A plan: repair budget, CapEx and when to buy or sell", p: { plus: 2 }, why: "Your top goal this year is a long-term plan." } ] }
 ];
 var quiz = { i: 0, picks: [] };
 /* The comparison: one row per item, each package either "yes" (included), "no", or a price.
@@ -615,10 +644,18 @@ function quizResult() {
   quiz.picks.forEach(function (ai, qi) { var p = QUIZ[qi].a[ai].p; Object.keys(p).forEach(function (k) { pts[k] += p[k]; }); });
   var top = Math.max(pts.min, pts.special, pts.plus);
   var win = pts.special === top || (pts.min === top && pts.plus === top) ? "special" : pts.min === top ? "min" : "plus";
-  // Reasons: the answers that pointed most toward the winner.
+  // A close second: within 2 points of the winner.
+  var second = TIERS.filter(function (t) { return t.id !== win; }).sort(function (a, b) { return pts[b.id] - pts[a.id]; })[0];
+  var close = pts[win] - pts[second.id] <= 2 ? second.id : null;
+  // Reasons: up to three answers that pointed clearly toward the winner.
   var why = quiz.picks.map(function (ai, qi) { return QUIZ[qi].a[ai]; })
-    .filter(function (a) { return a.why && (a.p[win] || 0) >= 2; }).map(function (a) { return a.why; }).slice(0, 2);
-  return { tier: win, why: why };
+    .filter(function (a) { return a.why && (a.p[win] || 0) >= 2; }).map(function (a) { return a.why; }).slice(0, 3);
+  // Answers split evenly between Minimum and Plus: Special is the middle ground, so say that instead.
+  if (win === "special" && pts.special < top) {
+    why = ["Your answers split evenly between " + tierById("min").name + " and " + tierById("plus").name + ". " + tierById("special").name + " sits in between."];
+    close = null;
+  }
+  return { tier: win, why: why, close: close, pts: pts };
 }
 function renderQuiz() {
   var el = $("quiz"), n = QUIZ.length;
@@ -636,6 +673,7 @@ function renderQuiz() {
   var r = quizResult(), t = tierById(r.tier);
   el.innerHTML = '<div class="quiz-result"><span class="kicker">Built for you</span><h3>' + esc(t.name) + '</h3><p class="promise">' + esc(t.promise) + "</p>" +
     (r.why.length ? "<ul>" + r.why.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + "</ul>" : "") +
+    (r.close ? '<p class="quiz-close">A close second: <b>' + esc(tierById(r.close).name) + "</b>. Compare them below.</p>" : "") +
     '<div class="quiz-actions"><button type="button" class="btn solid quiz-see">See ' + esc(t.short) + " &darr;</button>" +
     '<button type="button" class="link quiz-again">Retake the quiz</button></div></div>';
 }
@@ -685,20 +723,26 @@ function renderTiers() {
   }).join("");
   paintCols();
 }
-/* Outline the recommended package's column in the comparison gold, and the clicked one blue. */
+/* Outline the recommended package's column in the comparison gold, and the clicked one blue: a glowing rectangle
+   laid over the column (inset a few pixels, so two highlighted columns never touch), redrawn when the table changes. */
 function paintCols() {
-  var t = $("diff"); if (!t) return;
-  var rows = Array.prototype.slice.call(t.rows), last = t.tBodies[0] ? t.tBodies[0].rows[t.tBodies[0].rows.length - 1] : null;
-  rows.forEach(function (row) {
-    if (row.cells.length !== TIERS.length + 1) return;
-    TIERS.forEach(function (tier, i) {
-      var c = row.cells[i + 1];
-      c.classList.toggle("col-rec", tier.id === REC);
-      c.classList.toggle("col-sel", tier.id === SEL);
-      c.classList.toggle("col-bot", row === last);
-    });
+  var t = $("diff"); if (!t || !t.tHead) return;
+  var wrap = t.parentNode;
+  Array.prototype.forEach.call(wrap.querySelectorAll(".col-glow"), function (g) { g.remove(); });
+  [[REC, "rec"], [SEL, "sel"]].forEach(function (x) {
+    var i = TIERS.map(function (tier) { return tier.id; }).indexOf(x[0]); if (i < 0) return;
+    if (x[1] === "rec" && SEL === REC) return;
+    var th = t.tHead.rows[0].cells[i + 1], g = document.createElement("div");
+    g.className = "col-glow " + x[1];
+    g.style.left = (th.offsetLeft + 5) + "px"; g.style.width = (th.offsetWidth - 10) + "px";
+    g.style.top = (t.offsetTop + 4) + "px"; g.style.height = (t.offsetHeight - 8) + "px";
+    wrap.appendChild(g);
   });
 }
+window.addEventListener("resize", function () { paintCols(); });
+// Web fonts change column widths once they load.
+window.addEventListener("load", function () { paintCols(); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { paintCols(); });
 function selectTier(id) { SEL = SEL === id ? null : id; renderTiers(); }
 // The cards redraw as the proposal changes; keep each "What's separate?" open or closed as the owner left it.
 $("tiers").addEventListener("toggle", function (e) { if (e.target.dataset && e.target.dataset.t) sepOpen[e.target.dataset.t] = e.target.open; }, true);
@@ -727,6 +771,7 @@ function openRow(ri, open) {
   if (open == null) open = b.getAttribute("aria-expanded") !== "true";
   b.setAttribute("aria-expanded", String(open));
   Array.prototype.forEach.call($("diff").querySelectorAll('tr[data-parent="' + ri + '"]'), function (tr) { tr.hidden = !open; });
+  paintCols();
 }
 $("diff").addEventListener("click", function (e) { var b = e.target.closest(".row-tog"); if (b) openRow(b.dataset.row); });
 $("diff").addEventListener("click", function (e) {
