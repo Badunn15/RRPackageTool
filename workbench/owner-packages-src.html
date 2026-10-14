@@ -1,8 +1,8 @@
 <title>Raynor Management Packages</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-  /* A closing tool, in order: what the owner wants solved, the core services, three plan cards, a short comparison,
-     why each fee exists, add-on prices, then a proposal that builds out their properties and yearly return.
+  /* A closing tool, in order: what the owner wants solved, three plan cards, one comparison table,
+     with add-on prices in place, then a proposal that builds out their properties and yearly return.
      Experienced investors jump straight to the proposal. Single column under 860px. */
   :root{
     --bg:#eef2f6; --panel:#ffffff; --panel-2:#f4f7fa; --rule:#d3dce5; --rule-soft:#e4eaf0;
@@ -85,15 +85,6 @@
   .goal[aria-pressed="true"]{ border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); background:var(--accent-tint); }
   .goal.numbers b{ color:var(--gold); }
 
-  /* core services */
-  .core{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; }
-  @media (max-width:860px){ .core{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
-  @media (max-width:520px){ .core{ grid-template-columns:minmax(0,1fr); } }
-  .core li{ background:var(--panel); border:1px solid var(--rule); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; min-width:0; }
-  .core b{ font-size:15px; display:flex; align-items:center; gap:8px; }
-  .core b::before{ content:""; width:8px; height:8px; border-radius:2px; background:var(--gold-line); flex:0 0 8px; }
-  .core span{ font-size:13.5px; color:var(--ink-2); }
-
   /* plan cards */
   .tiers{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; }
   .tier{ position:relative; background:var(--panel); border:1px solid var(--rule); border-radius:14px; padding:20px 18px 18px; display:flex; flex-direction:column; gap:12px; min-width:0; }
@@ -116,6 +107,8 @@
   .adds li{ display:grid; grid-template-columns:18px minmax(0,1fr); gap:8px; align-items:start; }
   .adds li::before{ content:"+"; font-weight:700; color:var(--gold); text-align:center; }
   .adds .base::before{ content:"✓"; color:var(--accent); }
+  .see-same{ color:var(--accent-ink); font-weight:600; text-decoration:underline; text-decoration-color:var(--sky); text-underline-offset:3px; }
+  .see-same:hover{ text-decoration-color:currentColor; }
   .tier .pick{ margin-top:auto; align-self:flex-start; }
   .min-note{ margin:14px 0 0; padding:12px 14px; border-radius:12px; background:var(--panel); border:1px solid var(--rule); font-size:14px; color:var(--ink-2); max-width:80ch; }
   .min-note b{ color:var(--ink); }
@@ -258,11 +251,6 @@
     <ul class="goals" id="goals"></ul>
   </section>
 
-  <section aria-labelledby="core-h">
-    <div class="sec-h"><span class="kicker">Every package</span><h2 id="core-h">What we handle for every owner</h2></div>
-    <ul class="core" id="core"></ul>
-  </section>
-
   <section aria-labelledby="pk-h" id="plans">
     <div class="sec-h"><span class="kicker">Three levels of care</span><h2 id="pk-h">Choose how much you want us to carry</h2></div>
     <div class="tiers" id="tiers"></div>
@@ -355,15 +343,6 @@ var GOALS = [
   { t: "Knowing my home is cared for", d: "Inspections, photos and someone watching it when it's empty.", tier: "special" },
   { t: "Growing my portfolio", d: "Help planning repairs, reviewing deals and looking ahead.", tier: "plus" },
   { t: "Just the numbers", d: "I know what I need. Show me fees and returns.", tier: null }
-];
-/* What every package includes, in the owner's terms. The full list sits behind "Everything every package includes". */
-var CORE = [
-  { t: "Leasing and tenant screening", d: "Marketing, Zillow listings, showings, screening and lease signing." },
-  { t: "Rent collection", d: "Online rent payments, delinquency follow-up and weekly owner distributions." },
-  { t: "Maintenance, day and night", d: "Work orders sent to vendors, with after-hours emergency coverage." },
-  { t: "Statements and 1099s", d: "Your owner portal, monthly statements and your 1099 each year." },
-  { t: "Pet and eviction guarantees", d: "Pet damage covered up to $1,500. Eviction costs covered for tenants we place." },
-  { t: "Compliance and deposits", d: "Security deposits, lease violations, fair housing, HOA and city rules." }
 ];
 /* The comparison, in collapsible groups. Marks: "yes" (included, no extra charge), "no", or a price.
    addon: true tags the item as an add-on; its price sits in the packages that don't include it. */
@@ -508,12 +487,12 @@ function portfolioYear(t, pick) {
 $("goals").innerHTML = GOALS.map(function (g, i) {
   return '<li><button type="button" class="goal lift' + (g.tier ? "" : " numbers") + '" data-goal="' + i + '" aria-pressed="false"><b>' + esc(g.t) + "</b><span>" + esc(g.d) + "</span></button></li>";
 }).join("");
-$("core").innerHTML = CORE.map(function (c) { return '<li class="lift"><b>' + esc(c.t) + "</b><span>" + esc(c.d) + "</span></li>"; }).join("");
+
 
 function renderTiers() {
   var r = exampleRent();
   $("tiers").innerHTML = TIERS.map(function (t, i) {
-    var base = i === 0 ? '<li class="base">Every core service above</li><li class="base">Pet and eviction guarantees</li><li class="base">Add extras only when you need them</li>'
+    var base = i === 0 ? '<li class="base"><span><a href="#compare" class="see-same">Everything every package includes</a>: leasing, rent and owner accounting, maintenance and compliance</span></li><li class="base">Pet and eviction guarantees</li><li class="base">Add extras only when you need them</li>'
       : t.adds.map(function (a) { return "<li>" + esc(a) + "</li>"; }).join("");
     var fr = feeRent(t, r), mo = t.monthlyPct / 100 * fr;
     return '<article class="tier lift' + (t.id === REC ? " rec" : "") + '" id="card-' + t.id + '" aria-labelledby="t-' + t.id + '">' +
@@ -687,6 +666,11 @@ $("tiers").addEventListener("click", function (e) {
   var b = e.target.closest("button.pick"); if (!b) return;
   setTier(b.dataset.tier);
   $("proposal").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+$("tiers").addEventListener("click", function (e) {
+  if (!e.target.closest(".see-same")) return;
+  var b = $("diff").querySelector('.grp-btn[data-g="0"]');
+  if (b && b.getAttribute("aria-expanded") !== "true") b.click();
 });
 $("goals").addEventListener("click", function (e) {
   var b = e.target.closest("button.goal"); if (!b) return;
