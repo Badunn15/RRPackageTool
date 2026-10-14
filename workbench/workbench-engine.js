@@ -261,6 +261,34 @@ function addonCostEach(doc, a, state) {
 
 function addonState(a, tier) { return (a.tiers && a.tiers[tier]) || "off"; }
 
+/*
+ * An add-on sold from a service or cost line and the package checkbox it comes from are one setting. A package that
+ * includes the source shows the add-on as Included (stored as "off", since the source already counts it); Sold and
+ * Off leave the source out of that package. Changing either page changes the other.
+ */
+function linkKind(doc, id) {
+  if (!id) return null;
+  if (doc.place[id] === "scope") return "psk";
+  if (findRow(doc, id) || (typeof doc.place[id] === "string" && doc.place[id].indexOf("cost:") === 0)) return "ck";
+  return null;
+}
+function linkedInTier(doc, a, tier) {
+  var k = linkKind(doc, a.svc), f = k ? activeTemplate(doc)[k][a.svc] : null;
+  return !!(f && f[tier]);
+}
+/* What the Add-ons page shows for an add-on in a package. */
+function addonStateShown(doc, a, tier) { return linkedInTier(doc, a, tier) ? "included" : addonState(a, tier); }
+/* Set an add-on's state in a package from the Add-ons page; for a linked add-on, ticks or unticks its source there too. */
+function setAddonState(doc, a, tier, v) {
+  var k = linkKind(doc, a.svc);
+  if (!k) { a.tiers[tier] = v; return; }
+  var tp = activeTemplate(doc);
+  tp[k][a.svc] = tp[k][a.svc] || { min: false, special: false, plus: false };
+  tp[k][a.svc][tier] = v === "included";
+  syncLinked(doc, tp, k, a.svc, tier);
+  a.tiers[tier] = v === "included" ? "off" : v;
+}
+
 /* % of its pool an add-on covers in a tier: its own share, or for a "rest" row, 100% minus the other active rows' shares. */
 function addonShare(doc, a, tier) {
   var pool = ADDON_POOL[a.basis];
@@ -1077,6 +1105,15 @@ function normalizeDoc(raw) {
   TIERS.forEach(function (t) {
     d.pricing.tiers[t] = Object.assign({}, DEFAULT_PRICING.tiers[t], (P.tiers && P.tiers[t]) || {});
   });
+  // A linked add-on saved as Included means its package includes the source: tick it there. One still Sold in a package
+  // that includes its source is off there, so the owner isn't charged for what the package already gives them.
+  d.addons.forEach(function (a) {
+    if (!a.svc || !a.tiers || !linkKind(d, a.svc)) return;
+    TIERS.forEach(function (t) {
+      if (a.tiers[t] === "included") setAddonState(d, a, t, "included");
+      else if (a.tiers[t] === "charged" && linkedInTier(d, a, t)) a.tiers[t] = "off";
+    });
+  });
   // Add-ons sold from a service or cost line follow its cost. Ones saved before that keep a cost that was changed by hand.
   d.addons.forEach(function (a) {
     if (!a.svc || a.costOwn != null) return;
@@ -1179,5 +1216,5 @@ function validDoc(d) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { seatBaseOf: seatBaseOf, pmShareOf: pmShareOf, cmoFull: cmoFull, copyAddonInto: copyAddonInto, tierOn: tierOn, onTiers: onTiers, woYr: woYr, residentPerDoor: residentPerDoor, residentKeepPct: residentKeepPct, feeBase: feeBase, petRentMo: petRentMo, priceFrame: priceFrame, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, upfrontDiscountPct: upfrontDiscountPct, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { linkKind: linkKind, linkedInTier: linkedInTier, addonStateShown: addonStateShown, setAddonState: setAddonState, seatBaseOf: seatBaseOf, pmShareOf: pmShareOf, cmoFull: cmoFull, copyAddonInto: copyAddonInto, tierOn: tierOn, onTiers: onTiers, woYr: woYr, residentPerDoor: residentPerDoor, residentKeepPct: residentKeepPct, feeBase: feeBase, petRentMo: petRentMo, priceFrame: priceFrame, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, upfrontDiscountPct: upfrontDiscountPct, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }

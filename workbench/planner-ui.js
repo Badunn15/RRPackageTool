@@ -1510,8 +1510,11 @@
       return it ? it.rev - it.cost : null;
     }
     function stateCell(a, t) {
-      return html`<select id=${"at-" + a.id + "-" + t} class=${"state " + a.tiers[t]} aria-label=${a.name + " for " + TIER_SHORT[t]} value=${a.tiers[t]}
-        onChange=${function (e) { var v = e.target.value; edit(a.id, function (x) { x.tiers[t] = v; }, a.name + ": " + TIER_SHORT[t] + " " + LBL[v].toLowerCase()); }}>
+      // A linked add-on's state and its source's package checkbox are one setting (see setAddonState).
+      var shown = addonStateShown(doc, a, t), src = a.svc ? addonSource(doc, a) : null;
+      return html`<select id=${"at-" + a.id + "-" + t} class=${"state " + shown} aria-label=${a.name + " for " + TIER_SHORT[t]} value=${shown}
+        title=${src ? "Linked to \"" + src.name + "\" on " + src.page + ": Included ticks it for " + TIER_SHORT[t] + " there, Sold or Off unticks it" : ""}
+        onChange=${function (e) { var v = e.target.value; update(function (d) { var x = d.addons.find(function (y) { return y.id === a.id; }); if (x) setAddonState(d, x, t, v); }, a.name + ": " + TIER_SHORT[t] + " " + LBL[v].toLowerCase()); }}>
         ${ADDON_STATES.map(function (s) { return html`<option key=${s} value=${s}>${LBL[s]}</option>`; })}
       </select>`;
     }
