@@ -169,11 +169,6 @@
   .presets{ display:flex; flex-wrap:wrap; gap:8px; }
   .presets .btn{ font-size:13px; padding:6px 11px; }
   .hint{ margin:0; font-size:13.5px; color:var(--ink-2); }
-  .banner{ margin:0; padding:11px 13px; border-radius:10px; font-size:13.5px; display:flex; flex-direction:column; gap:3px; }
-  .banner b{ font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
-  .banner.on{ background:var(--good-bg); color:var(--good); }
-  .banner.off{ background:var(--gold-tint); color:var(--ink); border:1px solid var(--gold-line); }
-  .banner.off b{ color:var(--gold); }
   .meter{ display:flex; gap:4px; margin-top:4px; }
   .meter i{ flex:1; height:6px; border-radius:3px; background:var(--rule); }
   .meter i.f{ background:var(--gold); }
@@ -208,9 +203,7 @@
   .fq > div > span{ font-size:12.5px; color:var(--ink-3); }
   .fq .due{ background:var(--accent-tint); border-color:transparent; }
   .fq .due dd{ color:var(--accent-ink); }
-  .save{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; padding:11px 13px; border-radius:10px; background:var(--good-bg); color:var(--good); font-size:13.5px; }
-  .save[hidden], .term[hidden]{ display:none; }
-  .save strong{ font-family:var(--font-data); }
+  .term[hidden]{ display:none; }
   .ret{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); background:var(--panel); border:1px solid var(--rule); border-radius:14px; overflow:hidden; }
   .ret-a{ padding:20px; display:flex; flex-direction:column; gap:16px; background:var(--panel-2); border-right:1px solid var(--rule-soft); min-width:0; }
   .ret-b{ padding:20px; min-width:0; }
@@ -246,7 +239,20 @@
   .prop-out b{ font-family:var(--font-data); color:var(--ink); }
   .prop-out .cf b.pos{ color:var(--good); } .prop-out .cf b.neg{ color:var(--bad); }
   .add-prop{ align-self:flex-start; }
-  .calc-out .banner{ margin-top:2px; }
+  .discs{ display:flex; flex-direction:column; gap:8px; }
+  .disc{ background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; transition:border-color .15s ease; }
+  .disc:hover{ border-color:var(--sky); }
+  .disc > summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13.5px; font-weight:600; }
+  .disc > summary::-webkit-details-marker{ display:none; }
+  .disc > summary::before{ content:"\25B6"; font-size:10px; color:var(--ink-3); transition:transform .15s ease; }
+  .disc[open] > summary::before{ transform:rotate(90deg); }
+  .disc-t{ flex:1; min-width:0; }
+  .chip{ font-size:12px; font-weight:600; border-radius:999px; padding:2px 10px; white-space:nowrap; }
+  .chip.on{ background:var(--good-bg); color:var(--good); }
+  .chip.off{ background:var(--gold-tint); color:var(--gold); }
+  .disc-b{ padding:0 12px 12px 32px; font-size:13.5px; color:var(--ink-2); display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
+  .disc-b strong{ font-family:var(--font-data); color:var(--good); }
+  .disc-b p{ margin:0; }
   .term{ display:flex; flex-direction:column; gap:8px; }
   .term-h{ font-size:13px; font-weight:600; color:var(--ink-2); }
   table.cmp{ width:100%; border-collapse:collapse; font-size:13px; background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; overflow:hidden; }
@@ -328,12 +334,14 @@
             <div><dt><i style="background:var(--sky)"></i>Renewal fee</dt><dd id="fq-renew">$0</dd><span id="fq-renew-s"></span></div>
             <div class="due"><dt>Due when a new lease is signed</dt><dd id="fq-sign">$0</dd><span>Leasing fee plus the first month</span></div>
           </dl>
-          <div class="save" id="save" hidden></div>
           <div class="term" id="fee-all-wrap" hidden>
             <div class="term-h">All your properties, per door</div>
             <div class="table-wrap"><table class="cmp" id="fee-all"></table></div>
           </div>
-          <div class="banner" id="banner"></div>
+          <div class="discs">
+            <details class="disc" id="d-up"><summary><span class="disc-t">Up-front payment discount</span><span class="chip" id="up-chip"></span></summary><div class="disc-b" id="up-body"></div></details>
+            <details class="disc" id="d-port"><summary><span class="disc-t">Portfolio discount</span><span class="chip" id="port-chip"></span></summary><div class="disc-b" id="port-body"></div></details>
+          </div>
         </div>
       </div>
     </div>
@@ -688,10 +696,11 @@ function render() {
   // The portfolio discount: earned at 5 doors, and shown to everyone as something to grow into.
   var need = PORTFOLIO.doors - doors, meter = "";
   for (var m = 0; m < PORTFOLIO.doors; m++) meter += '<i class="' + (m < doors ? "f" : "") + '"></i>';
-  $("banner").className = "banner " + (on ? "on" : "off");
-  $("banner").innerHTML = on
-    ? "<b>Portfolio discount on</b><span>" + doors + " doors. " + (state.pick > 0 ? "Every door's monthly fee is " + PORTFOLIO.pct + "% lower." : "Your up-front discount is " + (DISCOUNT.steps[0].pct + PORTFOLIO.pct) + "% instead of " + DISCOUNT.steps[0].pct + "%.") + " That saves you " + money(y.portSaved) + " a year.</span>"
-    : "<b>Portfolio discount</b><span>" + doors + " of " + PORTFOLIO.doors + " doors. Add " + need + " more " + (need === 1 ? "door" : "doors") + " and every door's monthly fee drops " + PORTFOLIO.pct + "%.</span><span class=\"meter\" aria-hidden=\"true\">" + meter + "</span>";
+  $("port-chip").className = "chip " + (on ? "on" : "off");
+  $("port-chip").textContent = on ? "On, " + doors + " doors" : doors + " of " + PORTFOLIO.doors + " doors";
+  $("port-body").innerHTML = on
+    ? "<p>" + PORTFOLIO.pct + "% off for owners with " + PORTFOLIO.doors + " or more doors. " + (state.pick > 0 ? "Every door's monthly fee is " + PORTFOLIO.pct + "% lower." : "Paying up front, it adds " + PORTFOLIO.pct + "% to your up-front discount.") + " That saves you <strong>" + money(y.portSaved) + "</strong> a year.</p>"
+    : "<p>Own " + PORTFOLIO.doors + " or more doors and every door's monthly fee drops " + PORTFOLIO.pct + "%. Add " + need + " more " + (need === 1 ? "door" : "doors") + " to get it.</p><span class=\"meter\" style=\"width:100%\" aria-hidden=\"true\">" + meter + "</span>";
 
   // Step 2: the fees this mix gives, per door, for the first property.
   var p0 = y.rows[0], q = p0.q, name0 = state.props[0].name || "Property 1";
@@ -703,10 +712,12 @@ function render() {
   $("fq-renew").innerHTML = money(q.renewal) + (q.disc ? "<s>" + money(q.renewalFull) + "</s>" : "");
   $("fq-renew-s").textContent = "Only if your tenant renews";
   $("fq-sign").textContent = money(q.lease + q.monthly);
-  var sv = $("save");
-  sv.hidden = !(q.disc > 0);
-  if (q.disc > 0) sv.innerHTML = "<span>" + q.disc + "% off" + (on ? ": " + DISCOUNT.steps[0].pct + "% for paying up front, plus " + PORTFOLIO.pct + "% portfolio discount" : " for paying up front") + ". You save <strong>" + money(q.leaseFull - q.lease) +
-    "</strong> on the leasing fee, and <strong>" + money(q.renewalFull - q.renewal) + "</strong> on a renewal when you pay that term up front again.</span>";
+  var upOn = q.disc > 0, upPct = DISCOUNT.steps[0].pct;
+  $("up-chip").className = "chip " + (upOn ? "on" : "off");
+  $("up-chip").textContent = upOn ? upPct + "% off applied" : upPct + "% off available";
+  $("up-body").innerHTML = upOn
+    ? "<p>You pay each lease term in full up front, so " + upPct + "% comes off the leasing and renewal fees" + (on ? ", plus " + PORTFOLIO.pct + "% for your portfolio" : "") + ". That's <strong>" + money((q.leaseFull - q.lease) * (on ? upPct / q.disc : 1)) + "</strong> off each leasing fee, about <strong>" + money(y.upSaved) + "</strong> a year averaged over a tenancy. The renewal discount applies when you pay that term up front again.</p>"
+    : "<p>Pay each lease term in full up front instead of a monthly fee and get " + upPct + "% off the leasing and renewal fees" + (on ? " (" + (upPct + PORTFOLIO.pct) + "% with your portfolio discount)" : "") + ".</p><button type=\"button\" class=\"btn\" data-pick=\"0\">Pay it all up front</button>";
   $("fee-all-wrap").hidden = state.props.length < 2;
   if (state.props.length > 1) $("fee-all").innerHTML = '<thead><tr><th scope="col">Property</th><th scope="col">Rent / door</th><th scope="col">Monthly</th><th scope="col">Leasing</th><th scope="col">Renewal</th></tr></thead><tbody>' +
     y.rows.map(function (pr, i) {
@@ -754,8 +765,10 @@ function render() {
 }
 
 $("tier-seg").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) setTier(b.dataset.tier); });
-$("pick").addEventListener("input", function () { setPick(parseFloat(this.value)); });
+// The slider moves in 0.05% steps, and the point where the leasing fee hits $0 rarely lands on one: the last step snaps to it.
+$("pick").addEventListener("input", function () { var v = parseFloat(this.value), max = parseFloat(this.max); setPick(v > max - 0.05 ? max : v); });
 $("presets").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) setPick(parseFloat(b.dataset.pick)); });
+$("up-body").addEventListener("click", function (e) { var b = e.target.closest("[data-pick]"); if (b) setPick(parseFloat(b.dataset.pick)); });
 $("tiers").addEventListener("click", function (e) {
   var b = e.target.closest("button.pick"); if (!b) return;
   setTier(b.dataset.tier);
