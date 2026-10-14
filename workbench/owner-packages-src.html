@@ -82,7 +82,19 @@
   .goal b{ font-size:15px; }
   .goal span{ font-size:13.5px; color:var(--ink-2); }
   .goal[aria-pressed="true"]{ border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); background:var(--accent-tint); }
-  .goal.numbers b{ color:var(--gold); }
+  .quiz{ background:var(--panel); border:1px solid var(--rule); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:12px; }
+  .quiz-top{ display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--ink-3); font-weight:600; }
+  .quiz-bar{ height:6px; border-radius:3px; background:var(--rule-soft); overflow:hidden; }
+  .quiz-bar i{ display:block; height:100%; background:var(--gold-line); transition:width .25s ease; }
+  .quiz-q{ margin:4px 0 2px; font-family:var(--font-display); font-weight:600; font-size:21px; }
+  .quiz .goal{ min-height:64px; justify-content:center; }
+  .quiz-result{ display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
+  .quiz-result h3{ margin:0; font-family:var(--font-display); font-weight:600; font-size:26px; }
+  .quiz-result .promise{ margin:-4px 0 0; color:var(--accent-ink); font-weight:600; }
+  .quiz-result ul{ margin:4px 0; padding-left:18px; color:var(--ink-2); display:flex; flex-direction:column; gap:4px; }
+  .quiz-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin-top:4px; }
+  .link{ border:none; background:none; padding:0; cursor:pointer; color:var(--accent-ink); font-weight:600; font-size:13.5px; }
+  .link:hover{ text-decoration:underline; }
 
   /* plan cards */
   .tiers{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; }
@@ -305,9 +317,9 @@
 
 <main class="wrap">
   <section aria-labelledby="goal-h">
-    <div class="sec-h"><span class="kicker">Start with the problem</span><h2 id="goal-h">What do you want us to solve?</h2>
-      <p class="lead">Pick the one that sounds most like you. We'll point you to the package built around it.</p></div>
-    <ul class="goals" id="goals"></ul>
+    <div class="sec-h"><span class="kicker">Help me choose</span><h2 id="goal-h">Take a 1-minute quiz</h2>
+      <p class="lead">Four quick questions, then we'll point you to the package built around your answers.</p></div>
+    <div class="quiz" id="quiz" aria-live="polite"></div>
   </section>
 
   <section aria-labelledby="pk-h" id="plans">
@@ -425,12 +437,28 @@ var VACANT_FEE = 99, ACCOUNTING = 125;
 /* The proposal forecasts one 12-month year. The optional long view runs this many years: a new tenant, then renewals. */
 var FORECAST_YEARS = 4;
 
-/* What the owner wants solved, and the package built around it. "numbers" jumps to the proposal. */
-var GOALS = [
-  { t: "Accidental landlord", d: "I didn't plan to be a landlord. I want it handled.", tier: "min" },
-  { t: "Knowing my home is cared for", d: "Inspections, photos and someone watching it when it's empty.", tier: "special" },
-  { t: "Growing my portfolio", d: "Help planning repairs, reviewing deals and looking ahead.", tier: "plus" }
+/* The "Help me choose" quiz. Each answer adds points to packages (p) and gives a reason (why) the result can quote.
+   The package with the most points is built for them; a tie goes to Special, where most owners land.
+   A placeholder set: mostly-Minimum answers land on Minimum, mostly-Plus on Plus, anything mixed on Special. */
+var QUIZ = [
+  { q: "How did you end up with this rental?", a: [
+    { t: "I moved or inherited it. I didn't plan on being a landlord.", p: { special: 2 }, why: "You didn't plan on being a landlord, so you want it looked after." },
+    { t: "I bought it as an investment", p: { min: 2 }, why: "You bought it as an investment and know what you need." },
+    { t: "I'm building a portfolio", p: { plus: 2 }, why: "You're building a portfolio and want help planning ahead." } ] },
+  { q: "How involved do you want to be?", a: [
+    { t: "I want to approve most decisions", p: { min: 2 }, why: "You'd like to approve most decisions yourself." },
+    { t: "Check in now and then", p: { special: 2 }, why: "You want to check in now and then, not run it day to day." },
+    { t: "Hand it off completely", p: { plus: 2 }, why: "You want to hand it off completely." } ] },
+  { q: "What worries you most?", a: [
+    { t: "The monthly cost", p: { min: 2 }, why: "Keeping the monthly fee low matters most to you." },
+    { t: "Surprise bills and the home's condition", p: { special: 2 }, why: "You want fewer surprise bills and a regular look at the home." },
+    { t: "Big repairs and long-term value", p: { plus: 2 }, why: "You're thinking about big repairs and long-term value." } ] },
+  { q: "How many doors do you own, or plan to in the next 3 years?", a: [
+    { t: "1", p: { min: 1, special: 1 }, why: "" },
+    { t: "2 to 4", p: { special: 2 }, why: "With a few doors, fewer per-work-order fees add up." },
+    { t: "5 or more", p: { plus: 2 }, why: "At 5 or more doors you'd also get our portfolio discount." } ] }
 ];
+var quiz = { i: 0, picks: [] };
 /* The comparison: one row per item, each package either "yes" (included), "no", or a price.
    The package cards are built from these rows too: card is how a package lists the item once it's included,
    sep is how a fee reads under "What's separate?", and addon marks something an owner can add for its price. */
@@ -569,9 +597,38 @@ function portfolioYear(t, pick, kind) {
 }
 
 /* ---------- static sections ---------- */
-$("goals").innerHTML = GOALS.map(function (g, i) {
-  return '<li><button type="button" class="goal lift' + (g.tier ? "" : " numbers") + '" data-goal="' + i + '" aria-pressed="false"><b>' + esc(g.t) + "</b></button></li>";
-}).join("");
+/* ---------- quiz ---------- */
+function quizResult() {
+  var pts = { min: 0, special: 0, plus: 0 };
+  quiz.picks.forEach(function (ai, qi) { var p = QUIZ[qi].a[ai].p; Object.keys(p).forEach(function (k) { pts[k] += p[k]; }); });
+  var top = Math.max(pts.min, pts.special, pts.plus);
+  var win = pts.special === top || (pts.min === top && pts.plus === top) ? "special" : pts.min === top ? "min" : "plus";
+  // Reasons: the answers that pointed most toward the winner.
+  var why = quiz.picks.map(function (ai, qi) { return QUIZ[qi].a[ai]; })
+    .filter(function (a) { return a.why && (a.p[win] || 0) >= 2; }).map(function (a) { return a.why; }).slice(0, 2);
+  return { tier: win, why: why };
+}
+function renderQuiz() {
+  var el = $("quiz"), n = QUIZ.length;
+  if (quiz.i < n) {
+    var q = QUIZ[quiz.i];
+    el.innerHTML = '<div class="quiz-top"><span>Question ' + (quiz.i + 1) + " of " + n + "</span>" +
+      (quiz.i ? '<button type="button" class="link quiz-back">&larr; Back</button>' : "") + "</div>" +
+      '<div class="quiz-bar" aria-hidden="true"><i style="width:' + (quiz.i / n * 100) + '%"></i></div>' +
+      '<h3 class="quiz-q">' + esc(q.q) + "</h3>" +
+      '<ul class="goals">' + q.a.map(function (a, ai) {
+        return '<li><button type="button" class="goal lift" data-opt="' + ai + '"><b>' + esc(a.t) + "</b></button></li>";
+      }).join("") + "</ul>";
+    return;
+  }
+  var r = quizResult(), t = tierById(r.tier);
+  el.innerHTML = '<div class="quiz-result"><span class="kicker">Built for you</span><h3>' + esc(t.name) + '</h3><p class="promise">' + esc(t.promise) + "</p>" +
+    (r.why.length ? "<ul>" + r.why.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + "</ul>" : "") +
+    '<div class="quiz-actions"><button type="button" class="btn solid quiz-see">See ' + esc(t.short) + " &darr;</button>" +
+    '<button type="button" class="link quiz-again">Retake the quiz</button></div></div>';
+}
+renderQuiz();
+
 
 
 /* What a package includes beyond the one below it: table rows it has as "yes" that the package below doesn't. */
@@ -834,14 +891,16 @@ $("tiers").addEventListener("click", function (e) {
   setTier(b.dataset.tier);
   $("proposal").scrollIntoView({ behavior: "smooth", block: "start" });
 });
-$("goals").addEventListener("click", function (e) {
-  var b = e.target.closest("button.goal"); if (!b) return;
-  var g = GOALS[+b.dataset.goal];
-  Array.prototype.forEach.call($("goals").querySelectorAll(".goal"), function (x) { x.setAttribute("aria-pressed", String(x === b)); });
-  if (!g.tier) { $("proposal").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
-  REC = g.tier; setTier(g.tier);
-  BADGE = "Built for you"; renderTiers();
-  $("plans").scrollIntoView({ behavior: "smooth", block: "start" });
+$("quiz").addEventListener("click", function (e) {
+  var o = e.target.closest("[data-opt]");
+  if (o) {
+    quiz.picks[quiz.i] = +o.dataset.opt; quiz.i++;
+    if (quiz.i >= QUIZ.length) { var r = quizResult(); REC = r.tier; BADGE = "Built for you"; setTier(r.tier); }
+    renderQuiz(); return;
+  }
+  if (e.target.closest(".quiz-back")) { quiz.i = Math.max(0, quiz.i - 1); quiz.picks.length = quiz.i; renderQuiz(); return; }
+  if (e.target.closest(".quiz-again")) { quiz = { i: 0, picks: [] }; REC = "special"; BADGE = "Most owners"; renderTiers(); renderQuiz(); return; }
+  if (e.target.closest(".quiz-see")) $("card-" + REC).scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
 renderProps();
