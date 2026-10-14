@@ -193,7 +193,7 @@
   .ledger tr.total td{ font-weight:700; border-bottom:none; }
   .ledger td.save{ color:var(--good); }
 
-  .props{ display:flex; flex-direction:column; gap:12px; margin-top:14px; }
+  .props{ display:flex; flex-direction:column; gap:12px; }
   .prop{ background:var(--panel); border:1px solid var(--rule); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:14px; }
   .prop-h{ display:flex; align-items:center; gap:10px; }
   .prop-h .num{ flex:0 0 auto; width:26px; height:26px; border-radius:50%; background:var(--accent-tint); color:var(--accent-ink); font-weight:700; font-size:13px; display:grid; place-items:center; }
@@ -202,7 +202,7 @@
   .prop-h input:focus{ border-color:var(--accent); outline:none; box-shadow:0 0 0 3px var(--accent-tint); }
   .rm{ border:none; background:none; color:var(--ink-3); font-size:13px; cursor:pointer; padding:6px 8px; border-radius:7px; }
   .rm:hover{ color:var(--bad); background:var(--bad-bg); }
-  .inputs{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; }
+  .inputs{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
   @media (max-width:980px){ .inputs{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
   @media (max-width:560px){ .inputs{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
   .inputs .field > label{ font-size:12.5px; }
@@ -268,8 +268,10 @@
 
   <section aria-labelledby="pr-h" id="proposal">
     <div class="sec-h"><span class="kicker">Your proposal</span><h2 id="pr-h">Build out your properties</h2>
-      <p class="lead">Add each property with its rent and costs. You'll see your fees, your yearly cash flow and your return. Own 5 or more doors and every door's monthly fee drops 5%.</p></div>
-    <div class="calc">
+      <p class="lead">Add each property with its rent and costs. You'll see your fees and your yearly cash flow. Own 5 or more doors and every door's monthly fee drops 5%.</p></div>
+    <div class="props" id="props"></div>
+    <button type="button" class="btn add-prop" id="add-prop" style="margin-top:12px">+ Add a property</button>
+    <div class="calc" style="margin-top:20px">
       <div class="calc-in">
         <div class="field"><span id="tier-lab">Package</span><div class="seg" role="group" aria-labelledby="tier-lab" id="tier-seg"></div></div>
         <div class="field">
@@ -285,7 +287,7 @@
         <dl class="big">
           <div><dt>Yearly cash flow</dt><dd id="s-cf">$0</dd></div>
           <div><dt>Per month</dt><dd id="s-cfm">$0</dd></div>
-          <div><dt>Cash-on-cash return</dt><dd id="s-coc">—</dd></div>
+          <div><dt>Our fees per year</dt><dd id="s-fees">$0</dd></div>
         </dl>
         <div class="term">
           <div class="term-h" id="ledger-h">A typical year</div>
@@ -298,8 +300,6 @@
         </div>
       </div>
     </div>
-    <div class="props" id="props"></div>
-    <button type="button" class="btn add-prop" id="add-prop" style="margin-top:12px">+ Add a property</button>
     <p class="fine" style="margin-top:14px">Estimates to help you plan, not a quote and not financial or tax advice. A typical year averages a <span id="ten-yrs">4</span>-year tenancy: one new-tenant year, then renewals. The monthly fee is charged on rent collected, so vacancy lowers it; months the home sits empty carry the $99 fee while vacant. Repairs and CapEx are set aside as a share of rent. Maintenance coordination fees, add-ons and the cost of repairs themselves depend on what happens and aren't included beyond your repairs estimate.</p>
   </section>
 </main>
@@ -389,7 +389,7 @@ var COMPARE = [
   ]}
 ];
 /* A new property's starting numbers. Vacancy, repairs and CapEx are typical planning figures the owner can change. */
-var NEW_PROP = { name: "", doors: 1, rent: 1500, piti: 900, other: 0, vac: 5, rep: 5, capex: 5, cash: 0 };
+var NEW_PROP = { name: "", doors: 1, rent: 1500, piti: 900, other: 0, vac: 5, rep: 5, capex: 5 };
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -466,7 +466,7 @@ function propYear(p, t, pick, portfolio) {
   var cf = collected - mgmt - debt - other - rep - capex;
   return { doors: doors, perDoor: perDoor, fr: fr, q: q, gross: gross, vacLoss: gross - collected, collected: collected,
     monthlyFees: monthlyFees, leasing: leasing, vacant: vacant, mgmt: mgmt, saved: saved,
-    debt: debt, other: other, rep: rep, capex: capex, cf: cf, coc: p.cash > 0 ? cf / p.cash * 100 : null };
+    debt: debt, other: other, rep: rep, capex: capex, cf: cf };
 }
 function portfolioYear(t, pick) {
   var on = totalDoors() >= PORTFOLIO.doors;
@@ -478,8 +478,6 @@ function portfolioYear(t, pick) {
   // Minimum bills annual accounting once a year per entity; the proposal assumes one entity.
   sum.accounting = t.id === "min" ? ACCOUNTING : 0;
   sum.mgmt += sum.accounting; sum.cf -= sum.accounting;
-  sum.cash = state.props.reduce(function (s, p) { return s + (p.cash > 0 ? p.cash : 0); }, 0);
-  sum.coc = sum.cash > 0 ? sum.cf / sum.cash * 100 : null;
   return sum;
 }
 
@@ -537,7 +535,6 @@ var FIELDS = [
   { k: "rent", l: "Monthly rent", s: "all doors", pre: "$" },
   { k: "piti", l: "PITI", s: "mortgage, taxes, insurance /mo", pre: "$" },
   { k: "other", l: "HOA and other", s: "per month", pre: "$" },
-  { k: "cash", l: "Cash invested", s: "optional", pre: "$" },
   { k: "vac", l: "Vacancy", s: "% of the year", post: "%" },
   { k: "rep", l: "Repairs", s: "% of rent", post: "%" },
   { k: "capex", l: "CapEx", s: "% of rent", post: "%" }
@@ -623,7 +620,7 @@ function render() {
   function signed(n) { return '<span class="' + (n >= 0 ? "pos" : "neg") + '">' + money(n) + "</span>"; }
   $("s-cf").innerHTML = signed(y.cf);
   $("s-cfm").innerHTML = signed(y.cf / 12);
-  $("s-coc").innerHTML = y.coc == null ? '<small>Add cash invested</small>' : '<span class="' + (y.coc >= 0 ? "pos" : "neg") + '">' + pct(y.coc, 1) + "</span>";
+  $("s-fees").textContent = money(y.mgmt);
 
   $("ledger-h").textContent = "A typical year, " + state.props.length + (state.props.length === 1 ? " property" : " properties") + ", " + doors + (doors === 1 ? " door" : " doors") + ", " + t.name;
   function row(label, v, note, cls) { return '<tr class="' + (cls || "") + '"><td>' + label + (note ? '<span class="note">' + note + "</span>" : "") + "</td><td>" + (typeof v === "string" ? v : money(v)) + "</td></tr>"; }
@@ -652,8 +649,7 @@ function render() {
   y.rows.forEach(function (pr, i) {
     var q = pr.q, el = $("out-" + i); if (!el) return;
     el.innerHTML = "<span>Per door: <b>" + money(q.monthly) + "/mo</b>" + (pr.fr > pr.perDoor && pr.perDoor > 0 ? " (on the " + money(pr.fr) + " minimum)" : "") + ", leasing <b>" + money(q.lease) + "</b>, renewal <b>" + money(q.renewal) + "</b></span>" +
-      '<span class="cf">Cash flow <b class="' + (pr.cf >= 0 ? "pos" : "neg") + '">' + money(pr.cf) + "/yr</b> (" + money(pr.cf / 12) + "/mo)</span>" +
-      (pr.coc != null ? '<span>Cash-on-cash <b class="' + (pr.coc >= 0 ? "pos" : "neg") + '">' + pct(pr.coc, 1) + "</b></span>" : "");
+      '<span class="cf">Cash flow <b class="' + (pr.cf >= 0 ? "pos" : "neg") + '">' + money(pr.cf) + "/yr</b> (" + money(pr.cf / 12) + "/mo)</span>";
   });
   renderTiers();
   save();
