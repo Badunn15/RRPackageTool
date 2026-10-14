@@ -330,7 +330,7 @@
 <main class="wrap">
   <section aria-labelledby="goal-h">
     <div class="sec-h"><span class="kicker">Help me choose</span><h2 id="goal-h">Find your package in 2 minutes</h2>
-      <p class="lead">Ten quick questions about you, your home and how you like to work. We'll point you to the package built around your answers.</p></div>
+      <p class="lead">Ten quick questions about you, your home and your plans. We'll point you to the package built around your answers.</p></div>
     <div class="quiz" id="quiz" aria-live="polite"></div>
   </section>
 
@@ -451,53 +451,54 @@ var VACANT_FEE = 99, ACCOUNTING = 125;
 /* The proposal forecasts one 12-month year. The optional long view runs this many years: a new tenant, then renewals. */
 var FORECAST_YEARS = 4;
 
-/* The "Help me choose" quiz: ten questions, each on a different thing that separates the packages.
-   Each answer adds points (p) to the package it fits: 2 for a clear fit, 1 each when it sits between two.
-   why is how the result quotes the answer back. The most points wins; a tie goes to Special, where most owners land.
-   Minimum: hands-on owners who want the lowest monthly fee and pay per service.
-   Special: owners who want the home looked after (inspections, vacancy care, fewer fees, the leasing guarantee).
-   Plus: owners who want planning, older homes, growing or reorganizing portfolios, and nearly everything included. */
+/* The "Help me choose" quiz: ten questions about the owner, the home and their plans, not about package features,
+   so no answer reads like a sales line for one package. Each answer adds points (p): 2 for a clear fit, 1 each when it
+   sits between two. why is how the result quotes the answer back. The most points wins; a tie goes to Special.
+   Leaning Minimum: newer, updated homes and owners who run it lean for monthly income.
+   Leaning Special: accidental landlords and owners who want the home and their investment protected.
+   Leaning Plus: older homes, growing or reorganizing portfolios, and owners planning for the long term. */
 var QUIZ = [
   { q: "Which sounds most like you?", a: [
     { t: "I've owned rentals before and know the drill", p: { min: 2 }, why: "You've owned rentals before and know what you need." },
     { t: "I didn't plan on being a landlord. I moved, inherited it or couldn't sell", p: { special: 2 }, why: "You didn't plan on being a landlord, so you want it looked after." },
     { t: "I'm building a portfolio on purpose", p: { plus: 2 }, why: "You're building a portfolio on purpose." } ] },
-  { q: "How close do you live to the property?", a: [
-    { t: "Close enough to stop by", p: { min: 2 }, why: "You live close enough to keep an eye on it yourself." },
-    { t: "A long drive or another state", p: { special: 2 }, why: "You live far enough away that you need eyes on the home." },
-    { t: "It doesn't matter. I won't be visiting.", p: { special: 1, plus: 1 }, why: "" } ] },
+  { q: "What's your plan for this property over the next 5 years?", a: [
+    { t: "Keep it rented, as is", p: { min: 2 }, why: "You plan to keep it rented as is." },
+    { t: "Keep it and add more rentals", p: { plus: 2 }, why: "You plan to add more rentals." },
+    { t: "Probably sell at some point", p: { special: 1, plus: 1 }, why: "" },
+    { t: "Honestly, not sure yet", p: { special: 2 }, why: "You're still deciding what to do with it long term." } ] },
   { q: "How old is the home?", a: [
     { t: "Built in the last 15 years", p: { min: 2 }, why: "The home is newer, so fewer big repairs are coming." },
-    { t: "15 to 40 years old", p: { special: 2 }, why: "The home is old enough that a yearly inspection pays off." },
-    { t: "Over 40, or the roof and HVAC are getting up there", p: { plus: 2 }, why: "The home is older, so planning for big repairs matters." } ] },
-  { q: "When something breaks, what do you want from us?", a: [
-    { t: "Send me the details. I'll approve each repair.", p: { min: 2 }, why: "You want to approve each repair yourself." },
-    { t: "Handle the routine fixes. Call me on the big ones.", p: { special: 2 }, why: "You want routine repairs handled without a call every time." },
-    { t: "Handle it and keep me posted", p: { plus: 2 }, why: "You want repairs handled and a report afterward." } ] },
-  { q: "How do you feel about paying for services one at a time?", a: [
-    { t: "Fine, if it keeps the monthly fee low", p: { min: 2 }, why: "You'd rather pay per service and keep the monthly fee low." },
-    { t: "I'd rather most things be included", p: { special: 2 }, why: "You'd rather most things be included." },
-    { t: "I want nearly everything included", p: { plus: 2 }, why: "You want nearly everything included in one fee." } ] },
-  { q: "Which surprise would bother you most?", a: [
-    { t: "A higher monthly bill", p: { min: 2 }, why: "Keeping your monthly cost down matters most." },
-    { t: "Finding damage at move-out I didn't know about", p: { special: 2 }, why: "You want to catch problems before move-out, not after." },
-    { t: "A big repair I didn't budget for", p: { plus: 2 }, why: "You want big repairs planned and budgeted ahead of time." } ] },
-  { q: "When the home is empty between tenants, what matters most?", a: [
-    { t: "Just get it rented. I'll handle the rest.", p: { min: 2 }, why: "Between tenants, you'll take care of the home yourself." },
-    { t: "Someone checking on it and handling the utilities", p: { special: 2 }, why: "You want someone checking on the home while it's empty." },
-    { t: "Listing it before the tenant moves out", p: { plus: 2 }, why: "You want it listed before the current tenant moves out." } ] },
+    { t: "15 to 40 years old", p: { special: 2 }, why: "The home is old enough that regular check-ins pay off." },
+    { t: "Over 40", p: { plus: 2 }, why: "The home is older, so planning for big repairs matters." } ] },
+  { q: "How would you describe its condition today?", a: [
+    { t: "Recently updated", p: { min: 2 }, why: "The home was recently updated." },
+    { t: "Good, with a short to-do list", p: { special: 2 }, why: "The home is in good shape with a few things on the list." },
+    { t: "Some big items are coming up (roof, HVAC, water heater)", p: { plus: 2 }, why: "Big items like the roof or HVAC are coming up." } ] },
+  { q: "What does this rental mean for you financially?", a: [
+    { t: "Extra income each month", p: { min: 2 }, why: "You mainly want steady monthly income from it." },
+    { t: "A long-term investment I want protected", p: { special: 2 }, why: "It's a long-term investment you want protected." },
+    { t: "Part of a bigger plan to build wealth", p: { plus: 2 }, why: "It's part of a bigger plan to build wealth." } ] },
+  { q: "How do you like to handle home expenses?", a: [
+    { t: "Keep it lean and deal with things as they come", p: { min: 2 }, why: "You like to keep expenses lean." },
+    { t: "Steady, predictable costs", p: { special: 2 }, why: "You like steady, predictable costs." },
+    { t: "Set money aside for big projects ahead of time", p: { plus: 2 }, why: "You like to budget ahead for big projects." } ] },
+  { q: "What worries you most about renting it out?", a: [
+    { t: "How long it takes to get it rented", p: { min: 2 }, why: "Getting it rented quickly matters most to you." },
+    { t: "The home being damaged or neglected", p: { special: 2 }, why: "You worry about the home being damaged or neglected." },
+    { t: "Making the wrong long-term call with it", p: { plus: 2 }, why: "You want to make the right long-term calls with it." } ] },
+  { q: "What do you most want to see in your monthly statement?", a: [
+    { t: "Rent in, bills paid, money out", p: { min: 2 }, why: "You want a simple picture: rent in, bills paid, money out." },
+    { t: "A clear picture of the home's condition", p: { special: 2 }, why: "You want a clear picture of the home's condition." },
+    { t: "Numbers I can plan my next move with", p: { plus: 2 }, why: "You want numbers you can plan your next move with." } ] },
   { q: "How many rental doors do you expect to own in 3 years?", a: [
     { t: "Just this one", p: { min: 1, special: 1 }, why: "" },
     { t: "2 to 4", p: { special: 2 }, why: "With a few doors, included coordination adds up." },
     { t: "5 or more", p: { plus: 2 }, why: "At 5 or more doors you'd also get our portfolio discount." } ] },
-  { q: "How is the property owned, or will it be?", a: [
-    { t: "In my own name, and that won't change", p: { min: 1, special: 1 }, why: "" },
-    { t: "In an LLC or trust, or I plan to move it into one", p: { plus: 2 }, why: "Ownership changes like an LLC or trust are included." },
-    { t: "I might sell in the next few years", p: { plus: 2 }, why: "If you sell with an outside agent, listing assistance is included." } ] },
-  { q: "What would help you most this year?", a: [
-    { t: "The lowest cost to run it", p: { min: 2 }, why: "Your top goal this year is the lowest cost to run it." },
-    { t: "Peace of mind that it's cared for", p: { special: 2 }, why: "Your top goal this year is peace of mind." },
-    { t: "A plan: repair budget, CapEx and when to buy or sell", p: { plus: 2 }, why: "Your top goal this year is a long-term plan." } ] }
+  { q: "Whose name is the property in?", a: [
+    { t: "Mine", p: { min: 2 }, why: "" },
+    { t: "An LLC or trust, or I plan to move it into one", p: { plus: 2 }, why: "Ownership changes like an LLC or trust are included." },
+    { t: "Still sorting it out (an estate, divorce or family transfer)", p: { plus: 2 }, why: "Ownership changes are included while you sort it out." } ] }
 ];
 var quiz = { i: 0, picks: [] };
 /* The comparison: one row per item, each package either "yes" (included), "no", or a price.
