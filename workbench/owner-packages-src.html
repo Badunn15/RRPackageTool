@@ -436,7 +436,7 @@ var GOALS = [
 /* The comparison: one row per item, each package either "yes" (included), "no", or a price.
    The package cards are built from these rows too: card is how a package lists the item once it's included,
    sep is how a fee reads under "What's separate?", and addon marks something an owner can add for its price. */
-/* Where "Contact us" buttons go. Placeholder until the contact form exists: set it to the form's link. */
+/* Where "Book a call" buttons go. Placeholder until the contact form exists: set it to the form's link. */
 var CONTACT_URL = "#contact";
 var VACANCY_CARE = "Vacancy care: checks, camera monitoring, utilities and setup";
 var OWNER_PLANNING = "Owner planning: portfolio review, deal analysis, budget and CapEx planning, property report";
@@ -469,7 +469,7 @@ var COMPARE = [
   { n: "Keyless access", note: "One-time setup", addon: true, card: "Keyless access", m: ["$150", "$150", "yes"] },
   { n: "Ownership change", note: "New owner setup when the property changes hands", addon: true, card: "Ownership changes", m: ["$500", "$500", "yes"] },
   { n: "Listing assistance", note: "When you sell with an agent outside Raynor Realty", addon: true, card: "Listing assistance", m: ["0.5% of sale price", "0.5% of sale price", "yes"] },
-  { n: "Broker services", addon: true, contact: true, m: ["contact", "contact", "contact"] },
+  { n: "Brokerage services", addon: true, contact: true, m: ["contact", "contact", "contact"] },
   { n: "Pet guarantee", note: "Pet damage covered up to $1,500, backed by the pet rent we collect", m: ["yes", "yes", "yes"] },
   { n: "Eviction guarantee", note: "Eviction costs covered for tenants we place. Evicting a tenant we didn't place is $750.", m: ["yes", "yes", "yes"] },
   { n: "Leasing guarantee", note: "If a tenant we place breaks the lease, we re-lease your home with no leasing fee", card: "Leasing guarantee", m: ["no", "yes", "yes"] }
@@ -632,7 +632,7 @@ $("diff").innerHTML = '<thead><tr><th scope="col">What you get</th>' + TIERS.map
       : esc(r.n);
     var alt = ri % 2 ? " alt" : "";
     return "<tr" + (r.id ? ' id="' + r.id + '"' : "") + ' class="' + (r.items ? "has-items" : "") + alt + '"><td>' + name + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
-      (r.contact ? '<td colspan="3"><a class="btn contact-btn" href="' + esc(CONTACT_URL) + '">Contact us</a></td>'
+      (r.contact ? r.m.map(function () { return '<td><a class="btn contact-btn" href="' + esc(CONTACT_URL) + '">Book a call</a></td>'; }).join("")
         : r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("")) + "</tr>" +
       (r.items || []).map(function (it) {
         var o = typeof it === "string" ? { n: it, m: r.m } : it;
