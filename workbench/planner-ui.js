@@ -2168,6 +2168,7 @@
             <button type="button" class="link small" onClick=${function () { setMode(null); }}>Cancel</button></div></div>`
         : html`<div class="scen-actions">
           ${canWrite(cloud, scen) ? html`<button type="button" class="btn primary sm" disabled=${!props.dirty || props.saving} onClick=${props.save}>${props.saving ? "Saving…" : "Save"}</button>` : null}
+          ${props.dirty && props.discard ? html`<button type="button" class="btn sm" onClick=${props.discard}>Discard changes</button>` : null}
           <button type="button" class="btn sm" onClick=${function () { setName(scen.kind === "local" || scen.kind === "new" ? "" : scen.name + " (copy)"); setVis(cloud.uid ? "private" : "shared"); setMode("saveas"); }}>${canWrite(cloud, scen) || scen.kind === "local" || scen.kind === "new" ? "Save as…" : "Save a copy…"}</button>
           ${mine ? html`<button type="button" class="btn sm" onClick=${function () { setName(scen.name); setMode("rename"); }}>Rename</button>` : null}
           ${mine && scen.kind === "private" ? html`<button type="button" class="btn sm" onClick=${function () { props.move("shared"); }}>Share</button>` : null}
@@ -2377,6 +2378,7 @@
     var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
     var _pd = useState(null), pending = _pd[0], setPending = _pd[1];
     var _nw = useState(null), newer = _nw[0], setNewer = _nw[1];
+    var _ad = useState(false), askDiscard = _ad[0], setAskDiscard = _ad[1];
     var scenRefState = useRef(scen); scenRefState.current = scen;
     var dirtyRef = useRef(dirty); dirtyRef.current = dirty;
 
@@ -2552,6 +2554,19 @@
       setScen({ kind: kind, id: kind === "official" ? "default" : x.id, name: kind === "official" ? "Official numbers" : x.name || "Untitled", by: x.by || null, savedAt: x.savedAt || 0 });
       setSource("Scenario: " + (kind === "official" ? "Official numbers" : x.name || "Untitled"));
     }
+    /* The open scenario as last saved, or null if it's never been saved (a local or new scenario). */
+    function savedCopy() {
+      var list = scen.kind === "private" ? lists.mine : scen.kind === "shared" ? lists.shared : scen.kind === "official" && lists.official ? [lists.official] : [];
+      return list.find(function (x) { return x.id === (scen.kind === "official" ? "default" : scen.id); }) || null;
+    }
+    /* Drop the unsaved edits and go back to the last save. */
+    function discard() {
+      var hit = savedCopy();
+      setAskDiscard(false); setMenu(false);
+      if (!hit) return;
+      loadScenario(scen.kind, hit);
+      setMsg({ kind: "good", text: "Discarded your changes. " + (scen.kind === "official" ? "Official numbers" : hit.name || "This scenario") + " is back to how it was last saved." });
+    }
     function startFresh() {
       var d = lists.official ? normalizeDoc(lists.official.doc) : normalizeDoc(SEED_DOC);
       docRef.current = d; setDoc(d); setHist([]); setDirty(true); setNewer(null);
@@ -2645,12 +2660,13 @@
           ${cloud.db && (dirty || saving) ? (canWrite(cloud, scen)
             ? html`<button type="button" class="btn primary" disabled=${saving} onClick=${save} title="Save (Ctrl/Cmd+S)">${saving ? "Saving…" : "Save"}</button>`
             : html`<button type="button" class="btn primary" onClick=${function () { setMenu("scen"); }} title="Save these numbers as a scenario">Save…</button>`) : null}
+          ${cloud.db && dirty && !saving && savedCopy() ? html`<button type="button" class="btn" onClick=${function () { setMenu(false); setAskDiscard(true); }} title="Drop your unsaved changes and go back to the last save">Discard changes</button>` : null}
           <div class="menu-wrap">
             <button type="button" class="btn scen-btn" aria-expanded=${menu === "scen"} onClick=${function () { setMenu(menu === "scen" ? false : "scen"); }}
               title="Open, save, share and compare scenarios">
               <span class="scen-btn-name" title=${scen.name}>${scen.name}</span>${dirty ? html`<span class="unsaved" title="Unsaved changes">●</span>` : null} ▾</button>
             ${menu === "scen" ? html`<${ScenarioMenu} cloud=${cloud} scen=${scen} lists=${lists} names=${names} dirty=${dirty} saving=${saving}
-              save=${save} saveAs=${saveAs} duplicate=${duplicate} rename=${rename} move=${move} remove=${remove} makeOfficial=${makeOfficial} open=${openScen} startNew=${startNew}
+              save=${save} discard=${savedCopy() ? function () { setMenu(false); setAskDiscard(true); } : null} saveAs=${saveAs} duplicate=${duplicate} rename=${rename} move=${move} remove=${remove} makeOfficial=${makeOfficial} open=${openScen} startNew=${startNew}
               compare=${function () { setMenu(false); go("compare"); }} />` : null}
           </div>
           <div class="menu-wrap">
@@ -2680,6 +2696,9 @@
               ${canWrite(cloud, scen) ? html`<button type="button" class="btn sm primary" onClick=${function () { save(); var p = pending; setPending(null); setTimeout(p.run, 400); }}>Save, then continue</button>` : null}
               <button type="button" class="btn sm" onClick=${function () { var p = pending; setPending(null); p.run(); }}>Discard changes</button>
               <button type="button" class="link" onClick=${function () { setPending(null); }}>Cancel</button></span></div>` : null}
+          ${askDiscard ? html`<div class="banner warn" role="alert"><span>Discard your unsaved changes to ${scen.name} and go back to how it was last saved${scen.savedAt ? " (" + ago(scen.savedAt) + ")" : ""}?</span>
+            <span class="banner-actions"><button type="button" class="btn sm danger" onClick=${discard}>Discard changes</button>
+            <button type="button" class="link" onClick=${function () { setAskDiscard(false); }}>Keep editing</button></span></div>` : null}
           ${newer ? html`<div class="banner warn" role="status"><span>${byName(cloud, names, newer.by) === "you" ? "You" : byName(cloud, names, newer.by)} saved a newer version of ${newer.name || "this scenario"} ${ago(newer.savedAt)}.</span>
             <span class="banner-actions"><button type="button" class="btn sm" onClick=${function () { loadScenario(scen.kind, newer); }}>Load it (drops your edits)</button>
             <button type="button" class="link" onClick=${function () { setNewer(null); }}>Keep mine</button></span></div>` : null}
