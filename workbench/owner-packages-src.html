@@ -193,7 +193,38 @@
   .ledger tr.total td{ font-weight:700; border-bottom:none; }
   .ledger td.save{ color:var(--good); }
 
+  .step{ display:flex; flex-direction:column; gap:14px; margin-top:30px; }
+  .step:first-of-type{ margin-top:6px; }
+  .step-h{ display:flex; gap:12px; align-items:flex-start; }
+  .step-n{ flex:0 0 32px; width:32px; height:32px; border-radius:50%; background:var(--navy); color:#e2c48d; box-shadow:0 0 0 2px var(--gold-line); font-weight:700; display:grid; place-items:center; }
+  .step-h h3{ margin:0; font-family:var(--font-display); font-weight:600; font-size:22px; line-height:1.2; }
+  .step-h p{ margin:2px 0 0; font-size:14px; color:var(--ink-2); }
+  .fq{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin:0; }
+  .fq > div{ background:var(--panel); border:1px solid var(--rule-soft); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .fq dt{ font-size:13px; color:var(--ink-2); font-weight:600; display:flex; align-items:center; gap:7px; }
+  .fq dt i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+  .fq dd{ margin:0; font-family:var(--font-data); font-weight:600; font-size:28px; line-height:1.15; overflow-wrap:anywhere; }
+  .fq dd s{ font-size:14px; font-weight:500; color:var(--ink-3); margin-left:6px; }
+  .fq > div > span{ font-size:12.5px; color:var(--ink-3); }
+  .fq > div > span.moved{ color:var(--gold); }
+  .fq .due{ background:var(--accent-tint); border-color:transparent; }
+  .fq .due dd{ color:var(--accent-ink); }
+  .save{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; padding:11px 13px; border-radius:10px; background:var(--good-bg); color:var(--good); font-size:13.5px; }
+  .save[hidden], .term[hidden]{ display:none; }
+  .save strong{ font-family:var(--font-data); }
+  .ret{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); background:var(--panel); border:1px solid var(--rule); border-radius:14px; overflow:hidden; }
+  .ret-a{ padding:20px; display:flex; flex-direction:column; gap:16px; background:var(--panel-2); border-right:1px solid var(--rule-soft); min-width:0; }
+  .ret-b{ padding:20px; min-width:0; }
+  @media (max-width:860px){ .ret{ grid-template-columns:minmax(0,1fr); } .ret-a{ border-right:none; border-bottom:1px solid var(--rule-soft); } }
   .props{ display:flex; flex-direction:column; gap:12px; }
+  .tog{ flex:0 0 auto; border:none; background:none; cursor:pointer; color:var(--ink-3); width:28px; height:28px; border-radius:7px; display:grid; place-items:center; transition:background .15s ease, color .15s ease; }
+  .tog:hover{ background:var(--accent-tint); color:var(--accent-ink); }
+  .tog span{ display:inline-block; font-size:11px; transition:transform .15s ease; transform:rotate(90deg); }
+  .prop.shut .tog span{ transform:none; }
+  .prop.shut .inputs{ display:none; }
+  .prop.shut{ gap:10px; }
+  .prop-sum{ font-size:13px; color:var(--ink-3); white-space:nowrap; font-family:var(--font-data); }
+  @media (max-width:560px){ .prop-sum{ display:none; } .fq dd{ font-size:22px; } }
   .prop{ background:var(--panel); border:1px solid var(--rule); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:14px; }
   .prop-h{ display:flex; align-items:center; gap:10px; }
   .prop-h .num{ flex:0 0 auto; width:26px; height:26px; border-radius:50%; background:var(--accent-tint); color:var(--accent-ink); font-weight:700; font-size:13px; display:grid; place-items:center; }
@@ -216,6 +247,7 @@
   .prop-out b{ font-family:var(--font-data); color:var(--ink); }
   .prop-out .cf b.pos{ color:var(--good); } .prop-out .cf b.neg{ color:var(--bad); }
   .add-prop{ align-self:flex-start; }
+  .calc-out .banner{ margin-top:2px; }
   .term{ display:flex; flex-direction:column; gap:8px; }
   .term-h{ font-size:13px; font-weight:600; color:var(--ink-2); }
   table.cmp{ width:100%; border-collapse:collapse; font-size:13px; background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; overflow:hidden; }
@@ -267,40 +299,70 @@
   </section>
 
   <section aria-labelledby="pr-h" id="proposal">
-    <div class="sec-h"><span class="kicker">Your proposal</span><h2 id="pr-h">Build out your properties</h2>
-      <p class="lead">Add each property with its rent and costs. You'll see your fees and your yearly cash flow. Own 5 or more doors and every door's monthly fee drops 5%.</p></div>
-    <div class="props" id="props"></div>
-    <button type="button" class="btn add-prop" id="add-prop" style="margin-top:12px">+ Add a property</button>
-    <div class="calc" style="margin-top:20px">
-      <div class="calc-in">
-        <div class="field"><span id="tier-lab">Package</span><div class="seg" role="group" aria-labelledby="tier-lab" id="tier-seg"></div></div>
-        <div class="field">
-          <div class="slider-head"><label for="pick">Your monthly fee</label><b id="pick-out">10.00%</b></div>
-          <div class="track"><input id="pick" type="range" min="0" max="20" step="0.05" value="10"><span class="tick" id="std-tick" title="Standard mix"></span></div>
-          <div class="ends"><span>More at signing</span><span>No up-front fees</span></div>
+    <div class="sec-h"><span class="kicker">Your proposal</span><h2 id="pr-h">Build your proposal</h2>
+      <p class="lead">Three steps: your properties, how your fees are set, and what's left for you each year. Own 5 or more doors and every door's monthly fee drops 5%.</p></div>
+
+    <div class="step" aria-labelledby="st1">
+      <div class="step-h"><span class="step-n">1</span><div><h3 id="st1">Your properties</h3><p>Rent and costs for each one. Collapse a property once it's filled in.</p></div></div>
+      <div class="props" id="props"></div>
+      <button type="button" class="btn add-prop" id="add-prop">+ Add a property</button>
+    </div>
+
+    <div class="step" aria-labelledby="st2">
+      <div class="step-h"><span class="step-n">2</span><div><h3 id="st2">Your package and fees</h3><p>Choose a package, then how your fees are split between the monthly fee and lease signing.</p></div></div>
+      <div class="calc">
+        <div class="calc-in">
+          <div class="field"><span id="tier-lab">Package</span><div class="seg" role="group" aria-labelledby="tier-lab" id="tier-seg"></div></div>
+          <div class="field">
+            <div class="slider-head"><label for="pick">Your monthly fee</label><b id="pick-out">10.00%</b></div>
+            <div class="track"><input id="pick" type="range" min="0" max="20" step="0.05" value="10"><span class="tick" id="std-tick" title="Standard mix"></span></div>
+            <div class="ends"><span>Lower monthly, more at signing</span><span>No up-front fees</span></div>
+          </div>
+          <div class="presets" id="presets"></div>
+          <p class="hint" id="hint"></p>
         </div>
-        <div class="presets" id="presets"></div>
-        <p class="hint" id="hint"></p>
-        <div class="banner" id="banner"></div>
-      </div>
-      <div class="calc-out" aria-live="polite">
-        <dl class="big">
-          <div><dt>Yearly cash flow</dt><dd id="s-cf">$0</dd></div>
-          <div><dt>Per month</dt><dd id="s-cfm">$0</dd></div>
-          <div><dt>Our fees per year</dt><dd id="s-fees">$0</dd></div>
-        </dl>
-        <div class="term">
-          <div class="term-h" id="ledger-h">A typical year</div>
-          <table class="ledger" id="ledger"></table>
-        </div>
-        <div class="term">
-          <div class="term-h">The three packages for your properties, standard mix</div>
-          <div class="table-wrap"><table class="cmp" id="cmp"></table></div>
-          <p class="fine">Fees per door include leasing and renewal, averaged. Minimum's $75 per work order isn't counted, since it depends on how many repairs come up.</p>
+        <div class="calc-out" aria-live="polite">
+          <div class="term-h" id="fq-h">Your fees, per door</div>
+          <dl class="fq">
+            <div><dt><i style="background:var(--accent)"></i>Monthly fee</dt><dd id="fq-mo">$0</dd><span id="fq-mo-s"></span></div>
+            <div><dt><i style="background:var(--gold-line)"></i>Leasing fee</dt><dd id="fq-lease">$0</dd><span id="fq-lease-s"></span></div>
+            <div><dt><i style="background:var(--sky)"></i>Renewal fee</dt><dd id="fq-renew">$0</dd><span id="fq-renew-s"></span></div>
+            <div class="due"><dt>Due when a new lease is signed</dt><dd id="fq-sign">$0</dd><span>Leasing fee plus the first month</span></div>
+          </dl>
+          <div class="save" id="save" hidden></div>
+          <div class="term" id="fee-all-wrap" hidden>
+            <div class="term-h">All your properties, per door</div>
+            <div class="table-wrap"><table class="cmp" id="fee-all"></table></div>
+          </div>
+          <div class="banner" id="banner"></div>
         </div>
       </div>
     </div>
-    <p class="fine" style="margin-top:14px">Estimates to help you plan, not a quote and not financial or tax advice. A typical year averages a <span id="ten-yrs">4</span>-year tenancy: one new-tenant year, then renewals. The monthly fee is charged on rent collected, so vacancy lowers it; months the home sits empty carry the $99 fee while vacant. Repairs and CapEx are set aside as a share of rent. Maintenance coordination fees, add-ons and the cost of repairs themselves depend on what happens and aren't included beyond your repairs estimate.</p>
+
+    <div class="step" aria-labelledby="st3">
+      <div class="step-h"><span class="step-n">3</span><div><h3 id="st3">Your yearly return</h3><p>A typical year for all your properties, after our fees and your costs.</p></div></div>
+      <div class="ret">
+        <div class="ret-a">
+          <dl class="big">
+            <div><dt>Yearly cash flow</dt><dd id="s-cf">$0</dd></div>
+            <div><dt>Per month</dt><dd id="s-cfm">$0</dd></div>
+            <div><dt>Our fees per year</dt><dd id="s-fees">$0</dd></div>
+          </dl>
+          <div class="term">
+            <div class="term-h" id="ledger-h">A typical year</div>
+            <table class="ledger" id="ledger"></table>
+          </div>
+        </div>
+        <div class="ret-b">
+          <div class="term">
+            <div class="term-h">The three packages for your properties, standard mix</div>
+            <div class="table-wrap"><table class="cmp" id="cmp"></table></div>
+            <p class="fine">Fees per door include leasing and renewal, averaged. Minimum's $75 per work order isn't counted, since it depends on how many repairs come up.</p>
+          </div>
+        </div>
+      </div>
+      <p class="fine">Estimates to help you plan, not a quote and not financial or tax advice. A typical year averages a <span id="ten-yrs">4</span>-year tenancy: one new-tenant year, then renewals. The monthly fee is charged on rent collected, so vacancy lowers it; months the home sits empty carry the $99 fee while vacant. Repairs and CapEx are set aside as a share of rent. Maintenance coordination fees, add-ons and the cost of repairs themselves depend on what happens and aren't included beyond your repairs estimate.</p>
+    </div>
   </section>
 </main>
 
@@ -462,17 +524,19 @@ function propYear(p, t, pick, portfolio) {
   var leasingFull = (q.leaseFull + q.renewalFull * (TENANCY - 1)) / TENANCY * doors;
   var vacant = VACANT_FEE * 12 * vac * doors;
   var mgmt = monthlyFees + leasing + vacant, saved = (monthlyFull - monthlyFees) + (leasingFull - leasing);
+  var upPct = q.disc > 0 ? DISCOUNT.steps[0].pct / 100 : 0;
+  var upSaved = leasingFull * upPct, portSaved = saved - upSaved;
   var debt = p.piti * 12, other = p.other * 12, rep = gross * p.rep / 100, capex = gross * p.capex / 100;
   var cf = collected - mgmt - debt - other - rep - capex;
   return { doors: doors, perDoor: perDoor, fr: fr, q: q, gross: gross, vacLoss: gross - collected, collected: collected,
-    monthlyFees: monthlyFees, leasing: leasing, vacant: vacant, mgmt: mgmt, saved: saved,
+    monthlyFees: monthlyFees, leasing: leasing, vacant: vacant, mgmt: mgmt, saved: saved, upSaved: upSaved, portSaved: portSaved,
     debt: debt, other: other, rep: rep, capex: capex, cf: cf };
 }
 function portfolioYear(t, pick) {
   var on = totalDoors() >= PORTFOLIO.doors;
   var rows = state.props.map(function (p) { return propYear(p, t, pick, on); });
   var sum = { on: on, rows: rows };
-  ["gross", "vacLoss", "collected", "monthlyFees", "leasing", "vacant", "mgmt", "saved", "debt", "other", "rep", "capex", "cf"].forEach(function (k) {
+  ["gross", "vacLoss", "collected", "monthlyFees", "leasing", "vacant", "mgmt", "saved", "upSaved", "portSaved", "debt", "other", "rep", "capex", "cf"].forEach(function (k) {
     sum[k] = rows.reduce(function (s, r) { return s + r[k]; }, 0);
   });
   // Minimum bills annual accounting once a year per entity; the proposal assumes one entity.
@@ -542,8 +606,12 @@ var FIELDS = [
 function fmtField(f, v) { return f.post ? String(v) : (v ? Math.round(v).toLocaleString("en-US") : ""); }
 function renderProps() {
   $("props").innerHTML = state.props.map(function (p, i) {
-    return '<div class="prop" data-i="' + i + '"><div class="prop-h"><span class="num">' + (i + 1) + '</span>' +
+    var shut = p.open === false;
+    return '<div class="prop' + (shut ? " shut" : "") + '" data-i="' + i + '"><div class="prop-h">' +
+      '<button type="button" class="tog" data-tog="' + i + '" aria-expanded="' + !shut + '" aria-label="Show or hide property ' + (i + 1) + '"><span aria-hidden="true">&#9654;</span></button>' +
+      '<span class="num">' + (i + 1) + '</span>' +
       '<input type="text" data-k="name" aria-label="Property ' + (i + 1) + ' name or address" placeholder="Address or name" value="' + esc(p.name) + '">' +
+      '<span class="prop-sum" id="sum-' + i + '"></span>' +
       (state.props.length > 1 ? '<button type="button" class="rm" data-rm="' + i + '">Remove</button>' : "") + "</div>" +
       '<div class="inputs">' + FIELDS.map(function (f) {
         var id = "p" + i + "-" + f.k;
@@ -565,13 +633,22 @@ $("props").addEventListener("focusout", function (e) {
   el.value = fmtField(f, state.props[+card.dataset.i][f.k]);
 });
 $("props").addEventListener("click", function (e) {
+  var t = e.target.closest("[data-tog]");
+  if (t) {
+    var pr = state.props[+t.dataset.tog], card = t.closest(".prop");
+    pr.open = pr.open === false;
+    card.classList.toggle("shut", !pr.open);
+    t.setAttribute("aria-expanded", String(pr.open));
+    save(); return;
+  }
   var b = e.target.closest("[data-rm]"); if (!b) return;
   state.props.splice(+b.dataset.rm, 1); renderProps(); render();
 });
 $("add-prop").addEventListener("click", function () {
-  state.props.push(Object.assign({}, NEW_PROP, { name: "Property " + (state.props.length + 1) }));
+  state.props.forEach(function (x) { x.open = false; });
+  state.props.push(Object.assign({}, NEW_PROP, { name: "Property " + (state.props.length + 1), open: true }));
   renderProps(); render();
-  var inputs = $("props").querySelectorAll(".prop:last-child input");
+  var inputs = $("props").querySelectorAll(".prop:last-child input[data-k]");
   if (inputs[0]) inputs[0].select();
 });
 
@@ -614,8 +691,36 @@ function render() {
   for (var m = 0; m < PORTFOLIO.doors; m++) meter += '<i class="' + (m < doors ? "f" : "") + '"></i>';
   $("banner").className = "banner " + (on ? "on" : "off");
   $("banner").innerHTML = on
-    ? "<b>Portfolio discount on</b><span>" + doors + " doors. " + (state.pick > 0 ? "Every door's monthly fee is " + PORTFOLIO.pct + "% lower." : "Your up-front discount is " + (DISCOUNT.steps[0].pct + PORTFOLIO.pct) + "% instead of " + DISCOUNT.steps[0].pct + "%.") + " You save " + money(y.saved) + " a year.</span>"
+    ? "<b>Portfolio discount on</b><span>" + doors + " doors. " + (state.pick > 0 ? "Every door's monthly fee is " + PORTFOLIO.pct + "% lower." : "Your up-front discount is " + (DISCOUNT.steps[0].pct + PORTFOLIO.pct) + "% instead of " + DISCOUNT.steps[0].pct + "%.") + " That saves you " + money(y.portSaved) + " a year.</span>"
     : "<b>Portfolio discount</b><span>" + doors + " of " + PORTFOLIO.doors + " doors. Add " + need + " more " + (need === 1 ? "door" : "doors") + " and every door's monthly fee drops " + PORTFOLIO.pct + "%.</span><span class=\"meter\" aria-hidden=\"true\">" + meter + "</span>";
+
+  // Step 2: the fees this mix gives, per door, for the first property, against the standard mix.
+  var p0 = y.rows[0], q = p0.q, qs = quote(t, p0.fr, t.monthlyPct, on), name0 = state.props[0].name || "Property 1";
+  if (!(p0.perDoor > 0)) qs = q;
+  $("fq-h").textContent = "Your fees, per door" + (state.props.length > 1 ? " at " + name0 : "") + (p0.perDoor > 0 ? " (" + money(p0.perDoor) + " rent" + (p0.fr > p0.perDoor ? ", figured on the " + money(p0.fr) + " minimum" : "") + ")" : "");
+  function moved(v, std, el) {
+    var d = v - std, e = $(el);
+    e.className = Math.abs(d) < 0.5 ? "" : "moved";
+    e.textContent = Math.abs(d) < 0.5 ? "Standard mix" : (d > 0 ? money(d) + " more" : money(-d) + " less") + " than standard (" + money(std) + ")";
+  }
+  $("fq-mo").innerHTML = money(q.monthly) + (q.monthlyOff ? "<s>" + money(q.monthlyFull) + "</s>" : "");
+  moved(q.monthly, qs.monthly, "fq-mo-s");
+  $("fq-lease").innerHTML = money(q.lease) + (q.disc ? "<s>" + money(q.leaseFull) + "</s>" : "");
+  moved(q.lease, qs.lease, "fq-lease-s");
+  if (p0.perDoor > 0 && !$("fq-lease-s").className) $("fq-lease-s").textContent = pct(q.lease / p0.perDoor * 100, 0) + " of one month's rent";
+  $("fq-renew").innerHTML = money(q.renewal) + (q.disc ? "<s>" + money(q.renewalFull) + "</s>" : "");
+  moved(q.renewal, qs.renewal, "fq-renew-s");
+  if (!$("fq-renew-s").className) $("fq-renew-s").textContent = "Only if your tenant renews";
+  $("fq-sign").textContent = money(q.lease + q.monthly);
+  var sv = $("save");
+  sv.hidden = !(q.disc > 0);
+  if (q.disc > 0) sv.innerHTML = "<span>" + q.disc + "% off" + (on ? ": " + DISCOUNT.steps[0].pct + "% for paying up front, plus " + PORTFOLIO.pct + "% portfolio discount" : " for paying up front") + ". You save <strong>" + money(q.leaseFull - q.lease) +
+    "</strong> on the leasing fee, and <strong>" + money(q.renewalFull - q.renewal) + "</strong> on a renewal when you pay that term up front again.</span>";
+  $("fee-all-wrap").hidden = state.props.length < 2;
+  if (state.props.length > 1) $("fee-all").innerHTML = '<thead><tr><th scope="col">Property</th><th scope="col">Rent / door</th><th scope="col">Monthly</th><th scope="col">Leasing</th><th scope="col">Renewal</th></tr></thead><tbody>' +
+    y.rows.map(function (pr, i) {
+      return "<tr><td>" + esc(state.props[i].name || "Property " + (i + 1)) + "</td><td>" + money(pr.perDoor) + "</td><td>" + money(pr.q.monthly) + "</td><td>" + money(pr.q.lease) + "</td><td>" + money(pr.q.renewal) + "</td></tr>";
+    }).join("") + "</tbody>";
 
   function signed(n) { return '<span class="' + (n >= 0 ? "pos" : "neg") + '">' + money(n) + "</span>"; }
   $("s-cf").innerHTML = signed(y.cf);
@@ -632,7 +737,8 @@ function render() {
     row("Leasing and renewal fees", -y.leasing, "Averaged over a " + TENANCY + "-year tenancy") +
     (y.vacant > 0.5 ? row("Fee while vacant", -y.vacant) : "") +
     (y.accounting ? row("Annual accounting", -y.accounting, "One entity") : "") +
-    (y.saved > 0.5 ? '<tr><td>Portfolio discount<span class="note">Already taken off the fees above</span></td><td class="save">' + money(y.saved) + " saved</td></tr>" : "") +
+    (y.upSaved > 0.5 ? '<tr><td>Up-front payment discount<span class="note">' + DISCOUNT.steps[0].pct + '% off leasing and renewal, already taken off above</span></td><td class="save">' + money(y.upSaved) + " saved</td></tr>" : "") +
+    (y.portSaved > 0.5 ? '<tr><td>Portfolio discount<span class="note">' + PORTFOLIO.pct + "% at " + PORTFOLIO.doors + '+ doors, already taken off above</span></td><td class="save">' + money(y.portSaved) + " saved</td></tr>" : "") +
     row("PITI", -y.debt) +
     (y.other > 0.5 ? row("HOA and other", -y.other) : "") +
     row("Repairs set aside", -y.rep) +
@@ -647,7 +753,8 @@ function render() {
     }).join("") + "</tbody>";
 
   y.rows.forEach(function (pr, i) {
-    var q = pr.q, el = $("out-" + i); if (!el) return;
+    var q = pr.q, el = $("out-" + i), pp = state.props[i]; if (!el) return;
+    $("sum-" + i).textContent = pr.doors + (pr.doors === 1 ? " door · " : " doors · ") + money(pp.rent) + "/mo";
     el.innerHTML = "<span>Per door: <b>" + money(q.monthly) + "/mo</b>" + (pr.fr > pr.perDoor && pr.perDoor > 0 ? " (on the " + money(pr.fr) + " minimum)" : "") + ", leasing <b>" + money(q.lease) + "</b>, renewal <b>" + money(q.renewal) + "</b></span>" +
       '<span class="cf">Cash flow <b class="' + (pr.cf >= 0 ? "pos" : "neg") + '">' + money(pr.cf) + "/yr</b> (" + money(pr.cf / 12) + "/mo)</span>";
   });
