@@ -247,6 +247,8 @@
   .disc > summary::before{ content:"\25B6"; font-size:10px; color:var(--ink-3); transition:transform .15s ease; }
   .disc[open] > summary::before{ transform:rotate(90deg); }
   .disc-t{ flex:1; min-width:0; }
+  .up-on{ display:flex; align-items:center; gap:10px; padding:10px 12px 10px 32px; border-radius:10px; background:var(--panel); border:1px solid var(--rule-soft); font-size:13.5px; font-weight:600; }
+  .up-on[hidden]{ display:none; }
   .chip{ font-size:12px; font-weight:600; border-radius:999px; padding:2px 10px; white-space:nowrap; }
   .chip.on{ background:var(--good-bg); color:var(--good); }
   .chip.off{ background:var(--gold-tint); color:var(--gold); }
@@ -339,7 +341,7 @@
             <div class="table-wrap"><table class="cmp" id="fee-all"></table></div>
           </div>
           <div class="discs">
-            <details class="disc" id="d-up"><summary><span class="disc-t">Up-front payment discount</span><span class="chip" id="up-chip"></span></summary><div class="disc-b" id="up-body"></div></details>
+            <div class="up-on" id="up-on" hidden><span class="disc-t">Up-front payment discount</span><span class="chip on" id="up-chip"></span></div>
             <details class="disc" id="d-port"><summary><span class="disc-t">Portfolio discount</span><span class="chip" id="port-chip"></span></summary><div class="disc-b" id="port-body"></div></details>
           </div>
         </div>
@@ -712,12 +714,8 @@ function render() {
   $("fq-renew").innerHTML = money(q.renewal) + (q.disc ? "<s>" + money(q.renewalFull) + "</s>" : "");
   $("fq-renew-s").textContent = "Only if your tenant renews";
   $("fq-sign").textContent = money(q.lease + q.monthly);
-  var upOn = q.disc > 0, upPct = DISCOUNT.steps[0].pct;
-  $("up-chip").className = "chip " + (upOn ? "on" : "off");
-  $("up-chip").textContent = upOn ? upPct + "% off applied" : upPct + "% off available";
-  $("up-body").innerHTML = upOn
-    ? "<p>You pay each lease term in full up front, so " + upPct + "% comes off the leasing and renewal fees" + (on ? ", plus " + PORTFOLIO.pct + "% for your portfolio" : "") + ". On a 12-month lease you save <strong>" + money(q.leaseFull * upPct / 100) + "</strong> per door when a new tenant signs. If your tenant renews and you pay that 12 months up front again, you save <strong>" + money(q.renewalFull * upPct / 100) + "</strong> per door on the renewal.</p>"
-    : "<p>Pay each lease term in full up front instead of a monthly fee and get " + upPct + "% off the leasing and renewal fees" + (on ? " (" + (upPct + PORTFOLIO.pct) + "% with your portfolio discount)" : "") + ".</p><button type=\"button\" class=\"btn\" data-pick=\"0\">Pay it all up front</button>";
+  $("up-on").hidden = !(q.disc > 0);
+  $("up-chip").textContent = DISCOUNT.steps[0].pct + "% off applied";
   $("fee-all-wrap").hidden = state.props.length < 2;
   if (state.props.length > 1) $("fee-all").innerHTML = '<thead><tr><th scope="col">Property</th><th scope="col">Rent / door</th><th scope="col">Monthly</th><th scope="col">Leasing</th><th scope="col">Renewal</th></tr></thead><tbody>' +
     y.rows.map(function (pr, i) {
@@ -768,7 +766,6 @@ $("tier-seg").addEventListener("click", function (e) { var b = e.target.closest(
 // The slider moves in 0.05% steps, and the point where the leasing fee hits $0 rarely lands on one: the last step snaps to it.
 $("pick").addEventListener("input", function () { var v = parseFloat(this.value), max = parseFloat(this.max); setPick(v > max - 0.05 ? max : v); });
 $("presets").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) setPick(parseFloat(b.dataset.pick)); });
-$("up-body").addEventListener("click", function (e) { var b = e.target.closest("[data-pick]"); if (b) setPick(parseFloat(b.dataset.pick)); });
 $("tiers").addEventListener("click", function (e) {
   var b = e.target.closest("button.pick"); if (!b) return;
   setTier(b.dataset.tier);
