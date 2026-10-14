@@ -613,7 +613,7 @@ function mark(v) {
 $("diff").innerHTML = '<thead><tr><th scope="col">What you get</th>' + TIERS.map(function (t) { return '<th scope="col">' + esc(t.name) + "</th>"; }).join("") + "</tr></thead><tbody>" +
   COMPARE.map(function (r, ri) {
     var name = r.items
-      ? '<button type="button" class="row-tog" data-row="' + ri + '" aria-expanded="false"><span class="caret" aria-hidden="true">&#9654;</span>' + esc(r.n) + ' <span class="count">(' + r.items.length + ")</span></button>"
+      ? '<button type="button" class="row-tog" data-row="' + ri + '" aria-expanded="false"><span class="caret" aria-hidden="true">&#9654;</span>' + esc(r.n) + "</button>"
       : esc(r.n);
     return "<tr" + (r.id ? ' id="' + r.id + '"' : "") + (r.items ? ' class="has-items"' : "") + "><td>" + name + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
       r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>" +
