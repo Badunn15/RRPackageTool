@@ -9,6 +9,7 @@
     --gold:#8f6428; --gold-line:#d2ad6c; --gold-tint:#f7efe1;
     --good:#1b7a4c; --good-bg:#e1f2e8;
     --seg-monthly:#2b5a9e; --seg-lease:#c9973f; --seg-renew:#8fb6e6;
+    --lift:0 14px 30px -18px rgba(23,52,92,.45);
     --font-display:"Newsreader", "Iowan Old Style", Georgia, serif;
     --font-ui:"Schibsted Grotesk", "Segoe UI", system-ui, sans-serif;
     --font-data:"IBM Plex Mono", ui-monospace, Consolas, monospace;
@@ -22,6 +23,7 @@
       --gold:#dfb469; --gold-line:#7d6236; --gold-tint:#2c2416;
       --good:#55cf95; --good-bg:#12301f;
       --seg-monthly:#5f8fd6; --seg-lease:#d6a654; --seg-renew:#3f6699;
+      --lift:0 14px 30px -16px rgba(0,0,0,.7);
     }
   }
   :root[data-theme="dark"]{
@@ -32,12 +34,13 @@
     --gold:#dfb469; --gold-line:#7d6236; --gold-tint:#2c2416;
     --good:#55cf95; --good-bg:#12301f;
     --seg-monthly:#5f8fd6; --seg-lease:#d6a654; --seg-renew:#3f6699;
+    --lift:0 14px 30px -16px rgba(0,0,0,.7);
   }
   *{ box-sizing:border-box; }
   body{ background:var(--bg); color:var(--ink); font-family:var(--font-ui); font-size:15px; line-height:1.5; }
   button, input{ font:inherit; color:inherit; }
   :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
-  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } .lift:hover, .btn:hover{ transform:none !important; } }
   .mono{ font-family:var(--font-data); font-variant-numeric:tabular-nums; }
   .wrap{ max-width:1120px; margin:0 auto; padding-inline:16px; }
 
@@ -74,9 +77,23 @@
   .adds li::before{ content:"+"; font-weight:700; color:var(--gold); text-align:center; }
   .adds .base::before{ content:"✓"; color:var(--accent); }
   .tier .pick{ margin-top:auto; align-self:flex-start; }
+  .tier, .core li{ transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+  .lift:hover{ transform:translateY(-3px); box-shadow:var(--lift); border-color:var(--sky); }
+  .tier.top.lift:hover{ border-color:var(--gold-line); box-shadow:inset 0 3px 0 var(--gold-line), var(--lift); }
+
+  /* every package: the core services, up top */
+  .core{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; }
+  @media (max-width:860px){ .core{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+  @media (max-width:520px){ .core{ grid-template-columns:minmax(0,1fr); } }
+  .core li{ background:var(--panel); border:1px solid var(--rule); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .core b{ font-size:15px; display:flex; align-items:center; gap:8px; }
+  .core b::before{ content:""; width:8px; height:8px; border-radius:2px; background:var(--gold-line); flex:0 0 8px; }
+  .core span{ font-size:13.5px; color:var(--ink-2); }
 
   .btn{ display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:9px; border:1px solid var(--rule); background:var(--panel); font-weight:600; font-size:14px; cursor:pointer; }
-  .btn:hover{ border-color:var(--accent); color:var(--accent-ink); }
+  .btn{ transition:border-color .15s ease, color .15s ease, background .15s ease, transform .15s ease; }
+  .btn:hover{ border-color:var(--accent); color:var(--accent-ink); transform:translateY(-1px); }
+  .btn:active{ transform:none; }
 
   /* differences sheet */
   .sheet{ background:var(--panel); border:1px solid var(--rule); border-radius:14px; overflow:hidden; }
@@ -91,7 +108,21 @@
   .mark{ display:inline-flex; align-items:center; justify-content:center; gap:5px; font-size:13px; font-weight:600; white-space:nowrap; }
   .mark.yes{ color:var(--good); }
   .mark.yes::before{ content:""; width:18px; height:18px; border-radius:50%; background:var(--good-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='%231b7a4c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat; }
-  .mark.add{ color:var(--gold); background:var(--gold-tint); border-radius:999px; padding:2px 9px; font-size:12px; }
+  .mark.add{ color:var(--gold); background:var(--gold-tint); border:1px solid transparent; border-radius:999px; padding:2px 10px; font-size:12px; text-decoration:none; transition:border-color .15s ease, background .15s ease; }
+  a.mark.add:hover{ border-color:var(--gold-line); }
+  .mark.free{ color:var(--ink-2); font-weight:500; }
+  .diff tbody tr:not(.grp) td{ transition:background .12s ease; }
+  .diff tbody tr:not(.grp):hover td{ background:var(--accent-tint); }
+  .diff tr.grp td .grp-note{ display:block; margin-top:2px; font-size:12.5px; letter-spacing:0; text-transform:none; font-weight:500; color:var(--ink-3); }
+  .key{ display:flex; flex-wrap:wrap; gap:6px 18px; padding:12px 14px; border-bottom:1px solid var(--rule); font-size:13px; color:var(--ink-2); }
+  .key span{ display:inline-flex; align-items:center; gap:7px; }
+  .all-grid{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px 24px; padding:16px; }
+  @media (max-width:860px){ .all-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+  @media (max-width:520px){ .all-grid{ grid-template-columns:minmax(0,1fr); } }
+  .all-grid h3{ margin:0 0 6px; font-size:11.5px; letter-spacing:.11em; text-transform:uppercase; font-weight:700; color:var(--gold); }
+  .all-grid ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; font-size:14px; }
+  .all-grid li{ display:grid; grid-template-columns:16px minmax(0,1fr); gap:6px; }
+  .all-grid li::before{ content:"✓"; color:var(--good); font-weight:700; }
   .mark.fee{ font-family:var(--font-data); color:var(--ink); }
   .mark.no{ color:var(--ink-3); }
   .sheet-foot{ display:flex; flex-direction:column; gap:12px; padding:14px; }
@@ -109,7 +140,8 @@
   .field{ display:flex; flex-direction:column; gap:6px; }
   .field > label, .field > span{ font-size:13px; font-weight:600; color:var(--ink-2); }
   .seg{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); background:var(--panel-2); border:1px solid var(--rule); border-radius:10px; padding:3px; gap:3px; }
-  .seg button{ border:none; background:none; padding:8px 6px; border-radius:7px; font-weight:600; font-size:13.5px; color:var(--ink-2); cursor:pointer; }
+  .seg button{ border:none; background:none; padding:8px 6px; border-radius:7px; font-weight:600; font-size:13.5px; color:var(--ink-2); cursor:pointer; transition:background .15s ease, color .15s ease; }
+  .seg button:hover{ color:var(--accent-ink); }
   .seg button[aria-pressed="true"]{ background:var(--panel); color:var(--accent-ink); box-shadow:0 1px 2px rgba(0,0,0,.1), inset 0 -2px 0 var(--gold-line); }
   .money{ display:flex; align-items:center; border:1px solid var(--rule); border-radius:9px; background:var(--panel); max-width:200px; }
   .money:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint); }
@@ -180,6 +212,8 @@
   .cmp th:first-child, .cmp td:first-child{ text-align:left; font-family:var(--font-ui); }
   .cmp tr.on td{ background:var(--accent-tint); font-weight:600; }
   .cmp tr:last-child td{ border-bottom:none; }
+  .cmp td{ transition:background .12s ease; }
+  .cmp tbody tr:not(.on):hover td{ background:var(--panel-2); }
   .cmp .up{ color:var(--ink-3); font-size:12px; font-weight:500; }
 
   @media (max-width:860px){
@@ -195,11 +229,16 @@
   <div class="wrap">
     <div class="brand"><img src="__LOGO__" alt="Raynor Realty logo"><div><span>Raynor Realty</span><small>Property management since 1987</small></div></div>
     <h1>Three ways to have us manage your rental</h1>
-    <p>Every package covers the full job of leasing, rent collection, maintenance and accounting. The higher packages add protection, planning and vacancy care. Below, see exactly what changes between them, then shape your own fees.</p>
+    <p>Every package covers the full job of leasing, rent collection, maintenance and accounting. The higher packages add inspections, vacancy care and planning. See what changes between them, then shape your own fees.</p>
   </div>
 </header>
 
 <main class="wrap">
+  <section aria-labelledby="core-h">
+    <div class="sec-h"><span class="kicker">Every package</span><h2 id="core-h">What we handle for every owner</h2></div>
+    <ul class="core" id="core"></ul>
+  </section>
+
   <section aria-labelledby="pk-h">
     <div class="sec-h"><span class="kicker">The packages</span><h2 id="pk-h">Standard fees and what each one adds</h2></div>
     <div class="tiers" id="tiers"></div>
@@ -208,13 +247,14 @@
 
   <section aria-labelledby="df-h">
     <div class="sec-h"><span class="kicker">Side by side</span><h2 id="df-h">What's different between them</h2>
-      <p class="lead">Everything that changes between packages, with our guarantees at the bottom. A price means you can add it to that package.</p></div>
+      <p class="lead">Only what changes between packages. Anything a package leaves out can be added; the prices are in Add-ons.</p></div>
     <div class="sheet">
+      <div class="key" aria-hidden="true"><span><span class="mark yes"></span>Included</span><span><span class="mark add">Add-on</span>Available, see prices below</span><span><span class="mark fee">$75</span>Charged only when it happens</span></div>
       <div class="table-wrap"><table class="diff" id="diff"></table></div>
       <div class="sheet-foot">
-        <button type="button" class="btn all-toggle" id="all-toggle" aria-expanded="false" aria-controls="all-wrap"><span class="caret" aria-hidden="true">&#9656;</span> Everything all three include <span class="count" id="all-count"></span></button>
+        <button type="button" class="btn all-toggle" id="all-toggle" aria-expanded="false" aria-controls="all-wrap"><span class="caret" aria-hidden="true">&#9656;</span> Everything every package includes <span class="count" id="all-count"></span></button>
       </div>
-      <div class="table-wrap all-wrap" id="all-wrap" hidden><table class="diff" id="all-table"></table></div>
+      <div class="all-wrap" id="all-wrap" hidden><div class="all-grid" id="all-list"></div></div>
     </div>
   </section>
 
@@ -278,14 +318,14 @@
 var TERM = 12;
 var TIERS = [
   { id: "min", name: "Minimum Management", short: "Minimum", monthlyPct: 7, leasePct: 50, renewal: 250, minRent: 1000,
-    pitch: "Full-service management with the essentials. Add the extras you want.",
+    pitch: "Everything above at our lowest monthly fee. Add extras only when you need them.",
     adds: [] },
   { id: "special", name: "Raynor Special", short: "Special", monthlyPct: 10, leasePct: 50, renewal: 250, minRent: 1000,
-    pitch: "Everything in Minimum, plus the lease break waiver, yearly reviews and vacancy care.",
-    adds: ["Lease break waiver", "Yearly management inspection and renewal market analysis", "Vacancy checks, cameras and utility handling", "Occupied unit setup", "No $75 coordination fee on work orders", "Annual accounting and tax documents included", "Professional photos, virtual tour and move-out inspections included"] },
+    pitch: "Everything in Minimum, plus yearly inspections, vacancy care and fewer fees.",
+    adds: ["Lease break waiver", "Yearly management inspection", "Professional photos, virtual tour and move-out inspections", "Vacancy care while your home is empty", "Renewal market analysis", "No coordination fee on regular work orders", "Annual accounting and tax documents"] },
   { id: "plus", name: "Protection Plus", short: "Plus", monthlyPct: 15, leasePct: 50, renewal: 250, minRent: 800,
     pitch: "Everything in Raynor Special, plus planning and our most hands-on care.",
-    adds: ["Annual portfolio review and investment deal analysis", "Budget and CapEx planning with you", "Proactive property report", "Pre-vacancy listing and keyless access included", "Ownership changes included", "No coordination fees at all"] }
+    adds: ["Portfolio review, deal analysis, and budget and CapEx planning", "Proactive property report", "Pre-vacancy listing and keyless access", "Ownership changes", "No coordination fees at all"] }
 ];
 /* Discount, as on Bottom Line's Prices page: when the owner's monthly fee is at or below atPct% of rent, pct% comes off
    the leasing and renewal fees. 0% monthly means the whole lease term is paid up front. The biggest step reached wins. */
@@ -293,36 +333,53 @@ var DISCOUNT = { on: true, steps: [{ atPct: 0, pct: 10 }] };
 /* Each package's minimum rent for figuring fees (minRent): below it, every fee is figured as if the rent were that much,
    and the owner's fee choice still slides that total between monthly and up front. Plus's is lower ($800) because a 15%
    owner is worth taking at a lower rent; at $800 it still stays above Special's $1,000 x 10%. */
+/* What every package includes, in the owner's terms. The full list sits behind "Everything every package includes". */
+var CORE = [
+  { t: "Leasing and tenant screening", d: "Marketing, Zillow listings, showings, screening and lease signing." },
+  { t: "Rent collection", d: "Online rent payments, delinquency follow-up and weekly owner distributions." },
+  { t: "Maintenance, day and night", d: "Work orders sent to vendors, with after-hours emergency coverage." },
+  { t: "Statements and 1099s", d: "Your owner portal, monthly statements and your 1099 each year." },
+  { t: "Pet and eviction guarantees", d: "Pet damage covered up to $1,500. Eviction costs covered for tenants we place." },
+  { t: "Compliance and deposits", d: "Security deposits, lease violations, fair housing, HOA and city rules." }
+];
 /* A typical tenancy in years (Bottom Line's Portfolio average): year 1 has a new tenant, the rest are renewals. */
 var TENANCY = 4;
-/* Rows that differ. Each mark: "yes", "add" (available as an add-on), "no", or a fee string. */
+/* What changes between packages, in four sections. Marks: "yes" (included), "add" (available, priced in Add-ons), "no",
+   "free" (no charge), or a price. The Add-ons section (id "addons") is where every "add" chip points. */
 var DIFF = [
-  { group: "Fees", rows: [
-    { n: "Maintenance coordination", note: "Per work order", m: ["$75", "Included", "Included"] },
-    { n: "Special-circumstance coordination", note: "Per work order, in place of the $75 fee", m: ["$150", "$150", "Included"] },
-    { n: "Annual accounting and tax documents", note: "Once a year per entity", m: ["$125/yr", "Included", "Included"] },
-    { n: "Move-out inspection", note: "Each time a tenant moves out", m: ["$200", "Included", "Included"] },
-    { n: "Professional photos and virtual tour", note: "When we list the home. Usually only redone after major changes. We accept professional photos you provide.", m: ["$350", "Included", "Included"] },
-    { n: "Ownership change", note: "New owner setup when the property changes hands", m: ["$500", "$500", "Included"] },
+  { group: "What each package includes", rows: [
+    { n: "Yearly management inspection", note: "Extra inspections any time, $150 each", m: ["add", "yes", "yes"] },
+    { n: "Professional photos and virtual tour", note: "When we list the home. Usually only redone after major changes. We accept professional photos you provide.", m: ["add", "yes", "yes"] },
+    { n: "Move-out inspection", note: "Each time a tenant moves out", m: ["add", "yes", "yes"] },
+    { n: "Renewal market analysis", note: "Each year, before renewal", m: ["add", "yes", "yes"] },
+    { n: "Vacancy care", note: "Vacancy checks, camera monitoring, utility handling and occupied-unit setup", m: ["add", "yes", "yes"] },
+    { n: "Owner planning", note: "Annual portfolio review, investment deal analysis, budget and CapEx planning, proactive property report", m: ["add", "add", "yes"] },
+    { n: "Pre-vacancy listing", note: "Listed before the current tenant moves out", m: ["add", "add", "yes"] },
+    { n: "Keyless access", note: "At each turnover", m: ["add", "add", "yes"] },
+    { n: "Ownership change", note: "New owner setup when the property changes hands", m: ["add", "add", "yes"] }
+  ]},
+  { group: "Fees", sub: "Charged only when they happen", rows: [
+    { n: "Maintenance coordination", note: "Per work order", m: ["$75", "free", "free"] },
+    { n: "Special-circumstance coordination", note: "Per work order, in place of the $75 fee", m: ["$150", "$150", "free"] },
+    { n: "Annual accounting and tax documents", note: "Once a year per entity", m: ["$125/yr", "free", "free"] },
     { n: "Fee while vacant", note: "Each month the unit sits empty between tenants", m: ["$99/mo", "$99/mo", "$99/mo"] }
   ]},
-  { group: "Maintenance", rows: [
-    { n: "Keyless access", note: "At each turnover", m: ["$150", "$150", "yes"] }
-  ]},
-  { group: "Inspections and reporting", rows: [
-    { n: "Management inspection", note: "Once a year. Any owner can request more at $150 each.", m: ["$150 each", "yes", "yes"] },
-    { n: "Renewal market analysis", note: "Each year", m: ["$150/yr", "yes", "yes"] },
-    { n: "Annual portfolio review", m: ["$400", "$400", "yes"] },
-    { n: "Investment deal analysis", m: ["$695", "$695", "yes"] },
-    { n: "Budget and CapEx planning with you", m: ["$395", "$395", "yes"] },
-    { n: "Proactive property report", m: ["$400", "$400", "yes"] }
-  ]},
-  { group: "Vacancy care", rows: [
-    { n: "Occupied unit setup", m: ["$250", "yes", "yes"] },
+  { group: "Add-ons", sub: "On request, for anything your package doesn't include", id: "addons", rows: [
+    { n: "Management inspection", note: "Beyond the yearly one in Special and Plus", m: ["$150 each", "$150 each", "$150 each"] },
+    { n: "Professional photos and virtual tour", m: ["$350", "yes", "yes"] },
+    { n: "Move-out inspection", m: ["$200", "yes", "yes"] },
+    { n: "Renewal market analysis", m: ["$150/yr", "yes", "yes"] },
     { n: "Vacancy checks", note: "Per vacancy", m: ["$125", "yes", "yes"] },
     { n: "Vacancy monitoring with cameras", m: ["$50/mo", "yes", "yes"] },
     { n: "Utility management while vacant", note: "Each month the unit sits empty", m: ["$50/mo", "yes", "yes"] },
-    { n: "Pre-vacancy listing", note: "Listed before the current tenant moves out", m: ["add", "add", "yes"] }
+    { n: "Occupied unit setup", m: ["$250", "yes", "yes"] },
+    { n: "Annual portfolio review", m: ["$400", "$400", "yes"] },
+    { n: "Investment deal analysis", m: ["$695", "$695", "yes"] },
+    { n: "Budget and CapEx planning", m: ["$395", "$395", "yes"] },
+    { n: "Proactive property report", m: ["$400", "$400", "yes"] },
+    { n: "Pre-vacancy listing", m: ["Ask us", "Ask us", "yes"] },
+    { n: "Keyless access", note: "At each turnover", m: ["$150", "$150", "yes"] },
+    { n: "Ownership change", m: ["$500", "$500", "yes"] }
   ]},
   { group: "Guarantees", rows: [
     { n: "Pet guarantee", note: "Covers up to $1,500. Backed by the pet rent we collect.", m: ["yes", "yes", "yes"] },
@@ -330,14 +387,14 @@ var DIFF = [
     { n: "Lease break waiver", note: "No leasing fee to re-place a tenant who breaks the lease", m: ["no", "yes", "yes"] }
   ]}
 ];
+/* The full list of what every package includes, minus back-office steps owners never see. */
 var ALL = {
-  "Leasing and placement": ["Leasing coordination and marketing", "Photography coordination", "Zillow Boost listings", "Showings and self-tour management", "Tenant screening and application review", "Lease preparation and signing", "Resident move-in orientation"],
-  "Renewals": ["Renewal negotiation", "Renewal signing and processing"],
-  "Maintenance": ["Work order triage and dispatch", "Emergency and after-hours coordination", "Property manager handles complex repairs", "Vendor communication", "Invoice review and approval"],
-  "Accounting": ["Weekly owner distributions", "Monthly owner statement review", "Weekly rent roll review", "Vendor invoice processing", "Owner 1099s each year"],
-  "Tenants and owners": ["Owner communication", "Online owner and tenant portal", "Resident support at every level", "Delinquency and collections"],
-  "Inspections": ["Move-in inspection", "Resident-led inspection review"],
-  "Property and compliance": ["Key management, lockbox and rekeys", "Security deposit handling and move-out accounting", "Lease violations and notices", "Fair housing, HOA and city compliance", "Eviction service, if eligible"]
+  "Leasing": ["Marketing and Zillow listings", "Showings and self-tours", "Tenant screening", "Lease preparation and signing", "Resident move-in orientation", "Move-in inspection"],
+  "Renewals": ["Renewal negotiation", "Renewal signing"],
+  "Maintenance": ["Work order dispatch to vendors", "After-hours emergency coverage", "Your property manager handles complex repairs", "Invoice review before you pay"],
+  "Money": ["Online rent collection", "Delinquency follow-up", "Weekly owner distributions", "Monthly statements", "Owner 1099s each year"],
+  "Owner and tenant support": ["Online owner and tenant portal", "One point of contact for owners", "Tenant support, start to finish"],
+  "Compliance": ["Security deposits and move-out accounting", "Lease violations and notices", "Fair housing, HOA and city compliance", "Keys, lockboxes and rekeys", "Eviction service, if needed"]
 };
 
 var $ = function (id) { return document.getElementById(id); };
@@ -365,11 +422,14 @@ function quote(t, rent, p) {
     lease: lease * (1 - disc / 100), renewal: renewal * (1 - disc / 100) };
 }
 
+/* ---------- core services ---------- */
+$("core").innerHTML = CORE.map(function (c) { return '<li class="lift"><b>' + esc(c.t) + "</b><span>" + esc(c.d) + "</span></li>"; }).join("");
+
 /* ---------- packages ---------- */
 $("tiers").innerHTML = TIERS.map(function (t, i) {
-  var base = i === 0 ? '<li class="base">Leasing, rent collection, maintenance and accounting</li><li class="base">Pet and eviction guarantees</li><li class="base">Move-in inspection</li><li class="base">Weekly owner distributions</li><li class="base">Online owner portal</li>'
+  var base = i === 0 ? '<li class="base">Every core service above</li><li class="base">Pet and eviction guarantees</li><li class="base">Add extras only when you need them</li>'
     : t.adds.map(function (a) { return "<li>" + esc(a) + "</li>"; }).join("");
-  return '<article class="tier' + (i === 2 ? " top" : "") + '" aria-labelledby="t-' + t.id + '">' +
+  return '<article class="tier lift' + (i === 2 ? " top" : "") + '" aria-labelledby="t-' + t.id + '">' +
     '<h3 id="t-' + t.id + '">' + esc(t.name) + '</h3><p class="pitch">' + esc(t.pitch) + "</p>" +
     '<dl class="fees"><div><dt>Monthly, of rent</dt><dd>' + t.monthlyPct + '%</dd></div>' +
     '<div><dt>Leasing, of 1 mo</dt><dd>' + t.leasePct + '%</dd></div>' +
@@ -381,24 +441,22 @@ $("tiers").innerHTML = TIERS.map(function (t, i) {
 /* ---------- differences ---------- */
 function mark(v) {
   if (v === "yes") return '<span class="mark yes"><span class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Included</span></span>';
-  if (v === "add") return '<span class="mark add">Add-on</span>';
+  if (v === "add") return '<a class="mark add" href="#addons">Add-on</a>';
+  if (v === "free") return '<span class="mark free">No charge</span>';
   if (v === "no") return '<span class="mark no">—</span>';
   return '<span class="mark fee">' + esc(v) + "</span>";
 }
 $("diff").innerHTML = "<thead><tr><th scope=\"col\">Item</th>" + TIERS.map(function (t) { return '<th scope="col">' + esc(t.name) + "</th>"; }).join("") + "</tr></thead><tbody>" +
   DIFF.map(function (g) {
-    return '<tr class="grp"><td colspan="4">' + esc(g.group) + "</td></tr>" + g.rows.map(function (r) {
+    return '<tr class="grp"' + (g.id ? ' id="' + g.id + '"' : "") + '><td colspan="4">' + esc(g.group) + (g.sub ? '<span class="grp-note">' + esc(g.sub) + "</span>" : "") + "</td></tr>" + g.rows.map(function (r) {
       return '<tr><td>' + esc(r.n) + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" + r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>";
     }).join("");
   }).join("") + "</tbody>";
-function head() { return "<thead><tr><th scope=\"col\">Item</th>" + TIERS.map(function (t) { return '<th scope="col">' + esc(t.name) + "</th>"; }).join("") + "</tr></thead>"; }
 var allCount = 0;
-$("all-table").innerHTML = head() + "<tbody>" + Object.keys(ALL).map(function (k) {
-  return '<tr class="grp"><td colspan="4">' + esc(k) + "</td></tr>" + ALL[k].map(function (x) {
-    allCount++;
-    return "<tr><td>" + esc(x) + "</td>" + TIERS.map(function () { return "<td>" + mark("yes") + "</td>"; }).join("") + "</tr>";
-  }).join("");
-}).join("") + "</tbody>";
+$("all-list").innerHTML = Object.keys(ALL).map(function (k) {
+  allCount += ALL[k].length;
+  return "<div><h3>" + esc(k) + "</h3><ul>" + ALL[k].map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>";
+}).join("");
 $("all-count").textContent = "(" + allCount + ")";
 $("all-toggle").addEventListener("click", function () {
   var open = $("all-wrap").hidden;
