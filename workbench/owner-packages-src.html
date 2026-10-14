@@ -282,10 +282,10 @@ var TIERS = [
     adds: [] },
   { id: "special", name: "Raynor Special", short: "Special", monthlyPct: 10, leasePct: 50, renewal: 250, minRent: 1000,
     pitch: "Everything in Minimum, plus the lease break waiver, yearly reviews and vacancy care.",
-    adds: ["Lease break waiver", "Yearly management inspection and renewal market analysis", "Vacancy checks, cameras and utility handling", "Occupied unit setup", "No $75 coordination fee on work orders", "Annual accounting and tax documents included", "Professional listing photography and move-out inspections included"] },
+    adds: ["Lease break waiver", "Yearly management inspection and renewal market analysis", "Vacancy checks, cameras and utility handling", "Occupied unit setup", "No $75 coordination fee on work orders", "Annual accounting and tax documents included", "Professional photos, virtual tour and move-out inspections included"] },
   { id: "plus", name: "Protection Plus", short: "Plus", monthlyPct: 15, leasePct: 50, renewal: 250, minRent: 800,
     pitch: "Everything in Raynor Special, plus planning and our most hands-on care.",
-    adds: ["Annual portfolio review and investment deal analysis", "Budget and CapEx planning with you", "Proactive property report", "Pre-vacancy listing and deadbolts included", "Ownership changes included", "No coordination fees at all"] }
+    adds: ["Annual portfolio review and investment deal analysis", "Budget and CapEx planning with you", "Proactive property report", "Pre-vacancy listing and keyless access included", "Ownership changes included", "No coordination fees at all"] }
 ];
 /* Discount, as on Bottom Line's Prices page: when the owner's monthly fee is at or below atPct% of rent, pct% comes off
    the leasing and renewal fees. 0% monthly means the whole lease term is paid up front. The biggest step reached wins. */
@@ -300,17 +300,17 @@ var DIFF = [
   { group: "Fees", rows: [
     { n: "Maintenance coordination", note: "Per work order", m: ["$75", "Included", "Included"] },
     { n: "Special-circumstance coordination", note: "Per work order, in place of the $75 fee", m: ["$150", "$150", "Included"] },
-    { n: "Annual accounting and tax documents", note: "Once a year per owner, however many properties", m: ["$125/yr", "Included", "Included"] },
+    { n: "Annual accounting and tax documents", note: "Once a year per entity", m: ["$125/yr", "Included", "Included"] },
     { n: "Move-out inspection", note: "Each time a tenant moves out", m: ["$200", "Included", "Included"] },
-    { n: "Professional listing photography", note: "Each time the unit is listed for a new tenant", m: ["$350", "Included", "Included"] },
+    { n: "Professional photos and virtual tour", note: "When we list the home. Usually only redone after major changes. We accept professional photos you provide.", m: ["$350", "Included", "Included"] },
     { n: "Ownership change", note: "New owner setup when the property changes hands", m: ["$500", "$500", "Included"] },
     { n: "Fee while vacant", note: "Each month the unit sits empty between tenants", m: ["$99/mo", "$99/mo", "$99/mo"] }
   ]},
   { group: "Maintenance", rows: [
-    { n: "Deadbolts", note: "At each turnover", m: ["$150", "$150", "yes"] }
+    { n: "Keyless access", note: "At each turnover", m: ["$150", "$150", "yes"] }
   ]},
   { group: "Inspections and reporting", rows: [
-    { n: "Management inspection, once a year", m: ["$150/yr", "yes", "yes"] },
+    { n: "Management inspection", note: "Once a year. Any owner can request more at $150 each.", m: ["$150 each", "yes", "yes"] },
     { n: "Renewal market analysis", note: "Each year", m: ["$150/yr", "yes", "yes"] },
     { n: "Annual portfolio review", m: ["$400", "$400", "yes"] },
     { n: "Investment deal analysis", m: ["$695", "$695", "yes"] },
