@@ -204,12 +204,13 @@ function bundleItems(doc, b) {
 /*
  * How often an optional add-on happens, per door per year, from its "How often" number and unit (a.per):
  * per door a year (default), per turnover (only when a unit turns over), per door a month, a count a year across all doors,
- * or per event: a one-off an owner orders when they need it (a vacancy check), counted as times ordered over the tenancy.
+ * per event: a one-off an owner orders when they need it (a vacancy check), counted as times ordered over the tenancy,
+ * or per vacant month: billed each month a unit sits empty (utility management), the number being months vacant per turnover.
  */
-var ADDON_PER = { door_yr: "per door / yr", turnover: "per turnover", month: "per door / mo", portfolio_yr: "per year, all doors", event: "per event (one-off orders over the tenancy)" };
+var ADDON_PER = { door_yr: "per door / yr", turnover: "per turnover", month: "per door / mo", portfolio_yr: "per year, all doors", event: "per event (one-off orders over the tenancy)", vacant_mo: "per vacant month (months vacant per turnover)" };
 function addonTimesPerDoorYr(doc, a) {
   var n = a.freq || 0, per = a.per || "door_yr";
-  if (per === "turnover" || per === "event") return doc.G.tenancy > 0 ? n / doc.G.tenancy : 0;
+  if (per === "turnover" || per === "event" || per === "vacant_mo") return doc.G.tenancy > 0 ? n / doc.G.tenancy : 0;
   if (per === "month") return n * 12;
   if (per === "portfolio_yr") return doc.G.doors ? n / doc.G.doors : 0;
   return n;

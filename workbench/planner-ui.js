@@ -565,7 +565,7 @@
     }, (dest === "addon" ? "Made " + svc.n + " an add-on" : "Offered " + svc.n));
   }
 
-  var ADDON_PER_SHORT = { door_yr: "/door/yr", turnover: "/turnover", month: "/door/mo", portfolio_yr: "/yr, all doors", event: "/event" };
+  var ADDON_PER_SHORT = { door_yr: "/door/yr", turnover: "/turnover", month: "/door/mo", portfolio_yr: "/yr, all doors", event: "/event", vacant_mo: "/vacant mo" };
   /* How often an optional add-on happens: a number and a unit (see ADDON_PER in the engine). */
   function OftenCell(props) {
     var a = props.a, name = props.name, idp = props.idp, per = a.per || "door_yr";
@@ -1559,7 +1559,7 @@
             }}>+ Add an add-on</button></td></tr>
           </tbody>
         </table></div>
-        <p class="note" style=${{ padding: "8px 14px 12px" }}>Price and cost are per time it's done. "Keeps / door / mo" is what Raynor keeps per door each month across all doors in a tier that sells it: price minus cost, times how often, times the share of owners who buy (or every door when it's included). "/event" is a one-off owners order when they need it, like a vacancy check: the number is how many times one owner who buys orders it over the tenancy.</p>
+        <p class="note" style=${{ padding: "8px 14px 12px" }}>Price and cost are per time it's done. "Keeps / door / mo" is what Raynor keeps per door each month across all doors in a tier that sells it: price minus cost, times how often, times the share of owners who buy (or every door when it's included). "/event" is a one-off owners order when they need it, like a vacancy check: the number is how many times one owner who buys orders it over the tenancy. "/vacant mo" is billed each month a unit sits empty, like utility management: the number is how many months a unit is usually vacant per turnover.</p>
       </section>
 
       <section class="panel">
