@@ -231,8 +231,9 @@ function linkedAddonCost(doc, a) {
   var id = a.svc;
   if (!id) return null;
   var doors = doc.G.doors || 0;
-  // A service's value is the PM time it takes. Each time an owner buys it as an add-on, that time is the add-on's cost.
-  if (doc.place[id] === "scope") return scopeValue(doc, id);
+  // A service is PM time, already paid in salaries, so selling it costs the same as including it: nothing, unless
+  // "Count freed PM capacity" credits tiers that leave it out. Then each sale uses that freed time back up.
+  if (doc.place[id] === "scope") return doc.pricing && doc.pricing.scopeSavings ? scopeValue(doc, id) : 0;
   if (id === "evict_g") { var g = findRow(doc, id); return g && doors ? cmo(g, doc) / doors : 0; }
   if (id === "lease_brk") return doors ? leaseBreakMo(doc, "min") / doors : 0;
   var r = findRow(doc, id);
