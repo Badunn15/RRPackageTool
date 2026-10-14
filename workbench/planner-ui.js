@@ -42,6 +42,8 @@
   var TIER_DOC = null;
   // Saved scenarios and how to write them (set on each render of App), for copying an add-on into other scenarios.
   var SCEN_CTX = null;
+  // Opens the page holding an add-on's source (a cost line or a service) with it selected (set on each render of App).
+  var GO_SOURCE = null;
 
   /*
    * "Copy to other scenarios": puts this add-on (and the cost line or service it's sold from, if a scenario lacks it)
@@ -574,14 +576,27 @@
       </select></span>`;
   }
 
+  /* Where an add-on's linked cost comes from: a cost line (Costs page) or a service (Services page). */
+  function addonSource(doc, a) {
+    if (!a.svc) return null;
+    var c = findCostRow(doc, a.svc);
+    if (c) return { page: "Costs", name: rowName(doc, c.row) };
+    if (doc.MASTER[a.svc] && doc.place[a.svc] === "scope") return { page: "Services", name: doc.MASTER[a.svc].n, service: true };
+    return null;
+  }
   /* An add-on's cost: follows its service or cost line unless someone sets their own. */
   function AddonCost(props) {
     var doc = props.doc, a = props.a, edit = props.edit, linked = addonCostLinked(doc, a), lv = a.svc ? linkedAddonCost(doc, a) : null;
-    if (linked) return html`<span class="addon-cost" title="Follows its service or cost line, so it updates when that changes">
-      <span class="mono">${money(lv, lv > 0 && lv < 1 ? 3 : 2)}</span>${props.compact ? null : html` <span class="tiny faint">follows the line</span>
-      <button type="button" class="link tiny" onClick=${function () { edit(function (x) { x.costOwn = true; x.cost = Math.round(lv * 1000) / 1000; }, "own cost"); }}>Use my own</button>`}</span>`;
+    var src = addonSource(doc, a), where = src ? '"' + src.name + '" on ' + src.page : "its service or cost line";
+    // A service is PM time already in staff pay, so it costs nothing extra unless freed PM capacity is counted.
+    var timeOnly = src && src.service && !(doc.pricing && doc.pricing.scopeSavings);
+    var why = timeOnly ? " $0, since it's PM time already paid in staff pay. To count that time, turn on \"Take it off each tier's cost\" on Services, or use your own cost." : "";
+    if (linked) return html`<span class="addon-cost" title=${"Follows " + where + ", so it updates when that changes." + why}>
+      <span class="mono">${money(lv, lv > 0 && lv < 1 ? 3 : 2)}</span>${props.compact ? null : html` <span class="tiny faint">follows ${src ? html`<button type="button" class="link tiny" title=${"Open it on " + src.page} onClick=${function () { if (GO_SOURCE) GO_SOURCE(a.svc); }}>${src.name}</button> on ${src.page}` : "its source"}</span>
+      <button type="button" class="link tiny" onClick=${function () { edit(function (x) { x.costOwn = true; x.cost = Math.round(lv * 1000) / 1000; }, "own cost"); }}>Use my own</button>
+      ${timeOnly ? html`<span class="tiny faint" style=${{ flexBasis: "100%" }}>$0: PM time already paid in staff pay.</span>` : null}`}</span>`;
     return html`<span class="addon-cost"><${Affix} id=${props.id} prefix="$" min=${0} cls=${props.cls} label="Your cost each time" value=${a.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
-      ${lv != null && !props.compact ? html` <button type="button" class="link tiny" title=${"Follow the source again: " + money(lv, 2)} onClick=${function () { edit(function (x) { x.costOwn = false; }, "cost linked"); }}>Follow the line</button>` : null}</span>`;
+      ${lv != null && !props.compact ? html` <button type="button" class="link tiny" title=${"Follow " + where + " again: " + money(lv, 2)} onClick=${function () { edit(function (x) { x.costOwn = false; }, "cost linked"); }}>Follow ${src ? src.page : "the line"}</button>` : null}</span>`;
   }
 
   /* "Also sell as an add-on" for a service (kind "psk") or a cost line (kind "ck"): sold to the tiers that leave it out. */
@@ -2536,6 +2551,16 @@
     }
 
     TIER_DOC = doc;
+    GO_SOURCE = function (id) {
+      var c = findCostRow(doc, id);
+      setUi(function (u) {
+        if (c) { u.page = "costs"; u.groups[c.group.id] = false; u.costFilter = { q: "", show: "all" }; u.sel = { kind: "cost", id: id }; return; }
+        var o = doc.scopeOwner[id], cat = doc.icat[id] || (doc.MASTER[id] && doc.MASTER[id].dc);
+        u.page = "services"; u.scopeFilter = { q: "", show: "all" }; u.sel = { kind: "svc", id: id };
+        if (o) { u.owners[o] = false; u.cats[o + "|" + cat] = false; }
+      });
+      setTimeout(function () { var el = document.querySelector("tr.item.sel"); if (el) el.scrollIntoView({ block: "center" }); else window.scrollTo(0, 0); }, 80);
+    };
     SCEN_CTX = { cloud: cloud, lists: lists, scen: scen, setMsg: setMsg };
     // Focus can't sit on a package the scenario doesn't offer.
     if (ui.focus !== "all" && !tierOn(doc, ui.focus)) ui = Object.assign({}, ui, { focus: "all" });
