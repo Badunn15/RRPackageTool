@@ -440,9 +440,9 @@ $("tiers").innerHTML = TIERS.map(function (t, i) {
 
 /* ---------- differences ---------- */
 function mark(v) {
-  if (v === "yes") return '<span class="mark yes"><span class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Included</span></span>';
+  /* "free" shows the same checkmark as "yes": included, nothing extra to pay. */
+  if (v === "yes" || v === "free") return '<span class="mark yes"><span class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Included</span></span>';
   if (v === "add") return '<a class="mark add" href="#addons">Add-on</a>';
-  if (v === "free") return '<span class="mark free">No charge</span>';
   if (v === "no") return '<span class="mark no">—</span>';
   return '<span class="mark fee">' + esc(v) + "</span>";
 }
