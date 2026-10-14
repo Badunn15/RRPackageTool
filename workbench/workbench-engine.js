@@ -147,8 +147,16 @@ var DEFAULT_ADDONS = [
   { id: "addon_coord_special", name: "Coordination fee, special circumstance", price: 150, cost: 0, basis: "wo", amount: 0,
     tiers: { min: "charged", special: "included", plus: "included" } },
   EVICTION_ADDON(),
-  ACCOUNTING_ADDON()
+  ACCOUNTING_ADDON(),
+  LISTING_ASSIST_ADDON()
 ];
+/* Listing assistance: 0.5% of the sale price when an owner sells with an agent outside Raynor Realty. Priced at a
+   $200,000 average sale ($1,000), about 5 such sales a year across the portfolio, $150 of Raynor's time each.
+   Sold on Minimum and Special, included in Plus. */
+function LISTING_ASSIST_ADDON() {
+  return { id: "addon_listing_assist", name: "Listing assistance", kind: "addon", basis: "optional", price: 1000, cost: 150, costOwn: false,
+    freq: 5, per: "portfolio_yr", uptake: 100, tiers: { min: "charged", special: "charged", plus: "included" } };
+}
 /* Owner accounting fee, $125 a door a year: billed on Minimum (required, since Raynor has to do it), included in Special and Plus. */
 function ACCOUNTING_ADDON() {
   // Charged once a year per owner entity (an owner with several doors pays it once), spread over the doors.
