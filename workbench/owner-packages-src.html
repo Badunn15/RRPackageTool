@@ -436,12 +436,14 @@ function render() {
   // All three packages at this rent, standard mix: a new-tenant year and a renewal year, and the step up between them.
   var anyFloor = TIERS.some(function (x) { return feeRent(x, realRent) > realRent; });
   $("cmp-h").textContent = "The three packages at " + (realRent > 0 ? money(realRent) : "your") + " rent, standard mix" + (anyFloor ? " (Minimum and Special figured on " + money(MIN_RENT) + ")" : "");
-  var prev = null;
+  // Each package's step up from the one before it, shown under the monthly fee it compares.
+  var prevMo = null;
   $("cmp").innerHTML = '<thead><tr><th scope="col">Package</th><th scope="col">Monthly</th><th scope="col">New-tenant year</th><th scope="col">Renewal year</th></tr></thead><tbody>' +
     TIERS.map(function (x) {
-      var xr = feeRent(x, realRent), fx = frame(x, xr), d = prev ? (fx.renewTerm - prev.renewTerm) / 12 : 0, up = prev ? '<br><span class="up">' + (d >= 0 ? "+" + money(d) + "/mo more" : money(-d) + "/mo less") + "</span>" : "";
-      prev = fx;
-      return '<tr class="' + (x.id === t.id ? "on" : "") + '"><td>' + esc(x.short) + "</td><td>" + money(x.monthlyPct / 100 * xr) + "</td><td>" + money(fx.turnTerm) + "</td><td>" + money(fx.renewTerm) + up + "</td></tr>";
+      var xr = feeRent(x, realRent), fx = frame(x, xr), mo = x.monthlyPct / 100 * xr, d = prevMo == null ? 0 : mo - prevMo;
+      var up = prevMo == null ? "" : '<br><span class="up">' + (d >= 0 ? "+" + money(d) + " more" : money(-d) + " less") + "</span>";
+      prevMo = mo;
+      return '<tr class="' + (x.id === t.id ? "on" : "") + '"><td>' + esc(x.short) + "</td><td>" + money(mo) + up + "</td><td>" + money(fx.turnTerm) + "</td><td>" + money(fx.renewTerm) + "</td></tr>";
     }).join("") + "</tbody>";
 
   $("presets").innerHTML = [
