@@ -101,6 +101,16 @@
   .tier{ position:relative; background:var(--panel); border:1px solid var(--rule); border-radius:14px; padding:20px 18px 18px; display:flex; flex-direction:column; gap:12px; min-width:0; }
   .tier.rec{ border-color:var(--gold-line); box-shadow:inset 0 3px 0 var(--gold-line); }
   .tier.rec.lift:hover{ border-color:var(--gold-line); box-shadow:inset 0 3px 0 var(--gold-line), var(--lift); }
+  .tier{ cursor:pointer; }
+  .tier.sel, .tier.sel.rec{ border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+  .tier.sel.lift:hover, .tier.sel.rec.lift:hover{ border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent), var(--lift); }
+  .diff thead th:not(:first-child){ cursor:pointer; }
+  .diff .col-rec{ box-shadow:inset 2px 0 0 var(--gold-line), inset -2px 0 0 var(--gold-line); }
+  .diff th.col-rec{ box-shadow:inset 2px 0 0 var(--gold-line), inset -2px 0 0 var(--gold-line), inset 0 2px 0 var(--gold-line); }
+  .diff td.col-rec.col-bot{ box-shadow:inset 2px 0 0 var(--gold-line), inset -2px 0 0 var(--gold-line), inset 0 -2px 0 var(--gold-line); }
+  .diff .col-sel{ box-shadow:inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
+  .diff th.col-sel{ box-shadow:inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent), inset 0 2px 0 var(--accent); }
+  .diff td.col-sel.col-bot{ box-shadow:inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent), inset 0 -2px 0 var(--accent); }
   .badge{ position:absolute; top:-11px; left:16px; background:var(--gold-tint); color:var(--gold); border:1px solid var(--gold-line); border-radius:999px; padding:1px 10px; font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
   .tier h3{ margin:0; font-family:var(--font-display); font-weight:600; font-size:24px; }
   .tier .promise{ margin:-8px 0 0; color:var(--accent-ink); font-weight:600; font-size:15px; }
@@ -427,6 +437,8 @@ var TIERS = [
   }
 ];
 var REC = "special", BADGE = "Most owners";
+/* The package the owner has clicked on: outlined blue on its card and its column, over the gold of the recommended one. */
+var SEL = null;
 /* Up-front discount, as on Bottom Line's Prices page: at a 0% monthly fee the whole lease term is paid up front and
    10% comes off the leasing and renewal fees. */
 var DISCOUNT = { on: true, steps: [{ atPct: 0, pct: 10 }] };
@@ -659,7 +671,7 @@ function renderTiers() {
       ? '<li class="base"><a href="#row-ess" class="see-same">Management essentials</a></li><li class="base">Add extras when you need them</li>'
       : '<li class="base">Everything in ' + esc(TIERS[i - 1].name) + "</li>" + cardAdds(i).map(function (a) { return "<li>" + esc(a) + "</li>"; }).join("");
     var fr = feeRent(t, r), mo = t.monthlyPct / 100 * fr, sep = cardSeparate(i);
-    return '<article class="tier lift' + (t.id === REC ? " rec" : "") + '" id="card-' + t.id + '" aria-labelledby="t-' + t.id + '">' +
+    return '<article class="tier lift' + (t.id === REC ? " rec" : "") + (t.id === SEL ? " sel" : "") + '" data-tier-card="' + t.id + '" id="card-' + t.id + '" aria-labelledby="t-' + t.id + '">' +
       (t.id === REC ? '<span class="badge">' + BADGE + '</span>' : "") +
       '<h3 id="t-' + t.id + '">' + esc(t.name) + '</h3><p class="promise">' + esc(t.promise) + "</p>" +
       '<div class="price"><b>' + t.monthlyPct + "%</b><span>of rent collected</span></div>" +
@@ -671,7 +683,23 @@ function renderTiers() {
         sep.map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul></details>" : "") +
       '<button type="button" class="btn pick" data-tier="' + t.id + '">Build my proposal with ' + esc(t.short) + " &darr;</button></article>";
   }).join("");
+  paintCols();
 }
+/* Outline the recommended package's column in the comparison gold, and the clicked one blue. */
+function paintCols() {
+  var t = $("diff"); if (!t) return;
+  var rows = Array.prototype.slice.call(t.rows), last = t.tBodies[0] ? t.tBodies[0].rows[t.tBodies[0].rows.length - 1] : null;
+  rows.forEach(function (row) {
+    if (row.cells.length !== TIERS.length + 1) return;
+    TIERS.forEach(function (tier, i) {
+      var c = row.cells[i + 1];
+      c.classList.toggle("col-rec", tier.id === REC);
+      c.classList.toggle("col-sel", tier.id === SEL);
+      c.classList.toggle("col-bot", row === last);
+    });
+  });
+}
+function selectTier(id) { SEL = SEL === id ? null : id; renderTiers(); }
 // The cards redraw as the proposal changes; keep each "What's separate?" open or closed as the owner left it.
 $("tiers").addEventListener("toggle", function (e) { if (e.target.dataset && e.target.dataset.t) sepOpen[e.target.dataset.t] = e.target.open; }, true);
 
@@ -701,6 +729,17 @@ function openRow(ri, open) {
   Array.prototype.forEach.call($("diff").querySelectorAll('tr[data-parent="' + ri + '"]'), function (tr) { tr.hidden = !open; });
 }
 $("diff").addEventListener("click", function (e) { var b = e.target.closest(".row-tog"); if (b) openRow(b.dataset.row); });
+$("diff").addEventListener("click", function (e) {
+  var th = e.target.closest("thead th"); if (!th || th.cellIndex < 1) return;
+  selectTier(TIERS[th.cellIndex - 1].id);
+});
+$("tiers").addEventListener("click", function (e) {
+  if (e.target.closest("button, a, summary, details ul")) return;
+  var c = e.target.closest("[data-tier-card]"); if (c) selectTier(c.dataset.tierCard);
+});
+document.addEventListener("click", function (e) {
+  if (SEL && !e.target.closest("[data-tier-card], #diff")) { SEL = null; renderTiers(); }
+});
 // The Minimum card's "Management essentials" link opens the list it points to.
 $("tiers").addEventListener("click", function (e) {
   if (!e.target.closest(".see-same")) return;
