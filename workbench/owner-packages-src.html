@@ -67,6 +67,7 @@
   .sec-h{ display:flex; flex-direction:column; gap:4px; margin-bottom:14px; }
   .kicker{ font-size:12px; letter-spacing:.13em; text-transform:uppercase; font-weight:700; color:var(--gold); }
   h2{ font-family:var(--font-display); font-weight:600; font-size:28px; line-height:1.15; margin:0; text-wrap:balance; }
+  h2.gold{ color:var(--gold); }
   .lead{ margin:0; color:var(--ink-2); max-width:66ch; }
   .lift{ transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
   .lift:hover{ transform:translateY(-3px); box-shadow:var(--lift); border-color:var(--sky); }
@@ -341,7 +342,7 @@
   </section>
 
   <section aria-labelledby="df-h" id="compare">
-    <div class="sec-h"><span class="kicker">Side by side</span><h2 id="df-h">Compare the packages</h2>
+    <div class="sec-h"><h2 id="df-h" class="gold">Compare the packages</h2>
       <p class="lead">A checkmark means it's included. A price means it's charged when it happens, or you can add it for that price.</p></div>
     <div class="sheet">
       <div class="table-wrap"><table class="diff" id="diff"></table></div>
@@ -349,7 +350,7 @@
   </section>
 
   <section aria-labelledby="pr-h" id="proposal">
-    <div class="sec-h"><span class="kicker">Your proposal</span><h2 id="pr-h">Build your proposal</h2>
+    <div class="sec-h"><h2 id="pr-h" class="gold">Build your proposal</h2>
       <p class="lead">Three steps: your properties, how your fees are set, and what's left for you each year. Own 5 or more doors and every door's monthly fee drops 5%.</p></div>
 
     <div class="step" aria-labelledby="st1">
