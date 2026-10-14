@@ -579,12 +579,13 @@ function cardAdds(i) {
   });
   return out;
 }
-/* What a package charges for separately: its fees, then a pointer to the add-on prices. */
+/* What a package charges for separately that another package doesn't: those fees, then a pointer to the add-on
+   prices. A fee that's the same in every package (leasing, renewal, the fee while vacant) isn't listed. */
 function cardSeparate(i) {
   var out = [], addons = 0;
   COMPARE.forEach(function (r) {
-    var v = r.m[i];
-    if (r.sep && v !== "yes" && v !== "no") out.push(esc(r.sep.replace("{v}", v)));
+    var v = r.m[i], same = r.m.every(function (x) { return x === r.m[0]; });
+    if (r.sep && !same && v !== "yes" && v !== "no") out.push(esc(r.sep.replace("{v}", v)));
     if (r.addon && v !== "yes") addons++;
   });
   if (addons) out.push('<a href="#compare" class="see-diff">' + addons + " add-ons</a>, priced in the table below");
@@ -597,7 +598,7 @@ function renderTiers() {
     var list = i === 0
       ? '<li class="base"><a href="#row-ess" class="see-same">Management essentials</a></li><li class="base">Add extras when you need them</li>'
       : '<li class="base">Everything in ' + esc(TIERS[i - 1].name) + "</li>" + cardAdds(i).map(function (a) { return "<li>" + esc(a) + "</li>"; }).join("");
-    var fr = feeRent(t, r), mo = t.monthlyPct / 100 * fr;
+    var fr = feeRent(t, r), mo = t.monthlyPct / 100 * fr, sep = cardSeparate(i);
     return '<article class="tier lift' + (t.id === REC ? " rec" : "") + '" id="card-' + t.id + '" aria-labelledby="t-' + t.id + '">' +
       (t.id === REC ? '<span class="badge">' + BADGE + '</span>' : "") +
       '<h3 id="t-' + t.id + '">' + esc(t.name) + '</h3><p class="promise">' + esc(t.promise) + "</p>" +
@@ -606,8 +607,8 @@ function renderTiers() {
       '<p class="example">At ' + money(r) + " rent: <b>" + money(mo) + "/mo</b>" + (fr > r ? " (figured on the " + money(fr) + " minimum)" : "") + "</p>" +
       '<p class="best"><b>Best for:</b> ' + esc(t.best) + "</p>" +
       '<ul class="adds">' + list + "</ul>" +
-      '<details class="sep" data-t="' + t.id + '"' + (sepOpen[t.id] ? " open" : "") + '><summary>What\'s separate?</summary><ul>' +
-        cardSeparate(i).map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul></details>" +
+      (sep.length ? '<details class="sep" data-t="' + t.id + '"' + (sepOpen[t.id] ? " open" : "") + '><summary>What\'s separate?</summary><ul>' +
+        sep.map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul></details>" : "") +
       '<button type="button" class="btn pick" data-tier="' + t.id + '">Build my proposal with ' + esc(t.short) + " &darr;</button></article>";
   }).join("");
 }
