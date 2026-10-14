@@ -728,7 +728,7 @@ function render() {
     ["Standard", t.monthlyPct],
     ["No Renewal Fee", f.zeroRenewalPct],
     ["No Lease Fee", f.zeroLeasePct],
-    ["Pay it all up front", 0]
+    ["Pay it all up front (" + (DISCOUNT.steps[0].pct + (on ? PORTFOLIO.pct : 0)) + "% off)", 0]
   ].map(function (p) { return '<button type="button" class="btn" data-pick="' + p[1] + '">' + esc(p[0]) + "</button>"; }).join("");
 
   var hint;
