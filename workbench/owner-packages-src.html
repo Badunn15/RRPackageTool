@@ -206,7 +206,6 @@
   .fq dd{ margin:0; font-family:var(--font-data); font-weight:600; font-size:28px; line-height:1.15; overflow-wrap:anywhere; }
   .fq dd s{ font-size:14px; font-weight:500; color:var(--ink-3); margin-left:6px; }
   .fq > div > span{ font-size:12.5px; color:var(--ink-3); }
-  .fq > div > span.moved{ color:var(--gold); }
   .fq .due{ background:var(--accent-tint); border-color:transparent; }
   .fq .due dd{ color:var(--accent-ink); }
   .save{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; padding:11px 13px; border-radius:10px; background:var(--good-bg); color:var(--good); font-size:13.5px; }
@@ -694,23 +693,15 @@ function render() {
     ? "<b>Portfolio discount on</b><span>" + doors + " doors. " + (state.pick > 0 ? "Every door's monthly fee is " + PORTFOLIO.pct + "% lower." : "Your up-front discount is " + (DISCOUNT.steps[0].pct + PORTFOLIO.pct) + "% instead of " + DISCOUNT.steps[0].pct + "%.") + " That saves you " + money(y.portSaved) + " a year.</span>"
     : "<b>Portfolio discount</b><span>" + doors + " of " + PORTFOLIO.doors + " doors. Add " + need + " more " + (need === 1 ? "door" : "doors") + " and every door's monthly fee drops " + PORTFOLIO.pct + "%.</span><span class=\"meter\" aria-hidden=\"true\">" + meter + "</span>";
 
-  // Step 2: the fees this mix gives, per door, for the first property, against the standard mix.
-  var p0 = y.rows[0], q = p0.q, qs = quote(t, p0.fr, t.monthlyPct, on), name0 = state.props[0].name || "Property 1";
-  if (!(p0.perDoor > 0)) qs = q;
+  // Step 2: the fees this mix gives, per door, for the first property.
+  var p0 = y.rows[0], q = p0.q, name0 = state.props[0].name || "Property 1";
   $("fq-h").textContent = "Your fees, per door" + (state.props.length > 1 ? " at " + name0 : "") + (p0.perDoor > 0 ? " (" + money(p0.perDoor) + " rent" + (p0.fr > p0.perDoor ? ", figured on the " + money(p0.fr) + " minimum" : "") + ")" : "");
-  function moved(v, std, el) {
-    var d = v - std, e = $(el);
-    e.className = Math.abs(d) < 0.5 ? "" : "moved";
-    e.textContent = Math.abs(d) < 0.5 ? "Standard mix" : (d > 0 ? money(d) + " more" : money(-d) + " less") + " than standard (" + money(std) + ")";
-  }
   $("fq-mo").innerHTML = money(q.monthly) + (q.monthlyOff ? "<s>" + money(q.monthlyFull) + "</s>" : "");
-  moved(q.monthly, qs.monthly, "fq-mo-s");
+  $("fq-mo-s").textContent = q.monthly > 0 ? pct(state.pick * (1 - q.monthlyOff / 100)) + " of rent" : "Paid up front with the lease";
   $("fq-lease").innerHTML = money(q.lease) + (q.disc ? "<s>" + money(q.leaseFull) + "</s>" : "");
-  moved(q.lease, qs.lease, "fq-lease-s");
-  if (p0.perDoor > 0 && !$("fq-lease-s").className) $("fq-lease-s").textContent = pct(q.lease / p0.perDoor * 100, 0) + " of one month's rent";
+  $("fq-lease-s").textContent = p0.perDoor > 0 ? pct(q.lease / p0.perDoor * 100, 0) + " of one month's rent" : "";
   $("fq-renew").innerHTML = money(q.renewal) + (q.disc ? "<s>" + money(q.renewalFull) + "</s>" : "");
-  moved(q.renewal, qs.renewal, "fq-renew-s");
-  if (!$("fq-renew-s").className) $("fq-renew-s").textContent = "Only if your tenant renews";
+  $("fq-renew-s").textContent = "Only if your tenant renews";
   $("fq-sign").textContent = money(q.lease + q.monthly);
   var sv = $("save");
   sv.hidden = !(q.disc > 0);
