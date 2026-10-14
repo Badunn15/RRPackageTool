@@ -140,7 +140,7 @@
   .mark.no{ color:var(--ink-3); font-weight:500; }
   .mark.yes{ gap:7px; }
   .diff td:first-child{ max-width:420px; }
-  .diff tbody tr:nth-child(even) td{ background:var(--panel-2); }
+  .diff tbody tr.alt td{ background:var(--panel-2); }
   .diff tr:target td{ background:var(--accent-tint); }
   .row-tog{ all:unset; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
   .row-tog:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
@@ -615,10 +615,11 @@ $("diff").innerHTML = '<thead><tr><th scope="col">What you get</th>' + TIERS.map
     var name = r.items
       ? '<button type="button" class="row-tog" data-row="' + ri + '" aria-expanded="false"><span class="caret" aria-hidden="true">&#9654;</span>' + esc(r.n) + "</button>"
       : esc(r.n);
-    return "<tr" + (r.id ? ' id="' + r.id + '"' : "") + (r.items ? ' class="has-items"' : "") + "><td>" + name + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
+    var alt = ri % 2 ? " alt" : "";
+    return "<tr" + (r.id ? ' id="' + r.id + '"' : "") + ' class="' + (r.items ? "has-items" : "") + alt + '"><td>' + name + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
       r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>" +
       (r.items || []).map(function (it) {
-        return '<tr class="item" data-parent="' + ri + '" hidden><td>' + esc(it) + "</td>" + r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>";
+        return '<tr class="item' + alt + '" data-parent="' + ri + '" hidden><td>' + esc(it) + "</td>" + r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>";
       }).join("");
   }).join("") + "</tbody>";
 function openRow(ri, open) {
