@@ -60,7 +60,7 @@ Use the `workbench` preview server (port 8940). Saving only works on claude.ai, 
 - The eviction guarantee is in Raynor Special and Protection Plus (confirmed 2026-10-05), and only for tenants Raynor placed.
 - Evictions are billed at $750: court fees ($96 + $30/tenant) come out first, and the rest splits 50/50 with the PM. A guaranteed eviction costs Raynor court fees only, with no PM pay (their time is salaried). The $1,500 attorney cap is almost never used.
 - Each guarantee lives in one place. The Eviction guarantee checkbox and the Eviction service checkbox stay in sync, and billed evictions follow both.
-- Lease break waiver = the tier's actual leasing fee, waived on re-placement (Special and Plus).
+- Leasing guarantee (was "Lease break waiver") = the tier's actual leasing fee, waived on re-placement (Special and Plus).
 - Special coordination ($150) replaces the $75 fee; it isn't added on top.
 - Per-use fees live on the Services page. Prices stays focused on finding the price.
 - 180 long-term residential doors are the package doors (`G.doors`). STR (`G.str`) and commercial (`G.comm`) units only share costs: staff, flat and per-unit software and overhead are spread over all units. Turnovers, listings, guarantees, leases and evictions stay on the residential doors. STR and commercial income is kept in the engine but not shown.

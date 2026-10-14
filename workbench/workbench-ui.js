@@ -346,7 +346,7 @@
               "Lines checked for " + TIER_SHORT[t] + " and counted at " + VIEW_NAMES[doc.cv] + ": " + money(cost.totalMo[t], 2) + "/mo ÷ " + fmtNum(doc.G.doors) + " doors = " + money(cost.base[t], 2) + "/door/mo",
               P.scopeSavings ? "Less " + money(cost.freed[t], 2) + " of PM capacity freed by services this tier strips = " + money(m.baseCost, 2) + "." : "Freed PM capacity from stripped services isn't taken off. Turn that on under Assumptions.",
               m.addon.cost > 0.005 ? "Plus " + money(m.addon.cost, 2) + " of add-on fee costs." : "No add-on fee costs.",
-              m.leaseBreak.cost > 0.005 ? "Plus " + money(m.leaseBreak.cost, 2) + " lease break waiver (the " + money(q.leaseUp) + " leasing fee waived × " + fmtNum(m.leaseBreak.perYear) + " breaks/yr ÷ 12 ÷ " + fmtNum(doc.G.doors) + " doors)." : m.leaseBreak.waived ? "Lease break waiver doesn't count at " + VIEW_NAMES[doc.cv] + "." : "No lease break waiver in this tier.",
+              m.leaseBreak.cost > 0.005 ? "Plus " + money(m.leaseBreak.cost, 2) + " leasing guarantee (the " + money(q.leaseUp) + " leasing fee waived × " + fmtNum(m.leaseBreak.perYear) + " breaks/yr ÷ 12 ÷ " + fmtNum(doc.G.doors) + " doors)." : m.leaseBreak.waived ? "Lease break waiver doesn't count at " + VIEW_NAMES[doc.cv] + "." : "No lease break waiver in this tier.",
               "Total " + money(m.cost, 2) + "/door/mo.",
               "Hover the i next to any line's $/mo in Cost lines to see its own math."
             ]} /></dt><dd>${money(m.cost, 2)}</dd></div>
@@ -357,7 +357,7 @@
                 ? html`<div class="line sub"><dt>PM capacity freed, ${cost.freedCount[t]} stripped services (not counted)</dt><dd>${money(cost.freed[t], 2)}</dd></div>`
                 : null}
             ${m.addon.cost > 0.005 ? html`<div class="line sub"><dt>Add-on fee costs</dt><dd>${money(m.addon.cost, 2)}</dd></div>` : null}
-            ${m.leaseBreak.cost > 0.005 ? html`<div class="line sub"><dt>Lease break waiver</dt><dd>${money(m.leaseBreak.cost, 2)}</dd></div>` : null}
+            ${m.leaseBreak.cost > 0.005 ? html`<div class="line sub"><dt>Leasing guarantee</dt><dd>${money(m.leaseBreak.cost, 2)}</dd></div>` : null}
             <div class="line total"><dt>Margin / door / mo <${Info} label="How margin is figured" lines=${[
               money(m.revenue, 2) + " revenue − " + money(m.cost, 2) + " cost = " + money(m.margin, 2) + "/door/mo",
               "Margin % = margin ÷ revenue = " + pct(m.marginPct) + ". Across " + fmtNum(doc.G.doors) + " doors that's " + money(m.portfolioMo) + "/mo."

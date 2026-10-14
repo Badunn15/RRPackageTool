@@ -910,7 +910,7 @@
               ${showRes ? residentRows(doc, C, row) : null}
               ${row(tog("sum:cost", "Cost"), function (t) { return money(C.margins[t].cost, 2); }, "total cost-row", ["Cost lines checked for the tier and counted at " + VIEW_NAMES[doc.cv] + ", plus add-on costs and the lease break waiver" + (P.scopeSavings ? ", less freed PM capacity." : ".")])}
               ${showCost ? (groupRowsOut.map(function (x) { return html`<${React.Fragment} key=${x.g.id}>${row(x.g.label, function (t) { return money(x.vals[t], 2); }, "sub")}</${React.Fragment}>`; })) : null}
-              ${showCost ? (lbAny ? row("Lease break waiver", function (t) { return money(C.margins[t].leaseBreak.cost, 2); }, "sub", ["The leasing fee a tier waives when it re-places a tenant who broke their lease. Guarantees group."]) : null) : null}
+              ${showCost ? (lbAny ? row("Leasing guarantee", function (t) { return money(C.margins[t].leaseBreak.cost, 2); }, "sub", ["The leasing fee a tier waives when it re-places a tenant who broke their lease. Guarantees group."]) : null) : null}
               ${showCost ? (row("Per-use fee costs", function (t) { return money(C.margins[t].addon.feeCost, 2); }, "sub", ["Court fees and the PM's split on billed evictions, and any cost you set on a per-use fee."])) : null}
               ${showCost ? (row("Add-on costs", function (t) { return money(C.margins[t].addon.extraCost, 2); }, "sub", ["What the add-ons and benefits packages cost you: sold ones for the owners who buy them, included ones for every door."])) : null}
               ${showCost ? (P.scopeSavings ? row("Less freed PM capacity", function (t) { return "−" + money(C.cost.freed[t], 2); }, "sub", ["Services a tier leaves out, valued at the PM time they free."]) : null) : null}
@@ -1283,7 +1283,7 @@
           })}
         </table></div>
       </section>
-      <p class="note">"Linked" lines have their own math. The Eviction guarantee covers court fees on evictions of tenants Raynor placed, plus the attorney cap. The Lease break waiver is the leasing fee a tier gives up when it re-places a tenant who broke the lease; check it for tiers that waive it.</p>
+      <p class="note">"Linked" lines have their own math. The Eviction guarantee covers court fees on evictions of tenants Raynor placed, plus the attorney cap. The Leasing guarantee is the leasing fee a tier gives up when it re-places a tenant who broke the lease; check it for tiers that waive it.</p>
       <${Next} go=${props.go} to="services" label="Step 3: Services" text="Next, set what each tier promises." />
     </div>`;
   }

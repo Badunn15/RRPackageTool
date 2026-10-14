@@ -902,6 +902,9 @@ function normalizeDoc(raw) {
   if (!Array.isArray(d.CATS)) d.CATS = [];
   if (!Array.isArray(d.acq)) d.acq = [];
   if (!d.cv) d.cv = "allocated";
+  // The lease break waiver was renamed the Leasing guarantee (it only covers tenants Raynor placed).
+  d.CG.forEach(function (g) { (g.rows || []).forEach(function (r) { if (r.id === "lease_brk" && r.name === "Lease break waiver") r.name = "Leasing guarantee"; }); });
+  (d.addons || []).forEach(function (a) { if (a.id === "addon_sell_lease_brk" && a.name === "Lease break waiver") a.name = "Leasing guarantee"; });
   // Same backfill as the cost tool's lib/migrate.ts: a cost line with no tier checkboxes yet counts for every tier,
   // and a catalog service with none takes its default tiers.
   d.templates.forEach(function (t) {
@@ -993,7 +996,7 @@ function normalizeDoc(raw) {
     if (LBo.perYear != null) d.ev.lease_brk = LBo.perYear;
     d.templates.forEach(function (t) { t.ck.lease_brk = { min: !!w.min, special: !!w.special, plus: !!w.plus }; });
     d.CG.forEach(function (g) {
-      g.rows.forEach(function (x) { if (x.id === "lease_brk") { delete x.d; x.name = "Lease break waiver"; } });
+      g.rows.forEach(function (x) { if (x.id === "lease_brk") { delete x.d; x.name = "Leasing guarantee"; } });
     });
   }
   if (ver < 6 && d.G.comm == null) {

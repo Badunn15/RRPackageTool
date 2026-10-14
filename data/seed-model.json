@@ -1025,7 +1025,7 @@
         { "id": "evict_g", "name": "Eviction guarantee", "e": "claim", "v": 1500, "n_ev": 1 },
         { "id": "evict_filing", "name": "Eviction filing fees", "e": "claim", "v": 126, "n_ev": 5, "d": "Hard cost: $96 court filing + $30/occupant (1 occupant assumed). Everything else about handling an eviction is PM time, already covered by scope. Separate from the $750 owner-facing eviction service charge and the $1,500 guarantee payout above -- those are revenue-side figures, not Raynor's cost. Evictions/yr is a portfolio-wide assumption, editable below -- allocated across all doors automatically." },
         { "id": "rentloss", "name": "Rent-loss", "e": "claim", "v": 0, "n_ev": 0 },
-        { "id": "lease_brk", "name": "Lease break waiver", "e": "claim", "v": 500, "n_ev": 4, "d": "Mostly lost income opportunity, not cash out the door: it is a fee we choose not to collect rather than a check we write. Kept here so the smaller hard costs stay visible, but expect the income tool to already show this as reduced lease-break revenue. Do not subtract it twice." }
+        { "id": "lease_brk", "name": "Leasing guarantee", "e": "claim", "v": 500, "n_ev": 4, "d": "Mostly lost income opportunity, not cash out the door: it is a fee we choose not to collect rather than a check we write. Kept here so the smaller hard costs stay visible, but expect the income tool to already show this as reduced lease-break revenue. Do not subtract it twice." }
       ]
     },
     {
