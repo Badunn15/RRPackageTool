@@ -716,7 +716,7 @@ function render() {
   $("up-chip").className = "chip " + (upOn ? "on" : "off");
   $("up-chip").textContent = upOn ? upPct + "% off applied" : upPct + "% off available";
   $("up-body").innerHTML = upOn
-    ? "<p>You pay each lease term in full up front, so " + upPct + "% comes off the leasing and renewal fees" + (on ? ", plus " + PORTFOLIO.pct + "% for your portfolio" : "") + ". That's <strong>" + money((q.leaseFull - q.lease) * (on ? upPct / q.disc : 1)) + "</strong> off each leasing fee, about <strong>" + money(y.upSaved) + "</strong> a year averaged over a tenancy. The renewal discount applies when you pay that term up front again.</p>"
+    ? "<p>You pay each lease term in full up front, so " + upPct + "% comes off the leasing and renewal fees" + (on ? ", plus " + PORTFOLIO.pct + "% for your portfolio" : "") + ". On a 12-month lease you save <strong>" + money(q.leaseFull * upPct / 100) + "</strong> per door when a new tenant signs. If your tenant renews and you pay that 12 months up front again, you save <strong>" + money(q.renewalFull * upPct / 100) + "</strong> per door on the renewal.</p>"
     : "<p>Pay each lease term in full up front instead of a monthly fee and get " + upPct + "% off the leasing and renewal fees" + (on ? " (" + (upPct + PORTFOLIO.pct) + "% with your portfolio discount)" : "") + ".</p><button type=\"button\" class=\"btn\" data-pick=\"0\">Pay it all up front</button>";
   $("fee-all-wrap").hidden = state.props.length < 2;
   if (state.props.length > 1) $("fee-all").innerHTML = '<thead><tr><th scope="col">Property</th><th scope="col">Rent / door</th><th scope="col">Monthly</th><th scope="col">Leasing</th><th scope="col">Renewal</th></tr></thead><tbody>' +
