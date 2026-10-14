@@ -585,19 +585,43 @@
     return null;
   }
   /* An add-on's cost: follows its service or cost line unless someone sets their own. */
+  function addonCostInfo(doc, a) {
+    var src = addonSource(doc, a), lv = a.svc ? linkedAddonCost(doc, a) : null;
+    var svc = !!(src && src.service), counted = !!(doc.pricing && doc.pricing.scopeSavings);
+    return { src: src, lv: lv, linked: addonCostLinked(doc, a), svc: svc,
+      // A service is PM time already in staff pay: "in scope" costs nothing unless freed PM capacity is counted.
+      inScope: svc && !counted && addonCostLinked(doc, a),
+      pmTime: svc ? scopeValue(doc, a.svc) : 0, hrs: svc ? doc.psh[a.svc] || 0 : 0 };
+  }
+  /* The Add-ons table cell: "In scope", the linked amount, or an input for your own cost. */
   function AddonCost(props) {
-    var doc = props.doc, a = props.a, edit = props.edit, linked = addonCostLinked(doc, a), lv = a.svc ? linkedAddonCost(doc, a) : null;
-    var src = addonSource(doc, a), where = src ? '"' + src.name + '" on ' + src.page : "its service or cost line";
-    // A service is PM time already in staff pay. The details show that time as a pricing guide; it only counts as cost
-    // when freed PM capacity is counted.
-    var counted = doc.pricing && doc.pricing.scopeSavings, pmTime = src && src.service ? scopeValue(doc, a.svc) : 0, hrs = src && src.service ? doc.psh[a.svc] : 0;
-    var why = src && src.service ? (counted ? " Counts the PM time it takes, since freed PM capacity is counted." : " PM time is already in staff pay, so it adds no cost.") : "";
-    if (linked) return html`<span class="addon-cost" title=${"Follows " + where + ", so it updates when that changes." + why}>
-      <span class="mono">${money(lv, lv > 0 && lv < 1 ? 3 : 2)}</span>${props.compact ? null : html` <span class="tiny faint">follows ${src ? html`<button type="button" class="link tiny" title=${"Open it on " + src.page} onClick=${function () { if (GO_SOURCE) GO_SOURCE(a.svc); }}>${src.name}</button> on ${src.page}` : "its source"}</span>
-      <button type="button" class="link tiny" onClick=${function () { edit(function (x) { x.costOwn = true; x.cost = Math.round(lv * 1000) / 1000; }, "own cost"); }}>Use my own</button>
-      ${src && src.service ? html`<span class="tiny faint" style=${{ flexBasis: "100%" }}>${pmTime > 0 ? "PM time each time: " + (hrs ? fmtNum(hrs) + " hr" + (hrs === 1 ? "" : "s") + " (" + money(pmTime, 2) + ")" : money(pmTime, 2)) + ". " : "No PM time set on Services. "}${counted ? "Counted as cost, since freed PM capacity is on." : "Already in staff pay, so not a cost" + (pmTime > 0 ? "; use it as a price guide" : "") + ". Use my own for out-of-pocket costs like mileage or hardware."}</span>` : null}`}</span>`;
-    return html`<span class="addon-cost"><${Affix} id=${props.id} prefix="$" min=${0} cls=${props.cls} label="Your cost each time" value=${a.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
-      ${lv != null && !props.compact ? html` <button type="button" class="link tiny" title=${"Follow " + where + " again: " + money(lv, 2)} onClick=${function () { edit(function (x) { x.costOwn = false; }, "cost linked"); }}>Follow ${src ? src.page : "the line"}</button>` : null}</span>`;
+    var doc = props.doc, a = props.a, edit = props.edit, c = addonCostInfo(doc, a);
+    if (c.inScope) return html`<span class="tag" title=${"Covered by \"" + c.src.name + "\" on Services: your team already does it as part of their job, so it adds no cost. Click the row for details."}>In scope</span>`;
+    if (c.linked) return html`<span class="mono" title=${c.src ? "Follows \"" + c.src.name + "\" on " + c.src.page + ". Click the row for details." : ""}>${money(c.lv, c.lv > 0 && c.lv < 1 ? 3 : 2)}</span>`;
+    return html`<${Affix} id=${props.id} prefix="$" min=${0} cls=${props.cls} label="Your cost each time" value=${a.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />`;
+  }
+  /* The details-panel version: what the cost is, where it comes from, and how to override it, one row at a time. */
+  function AddonCostDetail(props) {
+    var doc = props.doc, a = props.a, edit = props.edit, c = addonCostInfo(doc, a), src = c.src;
+    var srcLink = src ? html`<button type="button" class="link" title=${"Open it on " + src.page} onClick=${function () { if (GO_SOURCE) GO_SOURCE(a.svc); }}>${src.name}</button> <span class="faint small">on ${src.page}</span>` : null;
+    var time = c.svc ? (c.pmTime > 0 ? (c.hrs ? fmtNum(c.hrs) + " hr" + (c.hrs === 1 ? "" : "s") + " · " : "") + money(c.pmTime, 2) + " each time" : "Not set on Services") : null;
+    var own = html`<button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () { edit(function (x) { x.costOwn = true; x.cost = Math.round((c.lv || 0) * 1000) / 1000; }, "own cost"); }}>Use my own cost</button>`;
+    if (!c.linked) return html`<div class="cost-detail">
+      <div class="kv"><span>Your cost</span><${Affix} id=${props.id} prefix="$" min=${0} cls="w-lg" label="Your cost each time" value=${a.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
+        ${src ? html`<span>Linked to</span><span>${srcLink}</span>` : null}</div>
+      ${src ? html`<button type="button" class="link small" style=${{ alignSelf: "flex-start" }} onClick=${function () { edit(function (x) { x.costOwn = false; }, "cost linked"); }}>Go back to ${c.inScope || (c.svc && !(doc.pricing && doc.pricing.scopeSavings)) ? "in scope ($0)" : "following " + src.name + " (" + money(c.lv, 2) + ")"}</button>` : null}
+    </div>`;
+    return html`<div class="cost-detail">
+      <div class="kv">
+        <span>Your cost</span><span>${c.inScope ? html`<span class="tag">In scope</span> <span class="mono">$0</span>` : html`<span class="mono strong">${money(c.lv, c.lv > 0 && c.lv < 1 ? 3 : 2)}</span>`}</span>
+        <span>${c.svc ? "Covered by" : "Follows"}</span><span>${srcLink}</span>
+        ${c.svc ? html`<span>PM time</span><span class="mono">${time}</span>` : null}
+      </div>
+      <p class="note">${c.inScope ? "Your team already does this as part of their job, so selling it adds no cost. Use the PM time as a guide when you set the price."
+        : c.svc ? "Counted at its PM time, since freed PM capacity is on (Services)." : "Updates when that cost line changes."}</p>
+      ${own}
+      ${c.svc ? html`<p class="tiny faint" style=${{ margin: 0 }}>For real out-of-pocket costs, like mileage or hardware.</p>` : null}
+    </div>`;
   }
 
   /* "Also sell as an add-on" for a service (kind "psk") or a cost line (kind "ck"): sold to the tiers that leave it out. */
@@ -617,10 +641,10 @@
       <div class="tiny faint">Sold as an add-on to tiers that leave it out</div>
       <div class="kv">
         <span>Owner pays</span><${Affix} id=${"i-ap-" + id} prefix="$" cls="w-lg" min=${0} label="Owner price" value=${ad.price || 0} onChange=${function (v) { edit(function (x) { x.price = v; }, "owner price"); }} />
-        <span>Your cost</span><${AddonCost} doc=${doc} a=${ad} id=${"i-ac-" + id} cls="w-lg" edit=${edit} />
         <span>How often</span><${OftenCell} a=${ad} name=${name} idp=${"i-af-" + id} edit=${edit} />
         <span>Owners who buy</span><${Affix} id=${"i-au-" + id} cls="w-sm" min=${0} max=${100} step=${5} suffix="%" label="Share of owners who buy" value=${ad.uptake || 0} onChange=${function (v) { edit(function (x) { x.uptake = Math.min(100, v); }, "owners who buy"); }} />
       </div>
+      <${AddonCostDetail} doc=${doc} a=${ad} id=${"i-ac-" + id} edit=${edit} />
       <p class="note">For sale in: ${TIERS.filter(function (t) { return ad.tiers[t] !== "off"; }).map(function (t) { return TIER_SHORT[t]; }).join(", ") || "no tier"}. Tiers that include it don't sell it. Fine-tune on the Add-ons page.</p>
       <button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () { update(function (d) { d.addons = d.addons.filter(function (x) { return x.svc !== id; }); }, "Stopped selling " + name + " as an add-on"); }}>Stop selling as an add-on</button>
       <${CopyToScenarios} doc=${doc} id=${ad.id} />
@@ -655,9 +679,9 @@
     function done() { props.setUi(function (u) { u.sel = null; }); }
     return html`<div class="inspector" style=${{ display: "flex", flexDirection: "column", gap: "10px" }}>
       <div><div class="tiny faint">Optional add-on</div><h3>${a.name}</h3></div>
-      ${link ? html`<p class="note">Sold from "${link}". The tiers that include it don't sell it, and ticking or unticking a tier there changes where it's sold.</p>
-      <div class="kv"><span>Your cost</span><${AddonCost} doc=${doc} a=${a} id=${"i-adc-" + a.id} cls="w-lg"
-        edit=${function (fn, label) { update(function (d) { var x = d.addons.find(function (y) { return y.id === a.id; }); if (x) fn(x); }, a.name + ": " + label); }} /></div>` : null}
+      ${link ? html`<${AddonCostDetail} doc=${doc} a=${a} id=${"i-adc-" + a.id}
+        edit=${function (fn, label) { update(function (d) { var x = d.addons.find(function (y) { return y.id === a.id; }); if (x) fn(x); }, a.name + ": " + label); }} />
+      <p class="note">Packages that include "${link}" don't sell it. Change which packages include it on ${(addonSource(doc, a) || { page: "its page" }).page}.</p>` : null}
       <div style=${{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
         <button type="button" class="btn sm" title=${a.svc ? "Stop selling it as an add-on. The service or cost line stays." : "Not offering it after all: move it back to the bench on the Services page"}
           onClick=${function () { benchAddon(update, a); done(); }}>${a.svc ? "Stop selling as an add-on" : "Move to bench"}</button>
