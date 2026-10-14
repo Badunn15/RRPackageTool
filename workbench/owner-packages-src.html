@@ -76,7 +76,7 @@
   .btn.solid:hover{ background:var(--accent-ink); color:#fff; }
 
   /* what do you want solved */
-  .goals{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:10px; }
+  .goals{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; }
   @media (max-width:980px){ .goals{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
   @media (max-width:520px){ .goals{ grid-template-columns:minmax(0,1fr); } }
   .goal{ width:100%; height:100%; text-align:left; display:flex; flex-direction:column; gap:4px; padding:14px 16px; border-radius:12px; border:1px solid var(--rule); background:var(--panel); cursor:pointer; }
@@ -416,8 +416,7 @@ var GOALS = [
   { t: "Someone reliable for the day to day", d: "Rent, repairs and tenants handled. I'll make the big calls.", tier: "min" },
   { t: "One simple monthly fee", d: "I'd rather have repairs handled without a charge for each work order.", tier: "special" },
   { t: "Knowing my home is cared for", d: "Inspections, photos and someone watching it when it's empty.", tier: "special" },
-  { t: "Growing my portfolio", d: "Help planning repairs, reviewing deals and looking ahead.", tier: "plus" },
-  { t: "Just the numbers", d: "I know what I need. Show me fees and returns.", tier: null }
+  { t: "Growing my portfolio", d: "Help planning repairs, reviewing deals and looking ahead.", tier: "plus" }
 ];
 /* The comparison, in collapsible groups. Marks: "yes" (included, no extra charge), "no", or a price.
    addon: true tags the item as an add-on; its price sits in the packages that don't include it. */
@@ -561,7 +560,7 @@ function portfolioYear(t, pick, kind) {
 
 /* ---------- static sections ---------- */
 $("goals").innerHTML = GOALS.map(function (g, i) {
-  return '<li><button type="button" class="goal lift' + (g.tier ? "" : " numbers") + '" data-goal="' + i + '" aria-pressed="false"><b>' + esc(g.t) + "</b><span>" + esc(g.d) + "</span></button></li>";
+  return '<li><button type="button" class="goal lift' + (g.tier ? "" : " numbers") + '" data-goal="' + i + '" aria-pressed="false"><b>' + esc(g.t) + "</b></button></li>";
 }).join("");
 
 
