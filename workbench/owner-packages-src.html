@@ -76,8 +76,7 @@
   .btn.solid:hover{ background:var(--accent-ink); color:#fff; }
 
   /* what do you want solved */
-  .goals{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; }
-  @media (max-width:980px){ .goals{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+  .goals{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
   @media (max-width:520px){ .goals{ grid-template-columns:minmax(0,1fr); } }
   .goal{ width:100%; height:100%; text-align:left; display:flex; flex-direction:column; gap:4px; padding:14px 16px; border-radius:12px; border:1px solid var(--rule); background:var(--panel); cursor:pointer; }
   .goal b{ font-size:15px; }
@@ -428,8 +427,7 @@ var FORECAST_YEARS = 4;
 
 /* What the owner wants solved, and the package built around it. "numbers" jumps to the proposal. */
 var GOALS = [
-  { t: "Someone reliable for the day to day", d: "Rent, repairs and tenants handled. I'll make the big calls.", tier: "min" },
-  { t: "One simple monthly fee", d: "I'd rather have repairs handled without a charge for each work order.", tier: "special" },
+  { t: "Accidental landlord", d: "I didn't plan to be a landlord. I want it handled.", tier: "min" },
   { t: "Knowing my home is cared for", d: "Inspections, photos and someone watching it when it's empty.", tier: "special" },
   { t: "Growing my portfolio", d: "Help planning repairs, reviewing deals and looking ahead.", tier: "plus" }
 ];
