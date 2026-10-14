@@ -203,7 +203,7 @@
   <section aria-labelledby="pk-h">
     <div class="sec-h"><span class="kicker">The packages</span><h2 id="pk-h">Standard fees and what each one adds</h2></div>
     <div class="tiers" id="tiers"></div>
-    <p class="min-note"><b>How fees are figured.</b> Fees are a percentage of your monthly rent. We manage homes at any rent; for Minimum Management and Raynor Special, fees are figured on a rent of at least <span id="min-rent-a"></span>, so if yours is below <span id="min-rent-b"></span> they're figured as if it were <span id="min-rent-c"></span>. Protection Plus is always figured on your actual rent.</p>
+    <p class="min-note"><b>How fees are figured.</b> Fees are a percentage of your monthly rent. We manage homes at any rent, and each package has a minimum rent we figure fees on: <span id="min-rents"></span>. If your rent is below it, your fees are figured as if it were that amount.</p>
   </section>
 
   <section aria-labelledby="df-h">
@@ -253,6 +253,7 @@
             <div><dt>Your fees</dt><dd id="t-you">$0</dd></div>
             <div id="t-diff-box"><dt id="t-diff-l">Difference</dt><dd id="t-diff">$0</dd></div>
           </dl>
+          <p class="fine" id="t-note" hidden>Assumes you pay each renewal term in full up front too. You can change how you pay at each renewal.</p>
           <details class="yby">
             <summary>See it year by year</summary>
             <div class="yby-b">
@@ -267,7 +268,7 @@
         </div>
       </div>
     </div>
-    <p class="fine" style="margin-top:12px">Figures are estimates for 12-month leases at the rent you enter, with the same tenant renewing each year after the first. The monthly fee is charged on rent collected, or on the minimum rent when your rent is below it. Fees such as maintenance coordination, the annual accounting fee and the fee while vacant are separate and listed above.</p>
+    <p class="fine" style="margin-top:12px">Figures are estimates for 12-month leases at the rent you enter, with the same tenant renewing each year after the first. The monthly fee is charged on rent collected, or on the package's minimum rent when your rent is below it. Fees such as maintenance coordination, the annual accounting fee and the fee while vacant are separate and listed above.</p>
   </section>
 </main>
 
@@ -276,23 +277,22 @@
    Bottom Line's official numbers still use 8 / 10 / 12% until they're updated. */
 var TERM = 12;
 var TIERS = [
-  { id: "min", name: "Minimum Management", short: "Minimum", monthlyPct: 7, leasePct: 50, renewal: 250, minRent: true,
+  { id: "min", name: "Minimum Management", short: "Minimum", monthlyPct: 7, leasePct: 50, renewal: 250, minRent: 1000,
     pitch: "Full-service management with the essentials. Add the extras you want.",
     adds: [] },
-  { id: "special", name: "Raynor Special", short: "Special", monthlyPct: 10, leasePct: 50, renewal: 250, minRent: true,
+  { id: "special", name: "Raynor Special", short: "Special", monthlyPct: 10, leasePct: 50, renewal: 250, minRent: 1000,
     pitch: "Everything in Minimum, plus the lease break waiver, yearly reviews and vacancy care.",
     adds: ["Lease break waiver", "Yearly management inspection and renewal market analysis", "Vacancy checks, cameras and utility handling", "Occupied unit setup", "No $75 coordination fee on work orders", "Annual accounting and tax documents included", "Professional listing photography and move-out inspections included"] },
-  { id: "plus", name: "Protection Plus", short: "Plus", monthlyPct: 15, leasePct: 50, renewal: 250,
+  { id: "plus", name: "Protection Plus", short: "Plus", monthlyPct: 15, leasePct: 50, renewal: 250, minRent: 800,
     pitch: "Everything in Raynor Special, plus planning and our most hands-on care.",
     adds: ["Annual portfolio review and investment deal analysis", "Budget and CapEx planning with you", "Proactive property report", "Pre-vacancy listing and deadbolts included", "Ownership changes included", "No coordination fees at all"] }
 ];
 /* Discount, as on Bottom Line's Prices page: when the owner's monthly fee is at or below atPct% of rent, pct% comes off
    the leasing and renewal fees. 0% monthly means the whole lease term is paid up front. The biggest step reached wins. */
 var DISCOUNT = { on: true, steps: [{ atPct: 0, pct: 10 }] };
-/* Minimum rent for figuring fees, on the packages that have one (minRent: true): below it, every fee is figured as if the
-   rent were this much, and the owner's fee choice still slides that total between monthly and up front. Plus has no
-   minimum: an owner paying 15% is worth taking at any rent. */
-var MIN_RENT = 1000;
+/* Each package's minimum rent for figuring fees (minRent): below it, every fee is figured as if the rent were that much,
+   and the owner's fee choice still slides that total between monthly and up front. Plus's is lower ($800) because a 15%
+   owner is worth taking at a lower rent; at $800 it still stays above Special's $1,000 x 10%. */
 /* A typical tenancy in years (Bottom Line's Portfolio average): year 1 has a new tenant, the rest are renewals. */
 var TENANCY = 4;
 /* Rows that differ. Each mark: "yes", "add" (available as an add-on), "no", or a fee string. */
@@ -325,7 +325,7 @@ var DIFF = [
     { n: "Pre-vacancy listing", note: "Listed before the current tenant moves out", m: ["add", "add", "yes"] }
   ]},
   { group: "Guarantees", rows: [
-    { n: "Pet guarantee", note: "Backed by the pet rent we collect", m: ["yes", "yes", "yes"] },
+    { n: "Pet guarantee", note: "Covers up to $1,500. Backed by the pet rent we collect.", m: ["yes", "yes", "yes"] },
     { n: "Eviction guarantee", note: "For tenants we place. Evicting a tenant we didn't place is billed at $750.", m: ["yes", "yes", "yes"] },
     { n: "Lease break waiver", note: "No leasing fee to re-place a tenant who breaks the lease", m: ["no", "yes", "yes"] }
   ]}
@@ -408,7 +408,7 @@ $("all-toggle").addEventListener("click", function () {
 
 /* ---------- calculator ---------- */
 /* The rent fees are figured on: the real rent, or the minimum when it's lower. */
-function feeRent(t, rent) { return rent > 0 ? (t.minRent ? Math.max(rent, MIN_RENT) : rent) : 0; }
+function feeRent(t, rent) { return rent > 0 ? Math.max(rent, t.minRent || 0) : 0; }
 var state = { tier: "special", rent: 1500, pick: 10 };
 function tier() { return TIERS.filter(function (t) { return t.id === state.tier; })[0]; }
 function readRent() { var v = parseFloat(String($("rent").value).replace(/[^0-9.]/g, "")); return isFinite(v) && v > 0 ? v : 0; }
@@ -429,13 +429,14 @@ function render() {
 
   var s = $("pick"); s.max = max; s.value = state.pick;
   s.style.setProperty("--fill", (max ? state.pick / max * 100 : 0) + "%");
-  s.setAttribute("aria-valuetext", pct(state.pick) + " of " + (floored ? "the " + money(MIN_RENT) + " minimum rent" : "rent") + ", " + money(q.monthly) + " a month");
+  s.setAttribute("aria-valuetext", pct(state.pick) + " of " + (floored ? "the " + money(rent) + " minimum rent" : "rent") + ", " + money(q.monthly) + " a month");
   $("std-tick").style.left = "calc(11px + (100% - 22px) * " + (max ? t.monthlyPct / max : 0) + ")";
-  $("pick-out").innerHTML = money(q.monthly) + '<small style="font-size:13px;font-weight:500;color:var(--ink-3)"> /mo · ' + pct(state.pick) + (floored ? " of " + money(MIN_RENT) : "") + "</small>";
+  $("pick-out").innerHTML = money(q.monthly) + '<small style="font-size:13px;font-weight:500;color:var(--ink-3)"> /mo · ' + pct(state.pick) + (floored ? " of " + money(rent) : "") + "</small>";
 
   // All three packages at this rent, standard mix: a new-tenant year and a renewal year, and the step up between them.
   var anyFloor = TIERS.some(function (x) { return feeRent(x, realRent) > realRent; });
-  $("cmp-h").textContent = "The three packages at " + (realRent > 0 ? money(realRent) : "your") + " rent, standard mix" + (anyFloor ? " (Minimum and Special figured on " + money(MIN_RENT) + ")" : "");
+  var floors = TIERS.filter(function (x) { return feeRent(x, realRent) > realRent; }).map(function (x) { return x.short + " on " + money(x.minRent); });
+  $("cmp-h").textContent = "The three packages at " + (realRent > 0 ? money(realRent) : "your") + " rent, standard mix" + (anyFloor ? " (figured with minimums: " + floors.join(", ") + ")" : "");
   // Each package's step up from the one before it, shown under the monthly fee it compares.
   var prevMo = null;
   $("cmp").innerHTML = '<thead><tr><th scope="col">Package</th><th scope="col">Monthly</th><th scope="col">New-tenant year</th><th scope="col">Renewal year</th></tr></thead><tbody>' +
@@ -465,8 +466,8 @@ function render() {
   // Below the minimum rent: say so in plain terms, with what it means for this package.
   var note = $("floor-note");
   note.hidden = !floored;
-  if (floored) note.innerHTML = "<span>Your rent of <b>" + money(realRent) + "</b> is below our minimum of <b>" + money(MIN_RENT) + "</b>, so your fees are figured as if the rent were " + money(MIN_RENT) + ".</span>" +
-    "<span>For " + esc(t.name) + " that's a standard <b>" + money(t.monthlyPct / 100 * MIN_RENT) + "/mo</b> (" + pct(t.monthlyPct / 100 * MIN_RENT / realRent * 100, 1) + " of your rent). You can still move it between monthly and up front below.</span>";
+  if (floored) note.innerHTML = "<span>Your rent of <b>" + money(realRent) + "</b> is below " + esc(t.name) + "'s minimum of <b>" + money(t.minRent) + "</b>, so your fees are figured as if the rent were " + money(t.minRent) + ".</span>" +
+    "<span>That's a standard <b>" + money(t.monthlyPct / 100 * t.minRent) + "/mo</b> (" + pct(t.monthlyPct / 100 * t.minRent / realRent * 100, 1) + " of your rent). You can still move it between monthly and up front below.</span>";
 
   $("q-monthly").innerHTML = money(q.monthly) + "<small> /mo</small>";
   $("q-lease").innerHTML = money(q.lease) + (q.disc > 0 ? "<s>" + money(q.leaseFull) + "</s>" : "") + "<small> " + (realRent > 0 ? pct(q.lease / realRent * 100, 0) + " of 1 month's rent" : "") + "</small>";
@@ -510,6 +511,7 @@ function render() {
   box.className = tDiff > 0.5 ? "saves" : tDiff < -0.5 ? "costs" : "";
   $("t-diff-l").textContent = tDiff > 0.5 ? "You save" : tDiff < -0.5 ? "You pay more" : "Difference";
   $("t-diff").textContent = Math.abs(tDiff) < 0.5 ? "$0" : money(Math.abs(tDiff));
+  $("t-note").hidden = !(q.disc > 0);
   $("yt").innerHTML = "<thead><tr><th scope=\"col\">Year</th><th scope=\"col\">Standard mix</th><th scope=\"col\">Your fees</th><th scope=\"col\">Difference</th></tr></thead><tbody>" +
     rows.map(function (r) { return "<tr><td>" + r[0] + "</td><td>" + money(r[1]) + "</td><td>" + money(r[2]) + "</td>" + diffCell(r[1] - r[2]) + "</tr>"; }).join("") +
     "</tbody><tfoot><tr><td>Total</td><td>" + money(stdSum) + "</td><td>" + money(youSum) + "</td>" + diffCell(tDiff) + "</tr></tfoot>";
@@ -525,6 +527,6 @@ document.getElementById("tiers").addEventListener("click", function (e) {
   setTier(b.dataset.tier);
   document.getElementById("cl-h").scrollIntoView({ behavior: "smooth", block: "start" });
 });
-["min-rent-a", "min-rent-b", "min-rent-c"].forEach(function (id) { $(id).textContent = money(MIN_RENT); });
+$("min-rents").textContent = TIERS.map(function (t) { return money(t.minRent) + " for " + t.name; }).join(", ").replace(/, ([^,]*)$/, " and $1");
 render();
 </script>
