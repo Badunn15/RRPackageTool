@@ -588,13 +588,13 @@
   function AddonCost(props) {
     var doc = props.doc, a = props.a, edit = props.edit, linked = addonCostLinked(doc, a), lv = a.svc ? linkedAddonCost(doc, a) : null;
     var src = addonSource(doc, a), where = src ? '"' + src.name + '" on ' + src.page : "its service or cost line";
-    // A service is PM time already in staff pay, so it costs nothing extra unless freed PM capacity is counted.
-    var timeOnly = src && src.service && !(doc.pricing && doc.pricing.scopeSavings);
-    var why = timeOnly ? " $0, since it's PM time already paid in staff pay. To count that time, turn on \"Take it off each tier's cost\" on Services, or use your own cost." : "";
+    // A service's cost is its value on Services: the PM time it takes. $0 there means no value was set yet.
+    var noValue = src && src.service && !(lv > 0);
+    var why = src && src.service ? " A service's cost is its value on Services: the PM time it takes each time." : "";
     if (linked) return html`<span class="addon-cost" title=${"Follows " + where + ", so it updates when that changes." + why}>
       <span class="mono">${money(lv, lv > 0 && lv < 1 ? 3 : 2)}</span>${props.compact ? null : html` <span class="tiny faint">follows ${src ? html`<button type="button" class="link tiny" title=${"Open it on " + src.page} onClick=${function () { if (GO_SOURCE) GO_SOURCE(a.svc); }}>${src.name}</button> on ${src.page}` : "its source"}</span>
       <button type="button" class="link tiny" onClick=${function () { edit(function (x) { x.costOwn = true; x.cost = Math.round(lv * 1000) / 1000; }, "own cost"); }}>Use my own</button>
-      ${timeOnly ? html`<span class="tiny faint" style=${{ flexBasis: "100%" }}>$0: PM time already paid in staff pay.</span>` : null}`}</span>`;
+      ${noValue ? html`<span class="tiny faint" style=${{ flexBasis: "100%" }}>No value set on Services yet. Set its hours or value there, or use your own cost.</span>` : null}`}</span>`;
     return html`<span class="addon-cost"><${Affix} id=${props.id} prefix="$" min=${0} cls=${props.cls} label="Your cost each time" value=${a.cost || 0} onChange=${function (v) { edit(function (x) { x.cost = v; }, "your cost"); }} />
       ${lv != null && !props.compact ? html` <button type="button" class="link tiny" title=${"Follow " + where + " again: " + money(lv, 2)} onClick=${function () { edit(function (x) { x.costOwn = false; }, "cost linked"); }}>Follow ${src ? src.page : "the line"}</button>` : null}</span>`;
   }
@@ -1290,7 +1290,7 @@
     var benchIds = Object.keys(doc.MASTER).filter(function (id) { return doc.place[id] === "uc"; });
     var benchCats = Object.keys(doc.MASTER).reduce(function (a, k) { var c = doc.icat[k] || doc.MASTER[k].dc; if (c && a.indexOf(c) < 0) a.push(c); return a; }, []).sort();
     return html`<div class="page">
-      <${PageHead} kicker="Step 3" title="Services" lead="What each tier promises, grouped by the staff role that does the work. A service's value is the PM time it takes. Including it costs nothing extra, since staff pay is already a cost line. Leaving it out of a tier frees that time." />
+      <${PageHead} kicker="Step 3" title="Services" lead="What each tier promises, grouped by the staff role that does the work. A service's value is the PM time it takes. Including it costs nothing extra, since staff pay is already a cost line. Leaving it out of a tier frees that time. Sold as an add-on, its value is the add-on's cost each time an owner buys it." />
       <section class="panel">
         <div class="panel-h"><h2>PM capacity freed per door each month</h2>
           <label class="switch small" for="svc-savings"><input type="checkbox" id="svc-savings" checked=${!!doc.pricing.scopeSavings}
