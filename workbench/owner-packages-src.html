@@ -142,6 +142,15 @@
   .diff td:first-child{ max-width:420px; }
   .diff tbody tr:nth-child(even) td{ background:var(--panel-2); }
   .diff tr:target td{ background:var(--accent-tint); }
+  .row-tog{ all:unset; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+  .row-tog:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+  .row-tog .caret{ display:inline-block; font-size:10px; color:var(--ink-3); transition:transform .15s ease; }
+  .row-tog[aria-expanded="true"] .caret{ transform:rotate(90deg); }
+  .row-tog .count{ font-family:var(--font-data); font-size:12px; color:var(--ink-3); }
+  .row-tog:hover{ color:var(--accent-ink); }
+  .diff tr.item td{ padding-block:6px; font-size:13.5px; }
+  .diff tr.item td:first-child{ padding-left:34px; color:var(--ink-2); }
+  .diff tr[hidden]{ display:none; }
   .vh{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
   .key{ display:flex; flex-wrap:wrap; gap:6px 18px; padding:12px 14px; border-bottom:1px solid var(--rule); font-size:13px; color:var(--ink-2); }
   .key span{ display:inline-flex; align-items:center; gap:7px; }
@@ -430,8 +439,9 @@ var VACANCY_CARE = "Vacancy care: checks, camera monitoring, utilities and setup
 var OWNER_PLANNING = "Owner planning: portfolio review, deal analysis, budget and CapEx planning, property report";
 var COMPARE = [
   { n: "Monthly fee", note: "Of rent collected, with a monthly minimum", m: TIERS.map(function (t) { return t.monthlyPct + "%, " + money(t.monthlyPct / 100 * t.minRent) + " minimum"; }) },
-  { n: "Management essentials", id: "row-ess", m: ["yes", "yes", "yes"],
-    note: "Marketing and showings, tenant screening, leases and renewals, move-in orientation and inspection, maintenance triage with after-hours emergency coverage, rent collection and owner accounting, online owner and tenant portal, lease violations and notices, fair housing, HOA and city compliance" },
+  { n: "Management essentials", id: "row-ess", m: ["yes", "yes", "yes"], items: ["Marketing and showings", "Tenant screening", "Leases and renewals",
+    "Move-in orientation and inspection", "Maintenance triage with after-hours emergency coverage", "Rent collection and owner accounting",
+    "Online owner and tenant portal", "Lease violations and notices", "Fair housing, HOA and city compliance"] },
   { n: "Leasing fee", note: "When we place a new tenant", sep: "Leasing fee: {v}", m: TIERS.map(function (t) { return t.leasePct + "% of one month's rent"; }) },
   { n: "Renewal fee", note: "Only if your tenant renews", sep: "Renewal fee: {v}, only if your tenant renews", m: TIERS.map(function (t) { return "$" + t.renewal; }) },
   { n: "Maintenance coordination", note: "Per work order", card: "Maintenance coordination included", sep: "Maintenance coordination: {v} per work order", m: ["$75", "yes", "yes"] },
@@ -601,10 +611,28 @@ function mark(v) {
   return '<span class="mark fee">' + esc(v) + "</span>";
 }
 $("diff").innerHTML = '<thead><tr><th scope="col">What you get</th>' + TIERS.map(function (t) { return '<th scope="col">' + esc(t.name) + "</th>"; }).join("") + "</tr></thead><tbody>" +
-  COMPARE.map(function (r) {
-    return "<tr" + (r.id ? ' id="' + r.id + '"' : "") + "><td>" + esc(r.n) + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
-      r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>";
+  COMPARE.map(function (r, ri) {
+    var name = r.items
+      ? '<button type="button" class="row-tog" data-row="' + ri + '" aria-expanded="false"><span class="caret" aria-hidden="true">&#9654;</span>' + esc(r.n) + ' <span class="count">(' + r.items.length + ")</span></button>"
+      : esc(r.n);
+    return "<tr" + (r.id ? ' id="' + r.id + '"' : "") + (r.items ? ' class="has-items"' : "") + "><td>" + name + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
+      r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>" +
+      (r.items || []).map(function (it) {
+        return '<tr class="item" data-parent="' + ri + '" hidden><td>' + esc(it) + "</td>" + r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("") + "</tr>";
+      }).join("");
   }).join("") + "</tbody>";
+function openRow(ri, open) {
+  var b = $("diff").querySelector('.row-tog[data-row="' + ri + '"]'); if (!b) return;
+  if (open == null) open = b.getAttribute("aria-expanded") !== "true";
+  b.setAttribute("aria-expanded", String(open));
+  Array.prototype.forEach.call($("diff").querySelectorAll('tr[data-parent="' + ri + '"]'), function (tr) { tr.hidden = !open; });
+}
+$("diff").addEventListener("click", function (e) { var b = e.target.closest(".row-tog"); if (b) openRow(b.dataset.row); });
+// The Minimum card's "Management essentials" link opens the list it points to.
+$("tiers").addEventListener("click", function (e) {
+  if (!e.target.closest(".see-same")) return;
+  COMPARE.forEach(function (r, ri) { if (r.id === "row-ess") openRow(ri, true); });
+});
 $("min-rents").textContent = TIERS.map(function (t) { return money(t.monthlyPct / 100 * t.minRent) + " for " + t.short + " (rent under " + money(t.minRent) + ")"; }).join(", ").replace(/, ([^,]*)$/, " and $1");
 
 /* ---------- properties ---------- */
