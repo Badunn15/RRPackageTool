@@ -596,7 +596,7 @@ function renderTiers() {
 $("tiers").addEventListener("toggle", function (e) { if (e.target.dataset && e.target.dataset.t) sepOpen[e.target.dataset.t] = e.target.open; }, true);
 
 function mark(v) {
-  if (v === "yes") return '<span class="mark yes">Included</span>';
+  if (v === "yes") return '<span class="mark yes"><span class="vh">Included</span></span>';
   if (v === "no") return '<span class="mark no">Not included</span>';
   return '<span class="mark fee">' + esc(v) + "</span>";
 }
