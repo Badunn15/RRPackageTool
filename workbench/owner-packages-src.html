@@ -351,7 +351,7 @@
 
   <section aria-labelledby="pr-h" id="proposal">
     <div class="sec-h"><h2 id="pr-h" class="gold">Build your proposal</h2>
-      <p class="lead">Three steps: your properties, how your fees are set, and what's left for you each year. Own 5 or more doors and every door's monthly fee drops 5%.</p></div>
+      <p class="lead">Three steps: your properties, how your fees are set, and what's left for you each year. Own 5 or more doors and you get 5% off all your management fees.</p></div>
 
     <div class="step" aria-labelledby="st1">
       <div class="step-h"><span class="step-n">1</span><div><h3 id="st1">Your properties</h3><p>Rent and costs for each one. Collapse a property once it's filled in.</p></div></div>
@@ -445,8 +445,9 @@ var SEL = null;
 /* Up-front discount, as on Bottom Line's Prices page: at a 0% monthly fee the whole lease term is paid up front and
    10% comes off the leasing and renewal fees. */
 var DISCOUNT = { on: true, steps: [{ atPct: 0, pct: 10 }] };
-/* Portfolio discount: at 5 or more doors, every door's monthly fee drops 5%. An owner paying it all up front (0% monthly)
-   gets 5% more off the leasing and renewal fees instead, on top of the 10%: 15% in all. */
+/* Portfolio discount: at 5 or more doors, 5% off every management fee: monthly, leasing and renewal. Because each lease
+   term costs the same total however the owner splits it, that's 5% of the same total anywhere on the slider. Paying it
+   all up front, it stacks with the 10% up-front discount: 15% off. */
 var PORTFOLIO = { doors: 5, pct: 5 };
 var VACANT_FEE = 99, ACCOUNTING = 125;
 /* The proposal forecasts one 12-month year. The optional long view runs this many years: a new tenant, then renewals. */
@@ -565,15 +566,15 @@ function discountFor(p) {
   if (DISCOUNT.on) DISCOUNT.steps.forEach(function (s) { if (p <= s.atPct + 0.001 && s.pct > best) best = s.pct; });
   return best;
 }
-/* One door's fees at the owner's monthly pick. With the portfolio discount, the monthly fee drops 5%; paying it all
-   up front instead adds 5% to the up-front discount. The pick is capped where the leasing fee reaches $0. */
+/* One door's fees at the owner's monthly pick. With the portfolio discount, every fee drops 5%: monthly, leasing and
+   renewal (on top of the up-front discount when it applies). The pick is capped where the leasing fee reaches $0. */
 function quote(t, rent, p, portfolio) {
   var f = frame(t, rent);
   p = Math.min(p, f.zeroLeasePct);
   var monthly = p / 100 * rent, perTerm = monthly * TERM;
   var lease = Math.max(0, f.turnTerm - perTerm), renewal = Math.max(0, f.renewTerm - perTerm);
   var disc = discountFor(p), monthlyOff = 0;
-  if (portfolio) { if (disc > 0) disc += PORTFOLIO.pct; else monthlyOff = PORTFOLIO.pct; }
+  if (portfolio) { disc += PORTFOLIO.pct; monthlyOff = PORTFOLIO.pct; }
   return { f: f, disc: disc, monthlyOff: monthlyOff, monthlyFull: monthly, leaseFull: lease, renewalFull: renewal,
     monthly: monthly * (1 - monthlyOff / 100), lease: lease * (1 - disc / 100), renewal: renewal * (1 - disc / 100) };
 }
@@ -617,7 +618,8 @@ function propYear(p, t, pick, portfolio, kind) {
   var monthlyFees = q.monthly * 12 * doors, monthlyFull = q.monthlyFull * 12 * doors;
   var leasing = (isNew ? q.lease : q.renewal) * doors, leasingFull = (isNew ? q.leaseFull : q.renewalFull) * doors;
   var mgmt = monthlyFees + leasing, saved = (monthlyFull - monthlyFees) + (leasingFull - leasing);
-  var upPct = q.disc > 0 ? DISCOUNT.steps[0].pct / 100 : 0;
+  // The up-front discount applies only when the owner pays it all up front (the portfolio discount is separate).
+  var upPct = discountFor(pick) / 100;
   var upSaved = leasingFull * upPct, portSaved = saved - upSaved;
   var debt = p.piti * 12, other = p.other * 12;
   var vacRes = gross * Math.min(Math.max(p.vac, 0), 100) / 100, rep = gross * p.rep / 100, capex = gross * p.capex / 100;
@@ -893,8 +895,8 @@ function render() {
   $("port-chip").className = "chip " + (on ? "on" : "off");
   $("port-chip").textContent = on ? "On, " + doors + " doors" : doors + " of " + PORTFOLIO.doors + " doors";
   $("port-body").innerHTML = on
-    ? "<p>" + PORTFOLIO.pct + "% off for owners with " + PORTFOLIO.doors + " or more doors. " + (state.pick > 0 ? "Every door's monthly fee is " + PORTFOLIO.pct + "% lower." : "Paying up front, it adds " + PORTFOLIO.pct + "% to your up-front discount.") + " That saves you <strong>" + money(y.portSaved) + "</strong> a year.</p>"
-    : "<p>Own " + PORTFOLIO.doors + " or more doors and every door's monthly fee drops " + PORTFOLIO.pct + "%. Add " + need + " more " + (need === 1 ? "door" : "doors") + " to get it.</p><span class=\"meter\" style=\"width:100%\" aria-hidden=\"true\">" + meter + "</span>";
+    ? "<p>" + PORTFOLIO.pct + "% off for owners with " + PORTFOLIO.doors + " or more doors. " + "It comes off every fee: monthly, leasing and renewal" + (state.pick > 0 ? "." : ", on top of your up-front discount.") + " That saves you <strong>" + money(y.portSaved) + "</strong> a year.</p>"
+    : "<p>Own " + PORTFOLIO.doors + " or more doors and you get " + PORTFOLIO.pct + "% off all your management fees: monthly, leasing and renewal. Add " + need + " more " + (need === 1 ? "door" : "doors") + " to get it.</p><span class=\"meter\" style=\"width:100%\" aria-hidden=\"true\">" + meter + "</span>";
 
   // Step 2: the fees this mix gives, per door, for the first property.
   var p0 = y.rows[0], q = p0.q, name0 = state.props[0].name || "Property 1";
@@ -906,7 +908,7 @@ function render() {
   $("fq-renew").innerHTML = money(q.renewal) + (q.disc ? "<s>" + money(q.renewalFull) + "</s>" : "");
   $("fq-renew-s").textContent = "Only if your tenant renews";
   $("fq-sign").textContent = money(q.lease + q.monthly);
-  $("up-on").hidden = !(q.disc > 0);
+  $("up-on").hidden = !(discountFor(state.pick) > 0);
   $("up-chip").textContent = DISCOUNT.steps[0].pct + "% off applied";
   $("fee-all-wrap").hidden = state.props.length < 2;
   if (state.props.length > 1) $("fee-all").innerHTML = '<thead><tr><th scope="col">Property</th><th scope="col">Rent / door</th><th scope="col">Monthly</th><th scope="col">Leasing</th><th scope="col">Renewal</th></tr></thead><tbody>' +
