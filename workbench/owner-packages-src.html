@@ -319,6 +319,7 @@
   .sv .meter{ display:flex; margin-top:6px; }
   .sv-total{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:10px 12px; border-radius:12px; border:1px dashed var(--good); font-size:13px; color:var(--ink-2); }
   .sv-total strong{ font-family:var(--font-data); font-size:22px; color:var(--good); white-space:nowrap; display:flex; flex-direction:column; align-items:flex-end; line-height:1.1; }
+  .sv-pair{ display:flex; gap:22px; }
   .sv-total strong small{ font-family:var(--font-ui); font-size:11px; font-weight:600; opacity:.8; margin-top:2px; }
   .disc{ background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; transition:border-color .15s ease; }
   .disc:hover{ border-color:var(--sky); }
@@ -991,7 +992,7 @@ function render() {
     line("Portfolio", on ? "On" : doors + " of " + PORTFOLIO.doors + " doors", on,
       on ? "Half a point off monthly" : "At " + PORTFOLIO.doors + " doors, half a point off monthly<span class=\"meter\" aria-hidden=\"true\">" + meter + "</span>",
       on ? portT : null, "per door, each lease term") +
-    (upOn && on ? '<div class="sv-total"><span>Total per door</span><strong>' + money(upNew + portT) + '<small>new lease · ' + money(upRen + portT) + " renewal</small></strong></div>" : "");
+    (upOn && on ? '<div class="sv-total"><span>Total per door</span><div class="sv-pair"><strong>' + money(upNew + portT) + '<small>new lease</small></strong><strong>' + money(upRen + portT) + '<small>renewal</small></strong></div></div>' : "");
 
   // Step 2: the fees this mix gives, per door, for the first property.
   var p0 = y.rows[0], q = p0.q, name0 = state.props[0].name || "Property 1";
