@@ -351,7 +351,7 @@
 
   <section aria-labelledby="pr-h" id="proposal">
     <div class="sec-h"><h2 id="pr-h" class="gold">Build your proposal</h2>
-      <p class="lead">Three steps: your properties, how your fees are set, and what's left for you each year. Own 5 or more doors and you get 5% off all your management fees.</p></div>
+      <p class="lead">Three steps: your properties, how your fees are set, and what's left for you each year. Own 5 or more doors and your monthly fee drops half a point.</p></div>
 
     <div class="step" aria-labelledby="st1">
       <div class="step-h"><span class="step-n">1</span><div><h3 id="st1">Your properties</h3><p>Rent and costs for each one. Collapse a property once it's filled in.</p></div></div>
@@ -445,10 +445,10 @@ var SEL = null;
 /* Up-front discount, as on Bottom Line's Prices page: at a 0% monthly fee the whole lease term is paid up front and
    10% comes off the leasing and renewal fees. */
 var DISCOUNT = { on: true, steps: [{ atPct: 0, pct: 10 }] };
-/* Portfolio discount: at 5 or more doors, 5% off every management fee: monthly, leasing and renewal. Because each lease
-   term costs the same total however the owner splits it, that's 5% of the same total anywhere on the slider. Paying it
-   all up front, it stacks with the 10% up-front discount: 15% off. */
-var PORTFOLIO = { doors: 5, pct: 5 };
+/* Portfolio discount: at 5 or more doors, the monthly fee drops half a point (10% becomes 9.5%). That's worth 0.5% of rent
+   a month, the same whatever mix the owner picks: under half a point monthly, the rest of those 12 months' worth comes off
+   that term's leasing fee (new tenant) or renewal fee. Not a discount on the whole plan. */
+var PORTFOLIO = { doors: 5, pts: 0.5 };
 var VACANT_FEE = 99, ACCOUNTING = 125;
 /* The proposal forecasts one 12-month year. The optional long view runs this many years: a new tenant, then renewals. */
 var FORECAST_YEARS = 4;
@@ -562,17 +562,19 @@ function discountFor(p) {
   if (DISCOUNT.on) DISCOUNT.steps.forEach(function (s) { if (p <= s.atPct + 0.001 && s.pct > best) best = s.pct; });
   return best;
 }
-/* One door's fees at the owner's monthly pick. With the portfolio discount, every fee drops 5%: monthly, leasing and
-   renewal (on top of the up-front discount when it applies). The pick is capped where the leasing fee reaches $0. */
+/* One door's fees at the owner's monthly pick, with the up-front discount and the portfolio discount applied.
+   The pick is capped where the leasing fee reaches $0. */
 function quote(t, rent, p, portfolio) {
   var f = frame(t, rent);
   p = Math.min(p, f.zeroLeasePct);
   var monthly = p / 100 * rent, perTerm = monthly * TERM;
   var lease = Math.max(0, f.turnTerm - perTerm), renewal = Math.max(0, f.renewTerm - perTerm);
-  var disc = discountFor(p), monthlyOff = 0;
-  if (portfolio) { disc += PORTFOLIO.pct; monthlyOff = PORTFOLIO.pct; }
-  return { f: f, disc: disc, monthlyOff: monthlyOff, monthlyFull: monthly, leaseFull: lease, renewalFull: renewal,
-    monthly: monthly * (1 - monthlyOff / 100), lease: lease * (1 - disc / 100), renewal: renewal * (1 - disc / 100) };
+  var disc = discountFor(p);
+  // Portfolio: half a point off the monthly fee; whatever doesn't fit (a monthly fee under half a point) comes off the term's leasing or renewal fee.
+  var offPts = portfolio ? Math.min(p, PORTFOLIO.pts) : 0, carry = portfolio ? (PORTFOLIO.pts - offPts) / 100 * rent * TERM : 0;
+  return { f: f, disc: disc, monthlyOff: offPts, monthlyPct: p - offPts, monthlyFull: monthly, leaseFull: lease, renewalFull: renewal,
+    monthly: (p - offPts) / 100 * rent,
+    lease: Math.max(0, lease * (1 - disc / 100) - carry), renewal: Math.max(0, renewal * (1 - disc / 100) - carry) };
 }
 /* The rent fees are figured on: the real rent, or the minimum when it's lower. */
 function feeRent(t, rent) { return rent > 0 ? Math.max(rent, t.minRent || 0) : 0; }
@@ -608,7 +610,7 @@ function propYear(p, t, pick, portfolio, kind) {
   var doors = Math.max(1, Math.round(p.doors) || 1), perDoor = p.rent > 0 ? p.rent / doors : 0;
   var fr = feeRent(t, perDoor), q = quote(t, fr, pick, portfolio);
   // No rent entered yet: no fees to show.
-  if (!(perDoor > 0)) q = { f: q.f, disc: 0, monthlyOff: 0, monthlyFull: 0, leaseFull: 0, renewalFull: 0, monthly: 0, lease: 0, renewal: 0 };
+  if (!(perDoor > 0)) q = { f: q.f, disc: 0, monthlyOff: 0, monthlyPct: 0, monthlyFull: 0, leaseFull: 0, renewalFull: 0, monthly: 0, lease: 0, renewal: 0 };
   var isNew = kind !== "renew";
   var gross = p.rent * 12;
   var monthlyFees = q.monthly * 12 * doors, monthlyFull = q.monthlyFull * 12 * doors;
@@ -867,19 +869,19 @@ function render() {
   s.style.setProperty("--fill", (max ? state.pick / max * 100 : 0) + "%");
   s.setAttribute("aria-valuetext", pct(state.pick) + " of rent");
   $("std-tick").style.left = "calc(11px + (100% - 22px) * " + (max ? t.monthlyPct / max : 0) + ")";
-  $("pick-out").innerHTML = pct(state.pick) + (on && state.pick > 0 ? '<small style="font-size:13px;font-weight:500;color:var(--good)"> → ' + pct(state.pick * (1 - PORTFOLIO.pct / 100)) + "</small>" : "");
+  $("pick-out").innerHTML = pct(state.pick) + (on && state.pick > 0 ? '<small style="font-size:13px;font-weight:500;color:var(--good)"> → ' + pct(Math.max(0, state.pick - PORTFOLIO.pts)) + "</small>" : "");
 
   var rr = feeRent(t, r);
   $("presets").innerHTML = [
     ["Standard", t.monthlyPct],
     ["No Renewal Fee", f.zeroRenewalPct],
     ["No Lease Fee", f.zeroLeasePct],
-    ["Pay it all up front (" + (DISCOUNT.steps[0].pct + (on ? PORTFOLIO.pct : 0)) + "% off)", 0]
+    ["Pay it all up front (" + DISCOUNT.steps[0].pct + "% off)", 0]
   ].map(function (p) { return '<button type="button" class="btn" data-pick="' + p[1] + '">' + esc(p[0]) + "</button>"; }).join("");
 
   var hint;
   if (Math.abs(state.pick - t.monthlyPct) < 0.01) hint = "This is " + t.name + "'s standard mix: " + t.monthlyPct + "% monthly, " + t.leasePct + "% of a month to lease, $" + t.renewal + " to renew.";
-  else if (state.pick <= 0) hint = "You pay each lease term up front instead of monthly, and get " + DISCOUNT.steps[0].pct + "% off" + (on ? ", plus " + PORTFOLIO.pct + "% for your portfolio." : ".") + " The renewal discount applies when you pay that term up front again.";
+  else if (state.pick <= 0) hint = "You pay each lease term up front instead of monthly, and get " + DISCOUNT.steps[0].pct + "% off" + (on ? ", plus your portfolio discount." : ".") + " The renewal discount applies when you pay that term up front again.";
   else if (state.pick < t.monthlyPct) hint = "A lower monthly fee moves cost into the leasing and renewal fees. Each lease term costs the same total as the standard mix.";
   else if (state.pick <= f.zeroRenewalPct + 0.01) hint = "A higher monthly fee shrinks the leasing and renewal fees. Each lease term still costs the same total as the standard mix.";
   else hint = "Past " + pct(f.zeroRenewalPct) + " the renewal fee is already $0 at a " + money(rr) + " rent, so a renewal year costs more than the standard mix.";
@@ -891,17 +893,17 @@ function render() {
   $("port-chip").className = "chip " + (on ? "on" : "off");
   $("port-chip").textContent = on ? "On, " + doors + " doors" : doors + " of " + PORTFOLIO.doors + " doors";
   $("port-body").innerHTML = on
-    ? "<p>" + PORTFOLIO.pct + "% off for owners with " + PORTFOLIO.doors + " or more doors. " + "It comes off every fee: monthly, leasing and renewal" + (state.pick > 0 ? "." : ", on top of your up-front discount.") + " That saves you <strong>" + money(y.portSaved) + "</strong> a year.</p>"
-    : "<p>Own " + PORTFOLIO.doors + " or more doors and you get " + PORTFOLIO.pct + "% off all your management fees: monthly, leasing and renewal. Add " + need + " more " + (need === 1 ? "door" : "doors") + " to get it.</p><span class=\"meter\" style=\"width:100%\" aria-hidden=\"true\">" + meter + "</span>";
+    ? "<p>Half a point off your monthly fee at " + PORTFOLIO.doors + " or more doors" + (state.pick < PORTFOLIO.pts ? ". Your monthly fee is under half a point, so the rest comes off your leasing and renewal fees." : ".") + " That saves you <strong>" + money(y.portSaved) + "</strong> a year.</p>"
+    : "<p>Own " + PORTFOLIO.doors + " or more doors and your monthly fee drops half a point (" + t.monthlyPct + "% becomes " + (t.monthlyPct - PORTFOLIO.pts) + "%). Add " + need + " more " + (need === 1 ? "door" : "doors") + " to get it.</p><span class=\"meter\" style=\"width:100%\" aria-hidden=\"true\">" + meter + "</span>";
 
   // Step 2: the fees this mix gives, per door, for the first property.
   var p0 = y.rows[0], q = p0.q, name0 = state.props[0].name || "Property 1";
   $("fq-h").textContent = "Your fees, per door" + (state.props.length > 1 ? " at " + name0 : "") + (p0.perDoor > 0 ? " (" + money(p0.perDoor) + " rent" + (p0.fr > p0.perDoor ? ", figured on the " + money(p0.fr) + " minimum" : "") + ")" : "");
   $("fq-mo").innerHTML = money(q.monthly) + (q.monthlyOff ? "<s>" + money(q.monthlyFull) + "</s>" : "");
-  $("fq-mo-s").textContent = q.monthly > 0 ? pct(state.pick * (1 - q.monthlyOff / 100)) + " of rent" : "Paid up front with the lease";
-  $("fq-lease").innerHTML = money(q.lease) + (q.disc ? "<s>" + money(q.leaseFull) + "</s>" : "");
+  $("fq-mo-s").textContent = q.monthly > 0 ? pct(q.monthlyPct) + " of rent" : "Paid up front with the lease";
+  $("fq-lease").innerHTML = money(q.lease) + (q.lease < q.leaseFull - 0.5 ? "<s>" + money(q.leaseFull) + "</s>" : "");
   $("fq-lease-s").textContent = p0.perDoor > 0 ? pct(q.lease / p0.perDoor * 100, 0) + " of one month's rent" : "";
-  $("fq-renew").innerHTML = money(q.renewal) + (q.disc ? "<s>" + money(q.renewalFull) + "</s>" : "");
+  $("fq-renew").innerHTML = money(q.renewal) + (q.renewal < q.renewalFull - 0.5 ? "<s>" + money(q.renewalFull) + "</s>" : "");
   $("fq-renew-s").textContent = "Only if your tenant renews";
   $("fq-sign").textContent = money(q.lease + q.monthly);
   $("up-on").hidden = !(discountFor(state.pick) > 0);
@@ -923,11 +925,11 @@ function render() {
   function row(label, v, note, cls) { return '<tr class="' + (cls || "") + '"><td>' + label + (note ? '<span class="note">' + note + "</span>" : "") + "</td><td>" + (typeof v === "string" ? v : money(v)) + "</td></tr>"; }
   $("ledger").innerHTML = "<tbody>" +
     row("Rent", y.gross, "12 months, all doors") +
-    row("Monthly management fees", -y.monthlyFees, state.pick > 0 ? pct(state.pick * (on ? 1 - PORTFOLIO.pct / 100 : 1)) + " of rent" : "Paid up front with the lease") +
+    row("Monthly management fees", -y.monthlyFees, state.pick > 0 ? pct(on ? Math.max(0, state.pick - PORTFOLIO.pts) : state.pick) + " of rent" : "Paid up front with the lease") +
     (isNew ? row("Leasing fee", -y.leasing, "When the new tenant signs") : row("Renewal fee", -y.leasing, "When your tenant renews")) +
     (y.accounting ? row("Annual accounting", -y.accounting, "One entity") : "") +
     (y.upSaved > 0.5 ? '<tr><td>Up-front payment discount<span class="note">' + DISCOUNT.steps[0].pct + '% off, already taken off above</span></td><td class="save">' + money(y.upSaved) + " saved</td></tr>" : "") +
-    (y.portSaved > 0.5 ? '<tr><td>Portfolio discount<span class="note">' + PORTFOLIO.pct + "% at " + PORTFOLIO.doors + '+ doors, already taken off above</span></td><td class="save">' + money(y.portSaved) + " saved</td></tr>" : "") +
+    (y.portSaved > 0.5 ? '<tr><td>Portfolio discount<span class="note">Half a point off at ' + PORTFOLIO.doors + '+ doors, already taken off above</span></td><td class="save">' + money(y.portSaved) + " saved</td></tr>" : "") +
     row("After our fees", y.gross - y.mgmt, "", "sub") +
     row("PITI", -y.debt) +
     (y.other > 0.5 ? row("HOA and other", -y.other) : "") +
