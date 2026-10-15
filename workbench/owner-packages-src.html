@@ -442,7 +442,7 @@
           <div class="term">
             <div class="term-h" id="cmp-h">The three packages for your properties, standard mix</div>
             <div class="table-wrap"><table class="cmp" id="cmp"></table></div>
-            <p class="fine">Fees per door include this year's leasing or renewal fee. Minimum's $75 per work order isn't counted, since it depends on how many repairs come up.</p>
+            <p class="fine">Each package uses the fee setup you chose in step 2. Fees per door include this year's leasing or renewal fee. Minimum's $75 per work order isn't counted, since it depends on how many repairs come up.</p>
           </div>
           <details class="disc" id="d-4yr"><summary><span class="disc-t">Forecast 4 years</span><span class="chip on" id="f4-chip"></span></summary><div class="disc-b f4"><p>Year 1 as each property stands today, then renewals at today's rent.</p><div class="table-wrap" style="width:100%"><table class="cmp" id="f4"></table></div></div></details>
         </div>
@@ -1044,10 +1044,20 @@ function render() {
     '<tr class="total"><td>Cash flow after reserves</td><td>' + signed(y.cf) + "</td></tr></tbody>";
 
   // All three packages for these properties at their standard mix, the same year, with the cash flow each leaves.
-  $("cmp-h").textContent = "The three packages for your properties, standard mix";
+  // Each package priced with the owner's own fee setup, so the selected package's row matches the totals above:
+  // the same button (standard, no renewal fee, no lease fee, up front), or the same relative spot on the slider.
+  function pickFor(x) {
+    var fx = frame(x, feeRent(x, r) || 1), maxX = fx.zeroLeasePct, maxT = f.zeroLeasePct, p = state.pick;
+    if (p <= 0) return 0;
+    if (Math.abs(p - t.monthlyPct) < 0.01) return x.monthlyPct;
+    if (Math.abs(p - f.zeroRenewalPct) < 0.01) return fx.zeroRenewalPct;
+    if (p >= maxT - 0.01) return maxX;
+    return p < t.monthlyPct ? x.monthlyPct * p / t.monthlyPct : x.monthlyPct + (p - t.monthlyPct) / (maxT - t.monthlyPct) * (maxX - x.monthlyPct);
+  }
+  $("cmp-h").textContent = "The three packages for your properties, with your fee setup";
   $("cmp").innerHTML = '<thead><tr><th scope="col">Package</th><th scope="col">Fees / yr</th><th scope="col">Fees per door / mo</th><th scope="col">Cash flow / yr</th></tr></thead><tbody>' +
     TIERS.map(function (x) {
-      var yx = portfolioYear(x, x.monthlyPct);
+      var yx = portfolioYear(x, x.id === t.id ? state.pick : pickFor(x));
       return '<tr class="' + (x.id === t.id ? "on" : "") + '"><td>' + esc(x.short) + "</td><td>" + money(yx.mgmt) + "</td><td>" + money(yx.mgmt / 12 / doors) + "</td><td>" + signed(yx.cf) + "</td></tr>";
     }).join("") + "</tbody>";
 
