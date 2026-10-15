@@ -237,6 +237,11 @@
   .ledger td:first-child, .ledger th:first-child{ text-align:left; font-family:var(--font-ui); }
   .ledger td .note{ display:block; font-size:12px; color:var(--ink-3); }
   .ledger tr.sub td{ font-weight:600; background:var(--panel-2); }
+  .ledger tr.res-h td{ font-family:var(--font-ui); text-align:left; font-weight:600; color:var(--gold); padding-top:10px; }
+  .ledger tr.res-h .note{ font-weight:500; }
+  .ledger tr.res td{ color:var(--gold); }
+  .ledger tr.res td:first-child{ padding-left:22px; }
+  .big dd .res-note{ display:block; font-family:var(--font-ui); font-size:12px; font-weight:600; color:var(--gold); margin-top:2px; }
   .ledger tr.total td{ font-weight:700; border-bottom:none; }
   .ledger td.save{ color:var(--good); }
 
@@ -966,7 +971,8 @@ function render() {
     }).join("") + "</tbody>";
 
   function signed(n) { return '<span class="' + (n >= 0 ? "pos" : "neg") + '">' + money(n) + "</span>"; }
-  $("s-cf").innerHTML = signed(y.cf);
+  var resYr = y.vacRes + y.rep + y.capex;
+  $("s-cf").innerHTML = signed(y.cf) + (resYr > 0.5 ? '<small class="res-note">+ ' + money(resYr) + " to your reserves</small>" : "");
   $("s-cfm").innerHTML = signed(y.cf / 12);
   $("s-fees").textContent = money(y.mgmt);
 
@@ -986,10 +992,12 @@ function render() {
     row("After our fees", y.gross - y.mgmt, "", "sub") +
     row("PITI", -y.debt) +
     (y.other > 0.5 ? row("HOA and other", -y.other) : "") +
-    row("Vacancy set aside", -y.vacRes) +
-    row("Repairs set aside", -y.rep) +
-    row("CapEx set aside", -y.capex) +
-    '<tr class="total"><td>Cash flow</td><td>' + signed(y.cf) + "</td></tr></tbody>";
+    row("Cash flow before reserves", y.cf + resYr, "", "sub") +
+    '<tr class="res-h"><td colspan="2">Your reserves<span class="note">Still your money, set aside for when you need it</span></td></tr>' +
+    row("Vacancy reserve", -y.vacRes, "", "res") +
+    row("Repairs reserve", -y.rep, "", "res") +
+    row("CapEx reserve", -y.capex, "", "res") +
+    '<tr class="total"><td>Cash flow after reserves</td><td>' + signed(y.cf) + "</td></tr></tbody>";
 
   // All three packages for these properties at their standard mix, the same year, with the cash flow each leaves.
   $("cmp-h").textContent = "The three packages for your properties, standard mix";
