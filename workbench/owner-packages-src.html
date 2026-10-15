@@ -63,7 +63,14 @@
   .jump .ghost:hover{ border-color:#e2c48d; }
 
   main{ display:flex; flex-direction:column; gap:44px; padding-block:28px 56px; }
-  section{ scroll-margin-top:16px; }
+  section{ scroll-margin-top:64px; }
+  html{ scroll-behavior:smooth; }
+  .secnav{ position:sticky; top:0; z-index:30; background:var(--bg); border-bottom:1px solid var(--rule); box-shadow:0 6px 16px -12px rgba(0,0,0,.45); }
+  .secnav .wrap{ display:flex; gap:4px; overflow-x:auto; padding-block:7px; scrollbar-width:none; }
+  .secnav .wrap::-webkit-scrollbar{ display:none; }
+  .secnav a{ flex:0 0 auto; padding:6px 12px; border-radius:999px; font-size:13.5px; font-weight:600; color:var(--ink-2); text-decoration:none; transition:background .15s ease, color .15s ease; }
+  .secnav a:hover{ color:var(--accent-ink); background:var(--accent-tint); }
+  .secnav a[aria-current="true"]{ color:var(--gold); background:var(--gold-tint); box-shadow:inset 0 0 0 1px var(--glow-gold); }
   .sec-h{ display:flex; flex-direction:column; gap:4px; margin-bottom:14px; }
   .kicker{ font-size:12px; letter-spacing:.13em; text-transform:uppercase; font-weight:700; color:var(--gold); }
   h2{ font-family:var(--font-display); font-weight:600; font-size:28px; line-height:1.15; margin:0; text-wrap:balance; }
@@ -283,7 +290,18 @@
   .prop-out b{ font-family:var(--font-data); color:var(--ink); }
   .prop-out .cf b.pos{ color:var(--good); } .prop-out .cf b.neg{ color:var(--bad); }
   .add-prop{ align-self:flex-start; }
-  .discs{ display:flex; flex-direction:column; gap:8px; }
+  .savings{ display:flex; flex-direction:column; gap:8px; }
+  .sv-title{ font-size:13px; font-weight:600; color:var(--ink-2); }
+  .sv{ background:var(--panel-2); border:1px solid var(--rule-soft); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:4px; }
+  .sv.on{ border-color:var(--good); background:var(--good-bg); }
+  .sv-h{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:14px; }
+  .sv-b{ display:flex; justify-content:space-between; align-items:flex-end; gap:12px; font-size:13px; color:var(--ink-2); }
+  .sv-b span{ min-width:0; }
+  .sv-b strong{ font-family:var(--font-data); font-size:19px; color:var(--good); white-space:nowrap; }
+  .sv-b strong small{ font-family:var(--font-ui); font-size:11.5px; font-weight:600; }
+  .sv .meter{ display:flex; margin-top:6px; }
+  .sv-total{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:10px 12px; border-radius:12px; border:1px dashed var(--good); font-size:13px; color:var(--ink-2); }
+  .sv-total strong{ font-family:var(--font-data); font-size:22px; color:var(--good); white-space:nowrap; }
   .disc{ background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; transition:border-color .15s ease; }
   .disc:hover{ border-color:var(--sky); }
   .disc > summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13.5px; font-weight:600; }
@@ -324,12 +342,15 @@
     <div class="brand"><img src="__LOGO__" alt="Raynor Realty logo"><div><span>Raynor Realty</span><small>Building generational freedom</small></div></div>
     <h1>Property management with the numbers up front</h1>
     <p>Tell us what you want handled, see exactly what each package costs, then build out your properties to see your yearly return.</p>
-    <div class="jump"><a class="primary" href="#goal-h">Help Me Choose</a><a class="ghost" href="#plans">Packages</a><a class="ghost" href="#compare">Compare Packages</a><a class="ghost" href="#proposal">Build Your Proposal</a></div>
+    <div class="jump"><a class="primary" href="#quiz-sec">Help Me Choose</a><a class="ghost" href="#plans">Packages</a><a class="ghost" href="#compare">Compare Packages</a><a class="ghost" href="#proposal">Build Your Proposal</a></div>
   </div>
 </header>
+<nav class="secnav" aria-label="Page sections"><div class="wrap" id="secnav">
+  <a href="#quiz-sec">Help Me Choose</a><a href="#plans">Packages</a><a href="#compare">Compare Packages</a><a href="#proposal">Build Your Proposal</a>
+</div></nav>
 
 <main class="wrap">
-  <section aria-labelledby="goal-h">
+  <section aria-labelledby="goal-h" id="quiz-sec">
     <div class="sec-h"><h2 id="goal-h" class="gold">Find your package in 2 minutes</h2>
       <p class="lead">Nine quick questions about you, your home and your plans. We'll point you to the package built around your answers.</p></div>
     <div class="quiz" id="quiz" aria-live="polite"></div>
@@ -371,6 +392,7 @@
           </div>
           <div class="presets" id="presets"></div>
           <p class="hint" id="hint"></p>
+          <div class="savings" id="savings" aria-live="polite"></div>
         </div>
         <div class="calc-out" aria-live="polite">
           <div class="term-h" id="fq-h">Your fees, per door</div>
@@ -383,10 +405,6 @@
           <div class="term" id="fee-all-wrap" hidden>
             <div class="term-h">All your properties, per door</div>
             <div class="table-wrap"><table class="cmp" id="fee-all"></table></div>
-          </div>
-          <div class="discs">
-            <div class="up-on" id="up-on" hidden><span class="disc-t">Up-front payment discount</span><span class="chip on" id="up-chip"></span></div>
-            <details class="disc" id="d-port"><summary><span class="disc-t">Portfolio discount</span><span class="chip" id="port-chip"></span></summary><div class="disc-b" id="port-body"></div></details>
           </div>
         </div>
       </div>
@@ -887,14 +905,25 @@ function render() {
   else hint = "Past " + pct(f.zeroRenewalPct) + " the renewal fee is already $0 at a " + money(rr) + " rent, so a renewal year costs more than the standard mix.";
   $("hint").textContent = hint;
 
-  // The portfolio discount: earned at 5 doors, and shown to everyone as something to grow into.
-  var need = PORTFOLIO.doors - doors, meter = "";
+  // Your discounts: whether each applies, what it saves per door (at the first property's rent) and across every door in
+  // the next 12 months. The portfolio discount is shown to everyone as something to grow into.
+  var need = PORTFOLIO.doors - doors, meter = "", p0s = y.rows[0], qs0 = p0s.q, upOn = discountFor(state.pick) > 0, upPct = DISCOUNT.steps[0].pct;
   for (var m = 0; m < PORTFOLIO.doors; m++) meter += '<i class="' + (m < doors ? "f" : "") + '"></i>';
-  $("port-chip").className = "chip " + (on ? "on" : "off");
-  $("port-chip").textContent = on ? "On, " + doors + " doors" : doors + " of " + PORTFOLIO.doors + " doors";
-  $("port-body").innerHTML = on
-    ? "<p>Half a point off your monthly fee at " + PORTFOLIO.doors + " or more doors" + (state.pick < PORTFOLIO.pts ? ". Your monthly fee is under half a point, so the rest comes off your leasing and renewal fees." : ".") + " That saves you <strong>" + money(y.portSaved) + "</strong> a year.</p>"
-    : "<p>Own " + PORTFOLIO.doors + " or more doors and your monthly fee drops half a point (" + t.monthlyPct + "% becomes " + (t.monthlyPct - PORTFOLIO.pts) + "%). Add " + need + " more " + (need === 1 ? "door" : "doors") + " to get it.</p><span class=\"meter\" style=\"width:100%\" aria-hidden=\"true\">" + meter + "</span>";
+  var perTermPort = p0s.fr * PORTFOLIO.pts / 100 * TERM, yrLbl = state.year === "renew" ? "renewal" : "new-tenant";
+  function line(name, chip, on, body, amt) {
+    return '<div class="sv' + (on ? " on" : "") + '"><div class="sv-h"><b>' + name + '</b><span class="chip ' + (on ? "on" : "off") + '">' + chip + "</span></div>" +
+      '<div class="sv-b"><span>' + body + "</span>" + (amt != null ? '<strong>' + money(amt) + "<small> saved</small></strong>" : "") + "</div></div>";
+  }
+  $("savings").innerHTML = '<div class="sv-title">Your discounts</div>' +
+    line("Up-front payment", upOn ? upPct + "% off applied" : upPct + "% off available", upOn,
+      upOn ? "Saves " + money(qs0.leaseFull * upPct / 100) + " a door on each new lease and " + money(qs0.renewalFull * upPct / 100) + " on each renewal you pay up front."
+           : "Pay each lease term in full up front and get " + upPct + "% off the leasing and renewal fees.",
+      upOn ? y.upSaved : null) +
+    line("Portfolio", on ? "On, " + doors + " doors" : doors + " of " + PORTFOLIO.doors + " doors", on,
+      on ? "Half a point off your monthly fee: " + money(perTermPort) + " a door each lease term" + (state.pick < PORTFOLIO.pts ? ", taken off your leasing and renewal fees since your monthly fee is under half a point." : ".")
+         : "Add " + need + " more " + (need === 1 ? "door" : "doors") + " and your monthly fee drops half a point (" + t.monthlyPct + "% becomes " + (t.monthlyPct - PORTFOLIO.pts) + "%).<span class=\"meter\" aria-hidden=\"true\">" + meter + "</span>",
+      on ? y.portSaved : null) +
+    (y.upSaved + y.portSaved > 0.5 ? '<div class="sv-total"><span>Saved in the next 12 months (' + yrLbl + " year, " + (doors === 1 ? "1 door" : "all " + doors + " doors") + ')</span><strong>' + money(y.upSaved + y.portSaved) + "</strong></div>" : "");
 
   // Step 2: the fees this mix gives, per door, for the first property.
   var p0 = y.rows[0], q = p0.q, name0 = state.props[0].name || "Property 1";
@@ -906,8 +935,6 @@ function render() {
   $("fq-renew").innerHTML = money(q.renewal) + (q.renewal < q.renewalFull - 0.5 ? "<s>" + money(q.renewalFull) + "</s>" : "");
   $("fq-renew-s").textContent = "Only if your tenant renews";
   $("fq-sign").textContent = money(q.lease + q.monthly);
-  $("up-on").hidden = !(discountFor(state.pick) > 0);
-  $("up-chip").textContent = DISCOUNT.steps[0].pct + "% off applied";
   $("fee-all-wrap").hidden = state.props.length < 2;
   if (state.props.length > 1) $("fee-all").innerHTML = '<thead><tr><th scope="col">Property</th><th scope="col">Rent / door</th><th scope="col">Monthly</th><th scope="col">Leasing</th><th scope="col">Renewal</th></tr></thead><tbody>' +
     y.rows.map(function (pr, i) {
@@ -988,6 +1015,23 @@ $("quiz").addEventListener("click", function (e) {
   if (e.target.closest(".quiz-again")) { quiz = { i: 0, picks: [] }; REC = "special"; BADGE = "Most owners"; renderTiers(); renderQuiz(); return; }
   if (e.target.closest(".quiz-see")) $("card-" + REC).scrollIntoView({ behavior: "smooth", block: "center" });
 });
+
+/* The section bar highlights whichever section fills the middle of the screen. */
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll("#secnav a"));
+  if (!("IntersectionObserver" in window)) return;
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      links.forEach(function (a) {
+        var on = a.getAttribute("href") === "#" + en.target.id;
+        a.setAttribute("aria-current", String(on));
+        if (on && a.scrollIntoView && a.parentNode.scrollWidth > a.parentNode.clientWidth) a.parentNode.scrollLeft = a.offsetLeft - 16;
+      });
+    });
+  }, { rootMargin: "-45% 0px -50% 0px" });
+  links.forEach(function (a) { var sec = document.querySelector(a.getAttribute("href")); if (sec) io.observe(sec); });
+})();
 
 renderProps();
 render();
