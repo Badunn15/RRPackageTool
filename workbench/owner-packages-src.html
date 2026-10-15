@@ -421,8 +421,8 @@
             <div><dt><i style="background:var(--sky)"></i>Renewal fee</dt><dd id="fq-renew">$0</dd><span id="fq-renew-s"></span></div>
             <div class="due"><dt>Due when a new lease is signed</dt><dd id="fq-sign">$0</dd><span>Leasing fee plus the first month</span></div>
           </dl>
-          <div class="term" id="fee-all-wrap" hidden>
-            <div class="term-h">All your properties, per door</div>
+          <div class="term" id="fee-all-wrap">
+            <div class="term-h" id="fee-all-h">All your properties, per door</div>
             <div class="table-wrap"><table class="cmp" id="fee-all"></table></div>
           </div>
         </div>
@@ -570,7 +570,7 @@ var COMPARE = [
     { n: "Proactive property report", m: ["$400", "$400", "yes"] } ] },
   { n: "Pre-vacancy listing", addon: true, card: "Pre-vacancy listing", m: ["$150", "$150", "yes"] },
   { n: "Keyless access", note: "One-time setup", addon: true, card: "Keyless access", m: ["$150", "$150", "yes"] },
-  { n: "Ownership change", note: "New owner setup when the property changes hands", addon: true, card: "Ownership changes", m: ["$500", "$500", "yes"] },
+  { n: "Owner or entity change", note: "New owner setup when the property changes hands or moves to an LLC or trust", addon: true, card: "Owner or entity changes", m: ["$500", "$500", "yes"] },
   { n: "Listing support", note: "When you sell with an agent outside Raynor Realty", addon: true, card: "Listing support", m: ["0.5% of sale price", "0.5% of sale price", "yes"] },
   { n: "Brokerage services", addon: true, contact: true, m: ["contact", "contact", "contact"] },
   { n: "Pet guarantee", note: "Pet damage covered up to $1,500, backed by the pet rent we collect", m: ["yes", "yes", "yes"] },
@@ -1007,8 +1007,8 @@ function render() {
   $("fq-renew").innerHTML = money(q.renewal) + (q.renewal < q.renewalFull - 0.5 ? "<s>" + money(q.renewalFull) + "</s>" : "");
   $("fq-renew-s").textContent = "Only if your tenant renews";
   $("fq-sign").textContent = money(q.lease + q.monthly);
-  $("fee-all-wrap").hidden = state.props.length < 2;
-  if (state.props.length > 1) $("fee-all").innerHTML = '<thead><tr><th scope="col">Property</th><th scope="col">Rent / door</th><th scope="col">Monthly</th><th scope="col">Leasing</th><th scope="col">Renewal</th></tr></thead><tbody>' +
+  $("fee-all-h").textContent = state.props.length > 1 ? "All your properties, per door" : "Your property, per door";
+  $("fee-all").innerHTML = '<thead><tr><th scope="col">Property</th><th scope="col">Rent / door</th><th scope="col">Monthly</th><th scope="col">Leasing</th><th scope="col">Renewal</th></tr></thead><tbody>' +
     y.rows.map(function (pr, i) {
       return "<tr><td>" + esc(state.props[i].name || "Property " + (i + 1)) + "</td><td>" + money(pr.perDoor) + "</td><td>" + money(pr.q.monthly) + "</td><td>" + money(pr.q.lease) + "</td><td>" + money(pr.q.renewal) + "</td></tr>";
     }).join("") + "</tbody>";

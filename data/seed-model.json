@@ -908,7 +908,7 @@
     "ps_res_t3": { "id": "ps_res_t3", "n": "Resident support: Tier 3", "dp": "scope", "dc": "Communication & Support", "dsv": 0, "dt": { "min": true, "special": true, "plus": true } },
     "ps_movein_orient": { "id": "ps_movein_orient", "n": "Resident move-in orientation", "dp": "scope", "dc": "Communication & Support", "dsv": 0, "dt": { "min": true, "special": true, "plus": true } },
     "ps_delinq": { "id": "ps_delinq", "n": "Delinquency & collections", "dp": "scope", "dc": "Communication & Support", "dsv": 0, "dt": { "min": true, "special": true, "plus": true } },
-    "ps_ownership_change": { "id": "ps_ownership_change", "n": "Owner onboarding / ownership change", "d": "New owner setup.", "dp": "scope", "dc": "Owner Lifecycle", "dsv": 0, "dt": { "min": true, "special": true, "plus": true } },
+    "ps_ownership_change": { "id": "ps_ownership_change", "n": "Owner onboarding / owner or entity change", "d": "New owner setup.", "dp": "scope", "dc": "Owner Lifecycle", "dsv": 0, "dt": { "min": true, "special": true, "plus": true } },
     "ps_occupied_setup": { "id": "ps_occupied_setup", "n": "Occupied unit setup", "dp": "scope", "dc": "Owner Lifecycle", "dsv": 0, "dt": { "min": false, "special": true, "plus": true } },
     "ps_key_mgmt": { "id": "ps_key_mgmt", "n": "Key management, lockbox, rekeys", "dp": "scope", "dc": "Property Operations", "dsv": 0, "dt": { "min": true, "special": true, "plus": true } },
     "ps_utility_vac": { "id": "ps_utility_vac", "n": "Utility management during vacancy", "dp": "scope", "dc": "Property Operations", "dsv": 0, "dt": { "min": false, "special": true, "plus": true } },
