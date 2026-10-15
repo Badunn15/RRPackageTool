@@ -840,7 +840,7 @@ $("min-rents").textContent = TIERS.map(function (t) { return money(t.monthlyPct 
 var FIELDS = [
   { k: "doors", l: "Doors", pre: "", int: true },
   { k: "rent", l: "Monthly rent", s: "all doors", pre: "$" },
-  { k: "piti", l: "PITI", s: "mortgage, taxes, insurance /mo", pre: "$" },
+  { k: "piti", l: "Mortgage", s: "full payment, with taxes and insurance /mo", pre: "$" },
   { k: "other", l: "HOA and other", s: "per month", pre: "$" },
   { k: "vac", l: "Vacancy", s: "% of the year", post: "%" },
   { k: "rep", l: "Repairs", s: "% of rent", post: "%" },
@@ -848,7 +848,7 @@ var FIELDS = [
 ];
 /* PITI can be split into its parts; they add up into PITI. */
 var SPLIT_FIELDS = [
-  { k: "pi", l: "Mortgage", s: "principal and interest /mo", pre: "$" },
+  { k: "pi", l: "Principal & interest", s: "the loan only, not escrow /mo", pre: "$" },
   { k: "tax", l: "Taxes", s: "per month", pre: "$" },
   { k: "ins", l: "Insurance", s: "per month", pre: "$" },
   { k: "pmi", l: "PMI", s: "mortgage insurance /mo", pre: "$" }
@@ -876,7 +876,7 @@ function renderProps() {
         ? '<span class="rm-ask">Remove?<button type="button" class="rm-yes" data-rm-yes="' + i + '">Yes</button><button type="button" class="link" data-rm-no>Cancel</button></span>'
         : '<button type="button" class="rm" data-rm="' + i + '" aria-label="Remove property ' + (i + 1) + '" title="Remove property">&minus;</button>') : "") + "</div>" +
       '<div class="inputs">' + FIELDS.map(function (f) { return fieldHtml(f, p, i, f.k === "piti" && p.split); }).join("") + "</div>" +
-      (p.split ? '<div class="inputs split" aria-label="PITI, split out">' + SPLIT_FIELDS.map(function (f) { return fieldHtml(f, p, i, false); }).join("") + "</div>" : "") +
+      (p.split ? '<div class="inputs split" aria-label="Mortgage, split out">' + SPLIT_FIELDS.map(function (f) { return fieldHtml(f, p, i, false); }).join("") + "</div>" : "") +
       '<div class="prop-out" id="out-' + i + '"></div></div>';
   }).join("");
 }
@@ -902,7 +902,7 @@ $("props").addEventListener("click", function (e) {
   if (sp) {
     var ps = state.props[+sp.dataset.split];
     ps.split = !ps.split;
-    // Starting a split with no parts yet: the whole PITI goes under Mortgage, so the total doesn't move.
+    // Starting a split with no parts yet: the whole payment goes under Principal & interest, so the total doesn't move.
     // The same goes for parts that no longer add up to PITI (it was edited as one total in between).
     var partsSum = SPLIT_FIELDS.reduce(function (t, f) { return t + (ps[f.k] || 0); }, 0);
     if (ps.split && Math.abs(partsSum - (ps.piti || 0)) > 0.5) { ps.pi = ps.piti || 0; ps.tax = 0; ps.ins = 0; ps.pmi = 0; }
@@ -1034,7 +1034,7 @@ function render() {
     (y.upSaved > 0.5 ? '<tr><td>Up-front payment discount<span class="note">' + DISCOUNT.steps[0].pct + '% off, already taken off above</span></td><td class="save">' + money(y.upSaved) + " saved</td></tr>" : "") +
     (y.portSaved > 0.5 ? '<tr><td>Portfolio discount<span class="note">Half a point off at ' + PORTFOLIO.doors + '+ doors, already taken off above</span></td><td class="save">' + money(y.portSaved) + " saved</td></tr>" : "") +
     row("After our fees", y.gross - y.mgmt, "", "sub") +
-    row("PITI", -y.debt) +
+    row("Mortgage", -y.debt) +
     (y.other > 0.5 ? row("HOA and other", -y.other) : "") +
     row("Cash flow before reserves", y.cf + resYr, "", "sub") +
     '<tr class="res-h"><td colspan="2">Your reserves<span class="note">Still your money, set aside for when you need it</span></td></tr>' +
