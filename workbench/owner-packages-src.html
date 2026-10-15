@@ -247,7 +247,7 @@
 
   .step{ display:flex; flex-direction:column; gap:14px; margin-top:30px; }
   .step:first-of-type{ margin-top:6px; }
-  .step-h{ display:flex; gap:12px; align-items:flex-start; }
+  .step-h{ display:flex; gap:12px; align-items:center; }
   .step-n{ flex:0 0 32px; width:32px; height:32px; border-radius:50%; background:var(--navy); color:#e2c48d; box-shadow:0 0 0 2px var(--gold-line); font-weight:700; display:grid; place-items:center; }
   .step-h h3{ margin:0; font-family:var(--font-display); font-weight:600; font-size:22px; line-height:1.2; }
   .step-h p{ margin:2px 0 0; font-size:14px; color:var(--ink-2); }
@@ -394,13 +394,13 @@
       <p class="lead">Three steps: your properties, how your fees are set, and what's left for you each year. Own 5 or more doors and your monthly fee drops half a point.</p></div>
 
     <div class="step" aria-labelledby="st1">
-      <div class="step-h"><span class="step-n">1</span><div><h3 id="st1">Your properties</h3><p>Rent and costs for each one. Collapse a property once it's filled in.</p></div></div>
+      <div class="step-h"><span class="step-n">1</span><div><h3 id="st1">Your properties</h3></div></div>
       <div class="props" id="props"></div>
       <button type="button" class="btn add-prop" id="add-prop">+ Add a property</button>
     </div>
 
     <div class="step" aria-labelledby="st2">
-      <div class="step-h"><span class="step-n">2</span><div><h3 id="st2">Your package and fees</h3><p>Choose a package, then how your fees are split between the monthly fee and lease signing.</p></div></div>
+      <div class="step-h"><span class="step-n">2</span><div><h3 id="st2">Your package and fees</h3></div></div>
       <div class="calc">
         <div class="calc-in">
           <div class="field"><span id="tier-lab">Package</span><div class="seg" role="group" aria-labelledby="tier-lab" id="tier-seg"></div></div>
@@ -430,7 +430,7 @@
     </div>
 
     <div class="step" aria-labelledby="st3">
-      <div class="step-h"><span class="step-n">3</span><div><h3 id="st3">Your next 12 months</h3><p>A one-year forecast for all your properties, after our fees and your costs. Homes rented now renew; the rest get a new tenant.</p></div></div>
+      <div class="step-h"><span class="step-n">3</span><div><h3 id="st3">Your next 12 months</h3></div></div>
       <div class="ret">
         <div class="ret-a">
           <div class="term-h" id="big-h">All your doors</div>
