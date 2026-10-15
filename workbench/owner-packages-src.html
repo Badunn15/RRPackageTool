@@ -433,23 +433,24 @@
       <div class="step-h"><span class="step-n">3</span><div><h3 id="st3">Your next 12 months</h3><p>A one-year forecast for all your properties, after our fees and your costs. Homes rented now renew; the rest get a new tenant.</p></div></div>
       <div class="ret">
         <div class="ret-a">
+          <div class="term-h" id="big-h">All your doors</div>
           <dl class="big">
             <div><dt>Yearly cash flow</dt><dd id="s-cf">$0</dd></div>
             <div><dt>Per month</dt><dd id="s-cfm">$0</dd></div>
             <div><dt>Our fees per year</dt><dd id="s-fees">$0</dd></div>
           </dl>
           <div class="term">
-            <div class="term-h" id="ledger-h">The next 12 months</div>
-            <table class="ledger" id="ledger"></table>
-          </div>
-        </div>
-        <div class="ret-b">
-          <div class="term">
             <div class="term-h" id="cmp-h">The three packages for your properties, standard mix</div>
             <div class="table-wrap"><table class="cmp" id="cmp"></table></div>
             <p class="fine">Fees per door include this year's leasing or renewal fee. Minimum's $75 per work order isn't counted, since it depends on how many repairs come up.</p>
           </div>
-          <details class="disc" id="d-4yr" style="margin-top:14px"><summary><span class="disc-t">Forecast 4 years</span><span class="chip on" id="f4-chip"></span></summary><div class="disc-b f4"><p>Year 1 as each property stands today, then renewals at today's rent.</p><div class="table-wrap" style="width:100%"><table class="cmp" id="f4"></table></div></div></details>
+          <details class="disc" id="d-4yr"><summary><span class="disc-t">Forecast 4 years</span><span class="chip on" id="f4-chip"></span></summary><div class="disc-b f4"><p>Year 1 as each property stands today, then renewals at today's rent.</p><div class="table-wrap" style="width:100%"><table class="cmp" id="f4"></table></div></div></details>
+        </div>
+        <div class="ret-b">
+          <div class="term">
+            <div class="term-h" id="ledger-h">The next 12 months</div>
+            <table class="ledger" id="ledger"></table>
+          </div>
         </div>
       </div>
       <p class="fine">Estimates to help you plan, not a quote and not financial or tax advice. Forecasts one 12-month year at the rent you enter, with vacancy, repairs and CapEx set aside as a share of rent. If the home sits empty, there's no monthly fee on rent we don't collect; the $99 fee while vacant applies instead. Maintenance coordination fees, add-ons and the cost of repairs themselves aren't included beyond your repairs set-aside.</p>
@@ -1017,6 +1018,7 @@ function render() {
   $("s-cf").innerHTML = signed(y.cf) + (resYr > 0.5 ? '<small class="res-note">+ ' + money(resYr) + " to your reserves</small>" : "");
   $("s-cfm").innerHTML = signed(y.cf / 12);
   $("s-fees").textContent = money(y.mgmt);
+  $("big-h").textContent = doors === 1 ? "Your door" : "All " + doors + " doors";
 
   var nRented = state.props.filter(function (p) { return p.rented; }).length, nProps = state.props.length;
   $("ledger-h").textContent = "The next 12 months: " + nProps + (nProps === 1 ? " property" : " properties") + ", " + doors + (doors === 1 ? " door" : " doors") + ", " + t.name +
