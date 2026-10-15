@@ -980,15 +980,17 @@ function render() {
   var upNew = upOn ? qs0.leaseFull * upPct / 100 : 0, upRen = upOn ? qs0.renewalFull * upPct / 100 : 0, portT = on ? perTermPort : 0;
   function line(name, chip, isOn, body, amt, unit) {
     return '<div class="sv' + (isOn ? " on" : "") + '"><div class="sv-h"><b>' + name + '</b><span class="chip ' + (isOn ? "on" : "off") + '">' + chip + "</span></div>" +
-      '<div class="sv-b"><span>' + body + "</span>" + (amt != null ? '<strong>' + money(amt) + "<small>" + unit + "</small></strong>" : "") + "</div></div>";
+      '<div class="sv-b"><span>' + body + "</span>" + (amt == null ? "" : Array.isArray(amt)
+        ? '<div class="sv-pair">' + amt.map(function (a, k) { return '<strong>' + money(a) + "<small>" + unit[k] + "</small></strong>"; }).join("") + "</div>"
+        : '<strong>' + money(amt) + "<small>" + unit + "</small></strong>") + "</div></div>";
   }
   var svNew = upNew + portT, svAvail = (upOn ? 0 : 1) + (on ? 0 : 1);
   $("sv-chip").className = "chip " + (svNew > 0.5 ? "on" : "off");
   $("sv-chip").textContent = svNew > 0.5 ? money(svNew) + " per door saved" : svAvail + " available";
   $("savings").innerHTML =
     line("Up-front payment", upPct + "% off", upOn,
-      upOn ? money(upRen) + " on a renewal" : "Pay each lease term up front for " + upPct + "% off leasing and renewal",
-      upOn ? upNew : null, "per door, new lease") +
+      upOn ? "Per door" : "Pay each lease term up front for " + upPct + "% off leasing and renewal",
+      upOn ? [upNew, upRen] : null, ["new lease", "renewal"]) +
     line("Portfolio", on ? "On" : doors + " of " + PORTFOLIO.doors + " doors", on,
       on ? "Half a point off monthly" : "At " + PORTFOLIO.doors + " doors, half a point off monthly<span class=\"meter\" aria-hidden=\"true\">" + meter + "</span>",
       on ? portT : null, "per door, each lease term") +
