@@ -65,7 +65,8 @@
   main{ display:flex; flex-direction:column; gap:44px; padding-block:28px 56px; }
   section{ scroll-margin-top:64px; }
   html{ scroll-behavior:smooth; }
-  .secnav{ position:sticky; top:0; z-index:30; background:var(--bg); border-bottom:1px solid var(--rule); box-shadow:0 6px 16px -12px rgba(0,0,0,.45); }
+  .secnav{ position:fixed; top:0; left:0; right:0; z-index:30; background:var(--bg); border-bottom:1px solid var(--rule); box-shadow:0 6px 16px -12px rgba(0,0,0,.45); transform:translateY(-110%); transition:transform .2s ease; }
+  .secnav.show{ transform:none; }
   .secnav .wrap{ display:flex; gap:4px; overflow-x:auto; padding-block:7px; scrollbar-width:none; }
   .secnav .wrap::-webkit-scrollbar{ display:none; }
   .secnav a{ flex:0 0 auto; padding:6px 12px; border-radius:999px; font-size:13.5px; font-weight:600; color:var(--ink-2); text-decoration:none; transition:background .15s ease, color .15s ease; }
@@ -1016,21 +1017,36 @@ $("quiz").addEventListener("click", function (e) {
   if (e.target.closest(".quiz-see")) $("card-" + REC).scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
-/* The section bar highlights whichever section fills the middle of the screen. */
+/* The section bar: hidden while the header's own buttons are on screen, then pinned to the top, highlighting the
+   section you're in (the last one whose top has passed a third of the way down the screen). */
 (function () {
+  var bar = document.querySelector(".secnav"), head = document.querySelector(".masthead");
   var links = Array.prototype.slice.call(document.querySelectorAll("#secnav a"));
-  if (!("IntersectionObserver" in window)) return;
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (en) {
-      if (!en.isIntersecting) return;
-      links.forEach(function (a) {
-        var on = a.getAttribute("href") === "#" + en.target.id;
-        a.setAttribute("aria-current", String(on));
-        if (on && a.scrollIntoView && a.parentNode.scrollWidth > a.parentNode.clientWidth) a.parentNode.scrollLeft = a.offsetLeft - 16;
-      });
-    });
-  }, { rootMargin: "-45% 0px -50% 0px" });
-  links.forEach(function (a) { var sec = document.querySelector(a.getAttribute("href")); if (sec) io.observe(sec); });
+  var secs = links.map(function (a) { return document.querySelector(a.getAttribute("href")); });
+  var forced = null, forcedUntil = 0, ticking = false;
+  function mark(i) {
+    links.forEach(function (a, k) { a.setAttribute("aria-current", String(k === i)); });
+    var a = links[i], wrap = a && a.parentNode;
+    if (a && wrap.scrollWidth > wrap.clientWidth) wrap.scrollLeft = a.offsetLeft - 16;
+  }
+  function update() {
+    ticking = false;
+    bar.classList.toggle("show", head.getBoundingClientRect().bottom < 0);
+    if (forced != null && Date.now() < forcedUntil) { mark(forced); return; }
+    forced = null;
+    var line = window.innerHeight / 3, cur = 0;
+    secs.forEach(function (sec, i) { if (sec && sec.getBoundingClientRect().top <= line) cur = i; });
+    mark(cur);
+  }
+  window.addEventListener("scroll", function () { if (!ticking) { ticking = true; setTimeout(update, 16); } }, { passive: true });
+  window.addEventListener("resize", update);
+  // A click marks its section right away, while the smooth scroll catches up.
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest('a[href^="#"]'); if (!a) return;
+    var i = links.map(function (l) { return l.getAttribute("href"); }).indexOf(a.getAttribute("href"));
+    if (i >= 0) { forced = i; forcedUntil = Date.now() + 900; mark(i); }
+  });
+  update();
 })();
 
 renderProps();
