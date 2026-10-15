@@ -283,8 +283,10 @@
   .prop-h input{ flex:1; min-width:0; border:1px solid transparent; border-radius:8px; padding:6px 8px; background:transparent; font-weight:600; font-size:16px; }
   .prop-h input:hover{ border-color:var(--rule); }
   .prop-h input:focus{ border-color:var(--accent); outline:none; box-shadow:0 0 0 3px var(--accent-tint); }
-  .rm{ border:none; background:none; color:var(--ink-3); font-size:13px; cursor:pointer; padding:6px 8px; border-radius:7px; }
-  .rm:hover{ color:var(--bad); background:var(--bad-bg); }
+  .rm{ flex:0 0 auto; width:24px; height:24px; border-radius:50%; border:1.5px solid var(--ink-3); background:none; color:var(--ink-3); font-size:16px; line-height:1; font-weight:700; cursor:pointer; display:grid; place-items:center; padding:0; transition:color .15s ease, border-color .15s ease, background .15s ease; }
+  .rm:hover{ color:var(--bad); border-color:var(--bad); background:var(--bad-bg); }
+  .rm-ask{ flex:0 0 auto; display:inline-flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color:var(--bad); }
+  .rm-yes{ border:none; border-radius:7px; padding:4px 10px; background:var(--bad); color:#fff; font-weight:700; font-size:12.5px; cursor:pointer; }
   .inputs{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
   @media (max-width:980px){ .inputs{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
   @media (max-width:560px){ .inputs{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
@@ -857,6 +859,7 @@ function fieldHtml(f, p, i, ro) {
     '<div class="box' + (ro ? " ro" : "") + '">' + (f.pre ? "<span>" + f.pre + "</span>" : "") + '<input id="' + id + '" type="text" inputmode="decimal" data-k="' + f.k + '"' + (ro ? " readonly" : "") + ' value="' + esc(fmtField(f, p[f.k])) + '">' + (f.post ? "<span>" + f.post + "</span>" : "") + "</div>" + tog + "</div>";
 }
 function fmtField(f, v) { return f.post ? String(v) : (v ? Math.round(v).toLocaleString("en-US") : ""); }
+var rmAsk = -1;   // the property waiting on "Remove? Yes / Cancel"
 function renderProps() {
   $("props").innerHTML = state.props.map(function (p, i) {
     var shut = p.open === false;
@@ -867,7 +870,9 @@ function renderProps() {
       '<div class="seg st" role="group" aria-label="Property ' + (i + 1) + ' status">' +
         '<button type="button" data-st="0" aria-pressed="' + !p.rented + '">Needs a tenant</button><button type="button" data-st="1" aria-pressed="' + !!p.rented + '">Rented now</button></div>' +
       '<span class="prop-sum" id="sum-' + i + '"></span>' +
-      (state.props.length > 1 ? '<button type="button" class="rm" data-rm="' + i + '">Remove</button>' : "") + "</div>" +
+      (state.props.length > 1 ? (rmAsk === i
+        ? '<span class="rm-ask">Remove?<button type="button" class="rm-yes" data-rm-yes="' + i + '">Yes</button><button type="button" class="link" data-rm-no>Cancel</button></span>'
+        : '<button type="button" class="rm" data-rm="' + i + '" aria-label="Remove property ' + (i + 1) + '" title="Remove property">&minus;</button>') : "") + "</div>" +
       '<div class="inputs">' + FIELDS.map(function (f) { return fieldHtml(f, p, i, f.k === "piti" && p.split); }).join("") + "</div>" +
       (p.split ? '<div class="inputs split" aria-label="PITI, split out">' + SPLIT_FIELDS.map(function (f) { return fieldHtml(f, p, i, false); }).join("") + "</div>" : "") +
       '<div class="prop-out" id="out-' + i + '"></div></div>';
@@ -916,8 +921,11 @@ $("props").addEventListener("click", function (e) {
     t.setAttribute("aria-expanded", String(pr.open));
     save(); return;
   }
+  if (e.target.closest("[data-rm-no]")) { rmAsk = -1; renderProps(); render(); return; }
+  var yes = e.target.closest("[data-rm-yes]");
+  if (yes) { state.props.splice(+yes.dataset.rmYes, 1); rmAsk = -1; renderProps(); render(); return; }
   var b = e.target.closest("[data-rm]"); if (!b) return;
-  state.props.splice(+b.dataset.rm, 1); renderProps(); render();
+  rmAsk = +b.dataset.rm; renderProps(); render();
 });
 $("add-prop").addEventListener("click", function () {
   state.props.forEach(function (x) { x.open = false; });
@@ -1051,7 +1059,7 @@ function render() {
 
   y.rows.forEach(function (pr, i) {
     var q = pr.q, el = $("out-" + i), pp = state.props[i]; if (!el) return;
-    $("sum-" + i).textContent = pr.doors + (pr.doors === 1 ? " door · " : " doors · ") + money(pp.rent) + "/mo" + (pp.rented ? " · rented" : "");
+    $("sum-" + i).textContent = pr.doors + (pr.doors === 1 ? " door · " : " doors · ") + money(pp.rent) + "/mo";
     el.innerHTML = "<span>Per door: <b>" + money(q.monthly) + "/mo</b>" + (pr.fr > pr.perDoor && pr.perDoor > 0 ? " (on the " + money(pr.fr) + " minimum)" : "") + ", leasing <b>" + money(q.lease) + "</b>, renewal <b>" + money(q.renewal) + "</b></span>" +
       '<span class="cf">Cash flow <b class="' + (pr.cf >= 0 ? "pos" : "neg") + '">' + money(pr.cf) + "/yr</b> (" + money(pr.cf / 12) + "/mo)</span>";
   });
