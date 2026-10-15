@@ -331,7 +331,7 @@
 <main class="wrap">
   <section aria-labelledby="goal-h">
     <div class="sec-h"><h2 id="goal-h" class="gold">Find your package in 2 minutes</h2>
-      <p class="lead">Ten quick questions about you, your home and your plans. We'll point you to the package built around your answers.</p></div>
+      <p class="lead">Nine quick questions about you, your home and your plans. We'll point you to the package built around your answers.</p></div>
     <div class="quiz" id="quiz" aria-live="polite"></div>
   </section>
 
@@ -453,7 +453,7 @@ var VACANT_FEE = 99, ACCOUNTING = 125;
 /* The proposal forecasts one 12-month year. The optional long view runs this many years: a new tenant, then renewals. */
 var FORECAST_YEARS = 4;
 
-/* The "Help me choose" quiz: ten questions about the owner, the home and their plans, not about package features,
+/* The "Help me choose" quiz: nine questions about the owner, the home and their plans, not about package features,
    so no answer reads like a sales line for one package. Each answer adds points (p): 2 for a clear fit, 1 each when it
    sits between two. why is how the result quotes the answer back. The most points wins; a tie goes to Special.
    Leaning Minimum: newer, updated homes and owners who run it lean for monthly income.
@@ -496,11 +496,7 @@ var QUIZ = [
   { q: "How many rental doors do you expect to own in 3 years?", a: [
     { t: "Just this one", p: { min: 1, special: 1 }, why: "" },
     { t: "2 to 4", p: { special: 2 }, why: "With a few doors, included coordination adds up." },
-    { t: "5 or more", p: { plus: 2 }, why: "At 5 or more doors you'd also get our portfolio discount." } ] },
-  { q: "Whose name is the property in?", a: [
-    { t: "Mine", p: { min: 2 }, why: "" },
-    { t: "An LLC or trust, or I plan to move it into one", p: { plus: 2 }, why: "Ownership changes like an LLC or trust are included." },
-    { t: "Still sorting it out (an estate, divorce or family transfer)", p: { plus: 2 }, why: "Ownership changes are included while you sort it out." } ] }
+    { t: "5 or more", p: { plus: 2 }, why: "At 5 or more doors you'd also get our portfolio discount." } ] }
 ];
 var quiz = { i: 0, picks: [] };
 /* The comparison: one row per item, each package either "yes" (included), "no", or a price.
