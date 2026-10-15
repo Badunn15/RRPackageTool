@@ -300,7 +300,8 @@
   .sv-b{ display:flex; justify-content:space-between; align-items:flex-end; gap:12px; font-size:13px; color:var(--ink-2); }
   .sv-b span{ min-width:0; }
   .sv-b strong{ font-family:var(--font-data); font-size:19px; color:var(--good); white-space:nowrap; }
-  .sv-b strong small{ font-family:var(--font-ui); font-size:11.5px; font-weight:600; }
+  .sv-b strong{ display:flex; flex-direction:column; align-items:flex-end; line-height:1.1; }
+  .sv-b strong small{ font-family:var(--font-ui); font-size:11px; font-weight:600; opacity:.8; margin-top:2px; }
   .sv .meter{ display:flex; margin-top:6px; }
   .sv-total{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:10px 12px; border-radius:12px; border:1px dashed var(--good); font-size:13px; color:var(--ink-2); }
   .sv-total strong{ font-family:var(--font-data); font-size:22px; color:var(--good); white-space:nowrap; }
@@ -912,23 +913,25 @@ function render() {
   var need = PORTFOLIO.doors - doors, meter = "", p0s = y.rows[0], qs0 = p0s.q, upOn = discountFor(state.pick) > 0, upPct = DISCOUNT.steps[0].pct;
   for (var m = 0; m < PORTFOLIO.doors; m++) meter += '<i class="' + (m < doors ? "f" : "") + '"></i>';
   var perTermPort = p0s.fr * PORTFOLIO.pts / 100 * TERM, yrLbl = state.year === "renew" ? "renewal" : "new-tenant";
+  // Each discount: one short line of per-door savings, and the big number is all doors over the next 12 months.
+  var scope = (doors === 1 ? "1 door" : doors + " doors") + " · 12 mo";
   function line(name, chip, on, body, amt) {
     return '<div class="sv' + (on ? " on" : "") + '"><div class="sv-h"><b>' + name + '</b><span class="chip ' + (on ? "on" : "off") + '">' + chip + "</span></div>" +
-      '<div class="sv-b"><span>' + body + "</span>" + (amt != null ? '<strong>' + money(amt) + "<small> saved</small></strong>" : "") + "</div></div>";
+      '<div class="sv-b"><span>' + body + "</span>" + (amt != null ? '<strong>' + money(amt) + "<small>" + scope + "</small></strong>" : "") + "</div></div>";
   }
   var svTotal = y.upSaved + y.portSaved, svAvail = (upOn ? 0 : 1) + (on ? 0 : 1);
   $("sv-chip").className = "chip " + (svTotal > 0.5 ? "on" : "off");
   $("sv-chip").textContent = svTotal > 0.5 ? money(svTotal) + " saved" : svAvail + " available";
   $("savings").innerHTML =
-    line("Up-front payment", upOn ? upPct + "% off applied" : upPct + "% off available", upOn,
-      upOn ? "Saves " + money(qs0.leaseFull * upPct / 100) + " a door on each new lease and " + money(qs0.renewalFull * upPct / 100) + " on each renewal you pay up front."
-           : "Pay each lease term in full up front and get " + upPct + "% off the leasing and renewal fees.",
+    line("Up-front payment", upPct + "% off", upOn,
+      upOn ? "Per door: " + money(qs0.leaseFull * upPct / 100) + " a new lease, " + money(qs0.renewalFull * upPct / 100) + " a renewal"
+           : "Pay each lease term up front for " + upPct + "% off leasing and renewal",
       upOn ? y.upSaved : null) +
-    line("Portfolio", on ? "On, " + doors + " doors" : doors + " of " + PORTFOLIO.doors + " doors", on,
-      on ? "Half a point off your monthly fee: " + money(perTermPort) + " a door each lease term" + (state.pick < PORTFOLIO.pts ? ", taken off your leasing and renewal fees since your monthly fee is under half a point." : ".")
-         : "Add " + need + " more " + (need === 1 ? "door" : "doors") + " and your monthly fee drops half a point (" + t.monthlyPct + "% becomes " + (t.monthlyPct - PORTFOLIO.pts) + "%).<span class=\"meter\" aria-hidden=\"true\">" + meter + "</span>",
+    line("Portfolio", on ? "On" : doors + " of " + PORTFOLIO.doors + " doors", on,
+      on ? "Per door: " + money(perTermPort) + " a lease term (half a point off monthly)"
+         : "At " + PORTFOLIO.doors + " doors, half a point off monthly<span class=\"meter\" aria-hidden=\"true\">" + meter + "</span>",
       on ? y.portSaved : null) +
-    (y.upSaved + y.portSaved > 0.5 ? '<div class="sv-total"><span>Saved in the next 12 months (' + yrLbl + " year, " + (doors === 1 ? "1 door" : "all " + doors + " doors") + ')</span><strong>' + money(y.upSaved + y.portSaved) + "</strong></div>" : "");
+    (svTotal > 0.5 ? '<div class="sv-total"><span>Total · ' + scope + (state.year === "renew" ? ", renewal year" : "") + '</span><strong>' + money(svTotal) + "</strong></div>" : "");
 
   // Step 2: the fees this mix gives, per door, for the first property.
   var p0 = y.rows[0], q = p0.q, name0 = state.props[0].name || "Property 1";
