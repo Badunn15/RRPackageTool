@@ -291,7 +291,8 @@
   .prop-out b{ font-family:var(--font-data); color:var(--ink); }
   .prop-out .cf b.pos{ color:var(--good); } .prop-out .cf b.neg{ color:var(--bad); }
   .add-prop{ align-self:flex-start; }
-  .savings{ display:flex; flex-direction:column; gap:8px; }
+  .savings{ display:flex; flex-direction:column; gap:8px; padding:0 12px 12px; }
+  .sv-wrap > summary{ font-size:14px; }
   .sv-title{ font-size:13px; font-weight:600; color:var(--ink-2); }
   .sv{ background:var(--panel-2); border:1px solid var(--rule-soft); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:4px; }
   .sv.on{ border-color:var(--good); background:var(--good-bg); }
@@ -393,7 +394,7 @@
           </div>
           <div class="presets" id="presets"></div>
           <p class="hint" id="hint"></p>
-          <div class="savings" id="savings" aria-live="polite"></div>
+          <details class="disc sv-wrap" id="sv-wrap"><summary><span class="disc-t">Your discounts</span><span class="chip" id="sv-chip"></span></summary><div class="savings" id="savings" aria-live="polite"></div></details>
         </div>
         <div class="calc-out" aria-live="polite">
           <div class="term-h" id="fq-h">Your fees, per door</div>
@@ -915,7 +916,10 @@ function render() {
     return '<div class="sv' + (on ? " on" : "") + '"><div class="sv-h"><b>' + name + '</b><span class="chip ' + (on ? "on" : "off") + '">' + chip + "</span></div>" +
       '<div class="sv-b"><span>' + body + "</span>" + (amt != null ? '<strong>' + money(amt) + "<small> saved</small></strong>" : "") + "</div></div>";
   }
-  $("savings").innerHTML = '<div class="sv-title">Your discounts</div>' +
+  var svTotal = y.upSaved + y.portSaved, svAvail = (upOn ? 0 : 1) + (on ? 0 : 1);
+  $("sv-chip").className = "chip " + (svTotal > 0.5 ? "on" : "off");
+  $("sv-chip").textContent = svTotal > 0.5 ? money(svTotal) + " saved" : svAvail + " available";
+  $("savings").innerHTML =
     line("Up-front payment", upOn ? upPct + "% off applied" : upPct + "% off available", upOn,
       upOn ? "Saves " + money(qs0.leaseFull * upPct / 100) + " a door on each new lease and " + money(qs0.renewalFull * upPct / 100) + " on each renewal you pay up front."
            : "Pay each lease term in full up front and get " + upPct + "% off the leasing and renewal fees.",
