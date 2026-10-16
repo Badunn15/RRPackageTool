@@ -231,9 +231,17 @@
   .big{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin:0; }
   .big div{ background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:2px; min-width:0; }
   .big dt{ font-size:12.5px; color:var(--ink-3); }
-  .big dd{ margin:0; font-family:var(--font-data); font-weight:600; font-size:21px; overflow-wrap:anywhere; }
-  .big dd small{ font-size:12px; color:var(--ink-3); font-weight:500; }
-  .pos{ color:var(--good); } .neg{ color:var(--bad); }
+  .big dd{ margin:0; font-family:var(--font-data); font-weight:600; font-size:21px; white-space:nowrap; }
+  .big dd small{ display:block; margin-top:2px; font-size:12.5px; color:var(--ink-3); font-weight:500; }
+  .big .resv dd{ color:var(--gold); }
+  .fees-line{ margin:-8px 0 0; padding:0 2px; font-size:13.5px; color:var(--ink-2); }
+  .fees-line b{ font-family:var(--font-data); color:var(--ink); }
+  .res-fold{ margin-top:12px; }
+  .disc > summary .chip{ white-space:normal; text-align:right; }
+  .disc > summary .chip{ margin-left:auto; }
+  .res-fold .inputs{ padding:2px 12px 12px; }
+  .prop.shut .res-fold{ display:none; }
+  .pos{ color:var(--good); } .neg{ color:var(--bad); } .pre{ color:var(--accent-ink); }
   table.ledger{ width:100%; border-collapse:collapse; font-size:13.5px; background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; overflow:hidden; }
   .ledger td, .ledger th{ padding:7px 12px; border-bottom:1px solid var(--rule-soft); text-align:right; font-family:var(--font-data); }
   .ledger th{ font-family:var(--font-ui); font-size:12px; color:var(--ink-3); font-weight:600; }
@@ -306,7 +314,7 @@
   .box span + input{ padding-left:0; }
   .prop-out{ display:flex; flex-wrap:wrap; gap:6px 22px; padding-top:12px; border-top:1px solid var(--rule-soft); font-size:13.5px; color:var(--ink-2); }
   .prop-out b{ font-family:var(--font-data); color:var(--ink); }
-  .prop-out .cf b.pos{ color:var(--good); } .prop-out .cf b.neg{ color:var(--bad); }
+  .prop-out .cf b.pos{ color:var(--good); } .prop-out .cf b.neg{ color:var(--bad); } .prop-out .cf b.pre{ color:var(--accent-ink); }
   .add-prop{ align-self:flex-start; }
   .savings{ display:flex; flex-direction:column; gap:8px; padding:0 12px 12px; }
   .sv-wrap > summary{ font-size:14px; }
@@ -330,7 +338,7 @@
   .disc > summary::-webkit-details-marker{ display:none; }
   .disc > summary::before{ content:"\25B6"; font-size:10px; color:var(--ink-3); transition:transform .15s ease; }
   .disc[open] > summary::before{ transform:rotate(90deg); }
-  .disc-t{ flex:1; min-width:0; }
+  .disc-t{ flex:0 0 auto; }
   .seg.yr{ grid-template-columns:repeat(2, minmax(0,1fr)); }
   .disc-b.f4{ padding-left:12px; }
   .up-on{ display:flex; align-items:center; gap:10px; padding:10px 12px 10px 32px; border-radius:10px; background:var(--panel); border:1px solid var(--rule-soft); font-size:13.5px; font-weight:600; }
@@ -356,7 +364,7 @@
     .calc{ grid-template-columns:minmax(0,1fr); }
     .calc-in{ border-right:none; border-bottom:1px solid var(--rule-soft); }
   }
-  @media (max-width:420px){ .big{ grid-template-columns:minmax(0,1fr); } }
+  @media (max-width:420px){ .big{ gap:6px; } .big div{ padding:8px 9px; } .big dt{ font-size:11.5px; } .big dd{ font-size:15px; } .big dd small{ font-size:11.5px; } }
 </style>
 
 <header class="masthead">
@@ -438,14 +446,15 @@
         <div class="ret-a">
           <div class="term-h" id="big-h">All your doors</div>
           <dl class="big">
-            <div><dt>Yearly cash flow</dt><dd id="s-cf">$0</dd></div>
-            <div><dt>Per month</dt><dd id="s-cfm">$0</dd></div>
-            <div><dt>Our fees per year</dt><dd id="s-fees">$0</dd></div>
+            <div><dt>Before reserves</dt><dd id="s-pre">$0</dd></div>
+            <div class="resv"><dt>Reserves</dt><dd id="s-res">$0</dd></div>
+            <div><dt>After reserves</dt><dd id="s-cf">$0</dd></div>
           </dl>
+          <p class="fees-line">Our fees: <b id="s-fees">$0</b> a year</p>
           <div class="term">
             <div class="term-h" id="cmp-h">The three packages for your properties, standard mix</div>
             <div class="table-wrap"><table class="cmp" id="cmp"></table></div>
-            <p class="fine">Each package uses the fee setup you chose in step 2. Fees per door include this year's leasing or renewal fee. Minimum's $75 per work order isn't counted, since it depends on how many repairs come up.</p>
+            <p class="fine">Each package uses the fee setup you chose in step 2. Fees per door include this year's leasing or renewal fee. Minimum's $75 per work order isn't counted, since it depends on how many repairs come up.<span id="cmp-res"></span></p>
           </div>
           <details class="disc" id="d-4yr"><summary><span class="disc-t">Forecast 4 years</span><span class="chip on" id="f4-chip"></span></summary><div class="disc-b f4"><p>Year 1 as each property stands today, then renewals at today's rent.</p><div class="table-wrap" style="width:100%"><table class="cmp" id="f4"></table></div></div></details>
         </div>
@@ -845,7 +854,10 @@ var FIELDS = [
   { k: "rent", l: "Monthly rent", s: "all doors", pre: "$" },
   { k: "piti", l: "Mortgage", s: "full payment, with taxes and insurance /mo", pre: "$" },
   { k: "other", l: "HOA and other", s: "per month", pre: "$" },
-  { k: "vac", l: "Vacancy", s: "% of the year", post: "%" },
+];
+/* Reserves: money the owner sets aside as a share of rent. Tucked in a dropdown on each property. */
+var RES_FIELDS = [
+  { k: "vac", l: "Vacancy fund", s: "% of rent", post: "%" },
   { k: "rep", l: "Repairs", s: "% of rent", post: "%" },
   { k: "capex", l: "CapEx", s: "% of rent", post: "%" }
 ];
@@ -856,7 +868,7 @@ var SPLIT_FIELDS = [
   { k: "ins", l: "Insurance", s: "per month", pre: "$" },
   { k: "pmi", l: "PMI", s: "mortgage insurance /mo", pre: "$" }
 ];
-function fieldFor(k) { return FIELDS.concat(SPLIT_FIELDS).filter(function (x) { return x.k === k; })[0]; }
+function fieldFor(k) { return FIELDS.concat(SPLIT_FIELDS, RES_FIELDS).filter(function (x) { return x.k === k; })[0]; }
 function fieldHtml(f, p, i, ro) {
   var id = "p" + i + "-" + f.k;
   var tog = f.k === "piti" ? ' <button type="button" class="link split-tog" data-split="' + i + '">' + (p.split ? "Use one total" : "Split it out") + "</button>" : "";
@@ -880,9 +892,12 @@ function renderProps() {
         : '<button type="button" class="rm" data-rm="' + i + '" aria-label="Remove property ' + (i + 1) + '" title="Remove property">&minus;</button>') : "") + "</div>" +
       '<div class="inputs">' + FIELDS.map(function (f) { return fieldHtml(f, p, i, f.k === "piti" && p.split); }).join("") + "</div>" +
       (p.split ? '<div class="inputs split" aria-label="Mortgage, split out">' + SPLIT_FIELDS.map(function (f) { return fieldHtml(f, p, i, false); }).join("") + "</div>" : "") +
+      '<details class="disc res-fold" data-res="' + i + '"' + (p.resOpen ? " open" : "") + '><summary><span class="disc-t">Reserves</span><span class="chip off" id="res-chip-' + i + '"></span></summary>' +
+        '<div class="inputs">' + RES_FIELDS.map(function (f) { return fieldHtml(f, p, i, false); }).join("") + "</div></details>" +
       '<div class="prop-out" id="out-' + i + '"></div></div>';
   }).join("");
 }
+$("props").addEventListener("toggle", function (e) { var d = e.target; if (d.dataset && d.dataset.res != null) state.props[+d.dataset.res].resOpen = d.open; }, true);
 $("props").addEventListener("input", function (e) {
   var el = e.target, card = el.closest(".prop"); if (!card) return;
   var p = state.props[+card.dataset.i], k = el.dataset.k;
@@ -1017,18 +1032,21 @@ function render() {
     }).join("") + "</tbody>";
 
   function signed(n) { return '<span class="' + (n >= 0 ? "pos" : "neg") + '">' + money(n) + "</span>"; }
+  // Numbers before reserves come out are blue; the final number is green; red whenever negative.
+  function preN(n) { return '<span class="' + (n >= 0 ? "pre" : "neg") + '">' + money(n) + "</span>"; }
   var resYr = y.vacRes + y.rep + y.capex;
-  $("s-cf").innerHTML = signed(y.cf) + (resYr > 0.5 ? '<small class="res-note">+ ' + money(resYr) + " to your reserves</small>" : "");
-  $("s-cfm").innerHTML = signed(y.cf / 12);
+  $("s-pre").innerHTML = preN(y.cf + resYr) + "<small>" + money((y.cf + resYr) / 12) + "/mo</small>";
+  $("s-res").innerHTML = money(resYr) + "<small>" + money(resYr / 12) + "/mo</small>";
+  $("s-cf").innerHTML = signed(y.cf) + "<small>" + money(y.cf / 12) + "/mo</small>";
   $("s-fees").textContent = money(y.mgmt);
-  $("big-h").textContent = doors === 1 ? "Your door" : "All " + doors + " doors";
+  $("big-h").textContent = (doors === 1 ? "Your door" : "All " + doors + " doors") + ": yearly cash flow";
 
   var nRented = state.props.filter(function (p) { return p.rented; }).length, nProps = state.props.length;
   $("ledger-h").textContent = "The next 12 months: " + nProps + (nProps === 1 ? " property" : " properties") + ", " + doors + (doors === 1 ? " door" : " doors") + ", " + t.name +
     (nRented && nRented < nProps ? " (" + nRented + " rented now)" : nRented ? " (rented now)" : "");
   function row(label, v, note, cls) { return '<tr class="' + (cls || "") + '"><td>' + label + (note ? '<span class="note">' + note + "</span>" : "") + "</td><td>" + (typeof v === "string" ? v : money(v)) + "</td></tr>"; }
   $("ledger").innerHTML = "<tbody>" +
-    row("Rent", y.gross, "12 months, all doors") +
+    row("Rent", preN(y.gross), "12 months, all doors") +
     row("Monthly management fees", -y.monthlyFees, state.pick > 0 ? pct(on ? Math.max(0, state.pick - PORTFOLIO.pts) : state.pick) + " of rent" : "Paid up front with the lease") +
     (y.leaseFees > 0.5 || !nRented ? row("Leasing fees", -y.leaseFees, "New tenants for homes that need one") : "") +
     (y.renewFees > 0.5 ? row("Renewal fees", -y.renewFees, "Current tenants renewing") : "") +
@@ -1039,9 +1057,9 @@ function render() {
     row("After our fees", y.gross - y.mgmt, "", "sub") +
     row("Mortgage", -y.debt) +
     (y.other > 0.5 ? row("HOA and other", -y.other) : "") +
-    row("Cash flow before reserves", y.cf + resYr, "", "sub") +
+    row("Cash flow before reserves", preN(y.cf + resYr), "", "sub") +
     '<tr class="res-h"><td colspan="2">Your reserves<span class="note">Still your money, set aside for when you need it</span></td></tr>' +
-    row("Vacancy reserve", -y.vacRes, "", "res") +
+    row("Vacancy fund", -y.vacRes, "", "res") +
     row("Repairs reserve", -y.rep, "", "res") +
     row("CapEx reserve", -y.capex, "", "res") +
     '<tr class="total"><td>Cash flow after reserves</td><td>' + signed(y.cf) + "</td></tr></tbody>";
@@ -1058,28 +1076,31 @@ function render() {
     return p < t.monthlyPct ? x.monthlyPct * p / t.monthlyPct : x.monthlyPct + (p - t.monthlyPct) / (maxT - t.monthlyPct) * (maxX - x.monthlyPct);
   }
   $("cmp-h").textContent = "The three packages for your properties, with your fee setup";
-  $("cmp").innerHTML = '<thead><tr><th scope="col">Package</th><th scope="col">Fees / yr</th><th scope="col">Fees per door / mo</th><th scope="col">Cash flow / yr</th></tr></thead><tbody>' +
+  $("cmp").innerHTML = '<thead><tr><th scope="col">Package</th><th scope="col">Fees / yr</th><th scope="col">Per door / mo</th><th scope="col">Before reserves</th><th scope="col">After reserves</th></tr></thead><tbody>' +
     TIERS.map(function (x) {
       var yx = portfolioYear(x, x.id === t.id ? state.pick : pickFor(x));
-      return '<tr class="' + (x.id === t.id ? "on" : "") + '"><td>' + esc(x.short) + "</td><td>" + money(yx.mgmt) + "</td><td>" + money(yx.mgmt / 12 / doors) + "</td><td>" + signed(yx.cf) + "</td></tr>";
+      return '<tr class="' + (x.id === t.id ? "on" : "") + '"><td>' + esc(x.short) + "</td><td>" + money(yx.mgmt) + "</td><td>" + money(yx.mgmt / 12 / doors) + "</td><td>" + preN(yx.cf + yx.vacRes + yx.rep + yx.capex) + "</td><td>" + signed(yx.cf) + "</td></tr>";
     }).join("") + "</tbody>";
+  $("cmp-res").textContent = resYr > 0.5 ? " Reserves are the same in every package: " + money(resYr) + " a year." : "";
 
   // The long view: year 1 as each property stands today (new tenant or renewal), then renewals at today's rent.
-  var yNew = y, yRen = portfolioYear(t, state.pick, "renew"), fees4 = 0, cf4 = 0, f4rows = "";
+  var yNew = y, yRen = portfolioYear(t, state.pick, "renew"), fees4 = 0, cf4 = 0, pre4 = 0, f4rows = "";
   for (var yi = 1; yi <= FORECAST_YEARS; yi++) {
     var yy = yi === 1 ? yNew : yRen;
-    fees4 += yy.mgmt; cf4 += yy.cf;
-    f4rows += "<tr><td>Year " + yi + (yi === 1 ? "" : ", renewal") + "</td><td>" + money(yy.mgmt) + "</td><td>" + signed(yy.cf) + "</td></tr>";
+    var pre = yy.cf + yy.vacRes + yy.rep + yy.capex;
+    fees4 += yy.mgmt; cf4 += yy.cf; pre4 += pre;
+    f4rows += "<tr><td>Year " + yi + (yi === 1 ? "" : ", renewal") + "</td><td>" + money(yy.mgmt) + "</td><td>" + preN(pre) + "</td><td>" + signed(yy.cf) + "</td></tr>";
   }
-  $("f4-chip").textContent = money(cf4) + " cash flow";
-  $("f4").innerHTML = '<thead><tr><th scope="col">Year</th><th scope="col">Our fees</th><th scope="col">Cash flow</th></tr></thead><tbody>' + f4rows +
-    '<tr class="on"><td>' + FORECAST_YEARS + " years</td><td>" + money(fees4) + "</td><td>" + signed(cf4) + "</td></tr></tbody>";
+  $("f4-chip").textContent = money(cf4) + " after reserves";
+  $("f4").innerHTML = '<thead><tr><th scope="col">Year</th><th scope="col">Our fees</th><th scope="col">Before reserves</th><th scope="col">After reserves</th></tr></thead><tbody>' + f4rows +
+    '<tr class="on"><td>' + FORECAST_YEARS + " years</td><td>" + money(fees4) + "</td><td>" + preN(pre4) + "</td><td>" + signed(cf4) + "</td></tr></tbody>";
 
   y.rows.forEach(function (pr, i) {
     var q = pr.q, el = $("out-" + i), pp = state.props[i]; if (!el) return;
     $("sum-" + i).textContent = pr.doors + (pr.doors === 1 ? " door · " : " doors · ") + money(pp.rent) + "/mo";
     el.innerHTML = "<span>Per door: <b>" + money(q.monthly) + "/mo</b>" + (pr.fr > pr.perDoor && pr.perDoor > 0 ? " (on the " + money(pr.fr) + " minimum)" : "") + ", leasing <b>" + money(q.lease) + "</b>, renewal <b>" + money(q.renewal) + "</b></span>" +
-      '<span class="cf">Cash flow <b class="' + (pr.cf >= 0 ? "pos" : "neg") + '">' + money(pr.cf) + "/yr</b> (" + money(pr.cf / 12) + "/mo)</span>";
+      '<span class="cf">Cash flow <b class="' + (pr.cf + pr.vacRes + pr.rep + pr.capex >= 0 ? "pre" : "neg") + '">' + money(pr.cf + pr.vacRes + pr.rep + pr.capex) + "/yr</b> before reserves, <b class=\"" + (pr.cf >= 0 ? "pos" : "neg") + '">' + money(pr.cf) + "/yr</b> after</span>";
+    var rc = $("res-chip-" + i); if (rc) rc.textContent = pp.vac + "% vacancy fund · " + pp.rep + "% repairs · " + pp.capex + "% CapEx";
   });
   renderTiers();
   save();
