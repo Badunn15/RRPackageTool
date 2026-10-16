@@ -236,10 +236,12 @@
   .big .resv dd{ color:var(--gold); }
   .fees-line{ margin:-8px 0 0; padding:0 2px; font-size:13.5px; color:var(--ink-2); }
   .fees-line b{ font-family:var(--font-data); color:var(--ink); }
-  .res-fold{ margin-top:12px; }
+  .res-fold.disc, .res-fold.disc:hover{ border:none; background:none; border-radius:0; }
+  .res-fold.disc > summary{ padding:2px 0; font-size:13px; font-weight:700; color:var(--accent-ink); }
+  .res-fold.disc > summary .chip{ margin-left:0; }
   .disc > summary .chip{ white-space:normal; text-align:right; }
   .disc > summary .chip{ margin-left:auto; }
-  .res-fold .inputs{ padding:2px 12px 12px; }
+  .res-fold .inputs{ padding:12px 0 0; }
   .prop.shut .res-fold{ display:none; }
   .pos{ color:var(--good); } .neg{ color:var(--bad); } .pre{ color:var(--accent-ink); }
   table.ledger{ width:100%; border-collapse:collapse; font-size:13.5px; background:var(--panel); border:1px solid var(--rule-soft); border-radius:10px; overflow:hidden; }
@@ -298,14 +300,16 @@
   .rm:hover{ color:var(--bad); border-color:var(--bad); background:var(--bad-bg); }
   .rm-ask{ flex:0 0 auto; display:inline-flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color:var(--bad); }
   .rm-yes{ border:none; border-radius:7px; padding:4px 10px; background:var(--bad); color:#fff; font-weight:700; font-size:12.5px; cursor:pointer; }
-  .inputs{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
+  .inputs{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px 12px; }
+  /* Each field spans three shared rows (label, box, link), so boxes line up even when a label wraps. */
+  @supports (grid-template-rows:subgrid){ .inputs .field{ display:grid; grid-row:span 3; grid-template-rows:subgrid; row-gap:6px; align-content:start; } .inputs .field > label{ align-self:end; } }
   @media (max-width:980px){ .inputs{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
   @media (max-width:560px){ .inputs{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
   .inputs .field > label{ font-size:13px; font-weight:700; color:var(--accent-ink); }
   .inputs.split{ padding:12px; border-radius:10px; background:var(--panel-2); border:1px dashed var(--rule); }
   .box.ro{ background:var(--panel-2); }
   .box.ro input{ color:var(--ink-2); }
-  .split-tog{ align-self:flex-start; font-size:12.5px; margin-top:2px; }
+  .split-tog{ align-self:flex-start; justify-self:start; font-size:12.5px; margin-top:2px; }
   .inputs .field small{ font-size:11.5px; color:var(--ink-3); font-weight:500; }
   .box{ display:flex; align-items:center; border:1px solid var(--rule); border-radius:9px; background:var(--panel); min-width:0; }
   .box:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint); }
