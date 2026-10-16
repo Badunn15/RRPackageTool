@@ -160,7 +160,7 @@
   .diff th:first-child, .diff td:first-child{ text-align:left; }
   .diff thead th{ background:var(--panel); font-size:13px; font-weight:700; color:var(--accent-ink); border-bottom:1px solid var(--rule); width:19%; }
   .diff thead th:first-child{ width:auto; }
-  .diff tr.grp td{ background:var(--panel-2); font-size:11.5px; letter-spacing:.11em; text-transform:uppercase; font-weight:700; color:var(--gold); padding-block:7px; }
+  .diff tr.grp td{ background:var(--gold-tint); border-top:2px solid var(--gold-line); border-bottom:1px solid var(--gold-line); font-size:12.5px; letter-spacing:.11em; text-transform:uppercase; font-weight:700; color:var(--gold); padding-block:9px; }
   .diff td .note{ display:block; font-size:12.5px; color:var(--ink-3); }
   .diff tbody tr:not(.grp) td{ transition:background .12s ease; }
   .diff tbody tr:not(.grp):hover td{ background:var(--accent-tint); }
@@ -574,7 +574,7 @@ var COMPARE = [
   { n: "Owner or entity change", note: "New owner setup when the property changes hands or moves to an LLC or trust", addon: true, card: "Owner or entity changes", m: ["$500", "$500", "yes"] },
   { n: "Listing support", note: "When you sell with an agent outside Raynor Realty", addon: true, card: "Listing support", m: ["0.5% of sale price", "0.5% of sale price", "yes"] },
   { n: "Brokerage services", addon: true, contact: true, m: ["contact", "contact", "contact"] },
-  { n: "Pet guarantee", note: "Pet damage covered up to $1,500, backed by the pet rent we collect", m: ["yes", "yes", "yes"] },
+  { n: "Pet guarantee", group: "Guarantees", note: "Pet damage covered up to $1,500, backed by the pet rent we collect", m: ["yes", "yes", "yes"] },
   { n: "Eviction guarantee", note: "Eviction costs covered for tenants we place. Evicting a tenant we didn't place is $750.", m: ["yes", "yes", "yes"] },
   { n: "Leasing guarantee", note: "If a tenant we place breaks the lease, we re-lease your home with no leasing fee", card: "Leasing guarantee", m: ["no", "yes", "yes"] }
 ];
@@ -803,7 +803,7 @@ $("diff").innerHTML = '<thead><tr><th scope="col">What you get</th>' + TIERS.map
       ? '<button type="button" class="row-tog" data-row="' + ri + '" aria-expanded="false"><span class="caret" aria-hidden="true">&#9654;</span>' + esc(r.n) + "</button>"
       : esc(r.n);
     var alt = ri % 2 ? " alt" : "";
-    return "<tr" + (r.id ? ' id="' + r.id + '"' : "") + ' class="' + (r.items ? "has-items" : "") + alt + '"><td>' + name + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
+    return (r.group ? '<tr class="grp"><td colspan="' + (TIERS.length + 1) + '">' + esc(r.group) + "</td></tr>" : "") + "<tr" + (r.id ? ' id="' + r.id + '"' : "") + ' class="' + (r.items ? "has-items" : "") + alt + '"><td>' + name + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
       (r.contact ? r.m.map(function () { return '<td><a class="btn contact-btn" href="' + esc(CONTACT_URL) + '">Book a call</a></td>'; }).join("")
         : r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("")) + "</tr>" +
       (r.items || []).map(function (it) {
