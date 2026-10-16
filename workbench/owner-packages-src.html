@@ -160,10 +160,16 @@
   .diff th:first-child, .diff td:first-child{ text-align:left; }
   .diff thead th{ background:var(--panel); font-size:13px; font-weight:700; color:var(--accent-ink); border-bottom:1px solid var(--rule); width:19%; }
   .diff thead th:first-child{ width:auto; }
-  .diff tr.grp td{ background:#e2c48d; border-bottom:none; font-size:15px; letter-spacing:.11em; text-transform:uppercase; font-weight:700; color:#17345c; padding-block:9px; }
+  .diff tr.grp td{ background:var(--navy); border-bottom:none; color:#e2c48d; padding:12px 14px; }
+  .diff tr.grp b{ vertical-align:middle; display:inline-flex; align-items:center; gap:9px; font-family:var(--font-display); font-size:19px; font-weight:600; }
+  .diff tr.grp b::before{ content:""; width:22px; height:22px; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e2c48d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z'/%3E%3Cpath d='M8.5 12l2.5 2.5 4.5-5'/%3E%3C/svg%3E") center/contain no-repeat; }
+  .diff tr.grp small{ vertical-align:middle; margin-left:12px; font-size:13px; color:#b9c8da; }
+  .diff tbody tr.guar td{ background:var(--gold-tint); }
+  .diff tbody tr.guar td:first-child{ box-shadow:inset 3px 0 0 var(--gold-line); font-weight:600; }
+  .diff tbody tr.guar td .note{ font-weight:400; }
   .diff td .note{ display:block; font-size:12.5px; color:var(--ink-3); }
-  .diff tbody tr:not(.grp) td{ transition:background .12s ease; }
-  .diff tbody tr:not(.grp):hover td{ background:var(--accent-tint); }
+  .diff tbody tr:not(.grp):not(.guar) td{ transition:background .12s ease; }
+  .diff tbody tr:not(.grp):not(.guar):hover td{ background:var(--accent-tint); }
   .mark{ display:inline-flex; align-items:center; justify-content:center; gap:5px; font-size:13px; font-weight:600; white-space:nowrap; }
   .mark.yes{ color:var(--good); }
   .mark.yes::before{ content:""; width:18px; height:18px; border-radius:50%; background:var(--good-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='%231b7a4c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat; }
@@ -195,7 +201,6 @@
   .grp-btn .caret{ display:inline-block; transition:transform .15s ease; color:var(--ink-3); font-size:10px; }
   .grp-btn[aria-expanded="true"] .caret{ transform:rotate(90deg); }
   .grp-btn .count{ font-family:var(--font-data); letter-spacing:0; color:var(--ink-3); font-weight:500; }
-  .diff tr.grp:hover td{ background:var(--accent-tint); }
   .diff tr[hidden]{ display:none; }
   .tag-add{ display:inline-block; margin-left:8px; vertical-align:1px; color:var(--gold); background:var(--gold-tint); border-radius:999px; padding:0 8px; font-size:11px; font-weight:600; letter-spacing:0; text-transform:none; }
   .key .tag-add{ margin-left:0; }
@@ -574,9 +579,9 @@ var COMPARE = [
   { n: "Owner or entity change", note: "New owner setup when the property changes hands or moves to an LLC or trust", addon: true, card: "Owner or entity changes", m: ["$500", "$500", "yes"] },
   { n: "Listing support", note: "When you sell with an agent outside Raynor Realty", addon: true, card: "Listing support", m: ["0.5% of sale price", "0.5% of sale price", "yes"] },
   { n: "Brokerage services", addon: true, contact: true, m: ["contact", "contact", "contact"] },
-  { n: "Pet guarantee", group: "Guarantees", note: "Pet damage covered up to $1,500, backed by the pet rent we collect", m: ["yes", "yes", "yes"] },
-  { n: "Eviction guarantee", note: "Eviction costs covered for tenants we place. Evicting a tenant we didn't place is $750.", m: ["yes", "yes", "yes"] },
-  { n: "Leasing guarantee", note: "If a tenant we place breaks the lease, we re-lease your home with no leasing fee", card: "Leasing guarantee", m: ["no", "yes", "yes"] }
+  { n: "Pet guarantee", group: "Guarantees", groupNote: "How we stand behind our work", guar: true, note: "Pet damage covered up to $1,500, backed by the pet rent we collect", m: ["yes", "yes", "yes"] },
+  { n: "Eviction guarantee", guar: true, note: "Eviction costs covered for tenants we place. Evicting a tenant we didn't place is $750.", m: ["yes", "yes", "yes"] },
+  { n: "Leasing guarantee", guar: true, note: "If a tenant we place breaks the lease, we re-lease your home with no leasing fee", card: "Leasing guarantee", m: ["no", "yes", "yes"] }
 ];
 /* A new property's starting numbers. Vacancy, repairs and CapEx are typical planning figures the owner can change. */
 var NEW_PROP = { name: "", doors: 1, rent: 1500, piti: 900, other: 0, vac: 5, rep: 5, capex: 5, rented: false };
@@ -803,7 +808,7 @@ $("diff").innerHTML = '<thead><tr><th scope="col">What you get</th>' + TIERS.map
       ? '<button type="button" class="row-tog" data-row="' + ri + '" aria-expanded="false"><span class="caret" aria-hidden="true">&#9654;</span>' + esc(r.n) + "</button>"
       : esc(r.n);
     var alt = ri % 2 ? " alt" : "";
-    return (r.group ? '<tr class="grp"><td colspan="' + (TIERS.length + 1) + '">' + esc(r.group) + "</td></tr>" : "") + "<tr" + (r.id ? ' id="' + r.id + '"' : "") + ' class="' + (r.items ? "has-items" : "") + alt + '"><td>' + name + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
+    return (r.group ? '<tr class="grp"><td colspan="' + (TIERS.length + 1) + '"><b>' + esc(r.group) + "</b>" + (r.groupNote ? "<small>" + esc(r.groupNote) + "</small>" : "") + "</td></tr>" : "") + "<tr" + (r.id ? ' id="' + r.id + '"' : "") + ' class="' + (r.items ? "has-items" : "") + (r.guar ? "guar" : alt) + '"><td>' + name + (r.note ? '<span class="note">' + esc(r.note) + "</span>" : "") + "</td>" +
       (r.contact ? r.m.map(function () { return '<td><a class="btn contact-btn" href="' + esc(CONTACT_URL) + '">Book a call</a></td>'; }).join("")
         : r.m.map(function (v) { return "<td>" + mark(v) + "</td>"; }).join("")) + "</tr>" +
       (r.items || []).map(function (it) {
