@@ -309,6 +309,36 @@
   .inputs.split{ padding:12px; border-radius:10px; background:var(--panel-2); border:1px dashed var(--rule); }
   .box.ro{ background:var(--panel-2); }
   .box.ro input{ color:var(--ink-2); }
+  .tip{ display:inline-grid; place-items:center; width:15px; height:15px; margin-left:5px; border-radius:50%; border:1px solid var(--rule); color:var(--ink-3); background:var(--panel); font:600 10px/1 var(--font-ui); vertical-align:1px; cursor:help; }
+  .tip:hover, .tip:focus{ border-color:var(--accent); color:var(--accent-ink); outline:none; }
+  #tipbox{ position:fixed; z-index:60; max-width:min(260px, calc(100vw - 16px)); padding:8px 10px; border-radius:8px; background:var(--navy); color:#fff; font:500 12.5px/1.4 var(--font-ui); box-shadow:0 8px 20px -10px rgba(0,0,0,.5); pointer-events:none; }
+  #tipbox[hidden]{ display:none; }
+  .print-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-top:14px; }
+  .print-row span{ font-size:12.5px; color:var(--ink-3); }
+  #print-sheet{ display:none; }
+  @media print{
+    :root, :root:not([data-theme="light"]), :root[data-theme="dark"]{ color-scheme:light;
+      --bg:#fff; --panel:#fff; --panel-2:#f4f7fa; --rule:#d3dce5; --rule-soft:#e4eaf0; --ink:#132232; --ink-2:#475869; --ink-3:#768594;
+      --navy:#17345c; --accent:#2b5a9e; --accent-ink:#1f477f; --accent-tint:#e2ebf7; --gold:#8f6428; --gold-line:#d2ad6c; --gold-tint:#f7efe1;
+      --good:#1b7a4c; --good-bg:#e1f2e8; --bad:#b0412e; --bad-bg:#f8e6e2; }
+    @page{ margin:14mm; }
+    body{ background:#fff !important; }
+    body > *:not(#print-sheet){ display:none !important; }
+    #print-sheet{ display:block; color:var(--ink); font-family:var(--font-ui); font-size:12px; }
+    #print-sheet .ps-head{ display:flex; align-items:center; gap:14px; padding-bottom:10px; border-bottom:2px solid var(--gold-line); margin-bottom:14px; }
+    #print-sheet .ps-head img{ width:58px; height:58px; border-radius:50%; }
+    #print-sheet .ps-head b{ display:block; font-size:15px; letter-spacing:.12em; text-transform:uppercase; color:var(--navy); }
+    #print-sheet .ps-head span{ color:var(--ink-3); }
+    #print-sheet .ps-head .ps-date{ margin-left:auto; text-align:right; }
+    #print-sheet h2{ font-family:var(--font-display); font-size:17px; color:var(--navy); margin:16px 0 6px; break-after:avoid; }
+    #print-sheet .ps-tiles{ display:flex; gap:10px; margin:0; }
+    #print-sheet .ps-tiles div{ flex:1; border:1px solid var(--rule); border-radius:8px; padding:8px 10px; }
+    #print-sheet .ps-tiles dt{ font-size:11px; color:var(--ink-3); }
+    #print-sheet .ps-tiles dd{ margin:2px 0 0; font:600 16px var(--font-data); }
+    #print-sheet table{ width:100%; break-inside:avoid; }
+    #print-sheet .ps-two{ display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+    #print-sheet .fine{ margin-top:14px; font-size:10.5px; color:var(--ink-3); }
+  }
   .split-tog{ align-self:flex-start; justify-self:start; font-size:12.5px; margin-top:2px; }
   .inputs .field small{ font-size:11.5px; color:var(--ink-3); font-weight:500; }
   .box{ display:flex; align-items:center; border:1px solid var(--rule); border-radius:9px; background:var(--panel); min-width:0; }
@@ -420,7 +450,7 @@
         <div class="calc-in">
           <div class="field"><span id="tier-lab">Package</span><div class="seg" role="group" aria-labelledby="tier-lab" id="tier-seg"></div></div>
           <div class="field">
-            <div class="slider-head"><label for="pick">Your monthly fee</label><b id="pick-out">10.00%</b></div>
+            <div class="slider-head"><label for="pick">Your monthly fee<span class="tip" tabindex="0" role="button" aria-label="About the monthly fee" data-tip="Slide left for a lower monthly fee and a bigger leasing fee at signing. Slide right to pay more each month and less at leasing, down to $0.">?</span></label><b id="pick-out">10.00%</b></div>
             <div class="track"><input id="pick" type="range" min="0" max="20" step="0.05" value="10"><span class="tick" id="std-tick" title="Standard mix"></span></div>
             <div class="ends"><span>Lower monthly</span><span>No lease fee</span></div>
           </div>
@@ -469,7 +499,8 @@
           </div>
         </div>
       </div>
-      <p class="fine">Estimates to help you plan, not a quote and not financial or tax advice. Forecasts one 12-month year at the rent you enter, with vacancy, repairs and CapEx set aside as a share of rent. If the home sits empty, there's no monthly fee on rent we don't collect; the $99 fee while vacant applies instead. Maintenance coordination fees, add-ons and the cost of repairs themselves aren't included beyond your repairs set-aside.</p>
+      <div class="print-row"><button type="button" class="btn" id="print-btn">Save or print this proposal</button><span>Choose “Save as PDF” in the print window to keep a copy.</span></div>
+      <p class="fine" id="est-fine">Estimates to help you plan, not a quote and not financial or tax advice. Forecasts one 12-month year at the rent you enter, with vacancy, repairs and CapEx set aside as a share of rent. If the home sits empty, there's no monthly fee on rent we don't collect; the $99 fee while vacant applies instead. Maintenance coordination fees, add-ons and the cost of repairs themselves aren't included beyond your repairs set-aside.</p>
     </div>
   </section>
 </main>
@@ -854,29 +885,36 @@ $("min-rents").textContent = TIERS.map(function (t) { return money(t.monthlyPct 
 
 /* ---------- properties ---------- */
 var FIELDS = [
-  { k: "doors", l: "Doors", pre: "", int: true },
-  { k: "rent", l: "Monthly rent", s: "all doors", pre: "$" },
-  { k: "piti", l: "Mortgage", s: "full payment", pre: "$" },
-  { k: "other", l: "HOA and other", s: "per month", pre: "$" },
+  { k: "doors", l: "Doors", pre: "", int: true, tip: "Separate rentable units at this address. A duplex is 2 doors." },
+  { k: "rent", l: "Monthly rent", s: "all doors", pre: "$", tip: "Total rent each month for every door at this address, before our fees." },
+  { k: "piti", l: "Mortgage", s: "full payment", pre: "$", tip: "Your whole monthly payment, including taxes, insurance and PMI if your lender escrows them." },
+  { k: "other", l: "HOA and other", s: "per month", pre: "$", tip: "HOA dues and any other fixed monthly costs you pay as the owner." },
 ];
 /* Reserves: money the owner sets aside as a share of rent. Tucked in a dropdown on each property. */
 var RES_FIELDS = [
-  { k: "vac", l: "Vacancy fund", s: "% of rent", post: "%" },
-  { k: "rep", l: "Repairs", s: "% of rent", post: "%" },
-  { k: "capex", l: "CapEx", s: "% of rent", post: "%" }
+  { k: "vac", l: "Vacancy fund", s: "% of rent", post: "%", tip: "Saved each month so the mortgage is covered while the home sits empty between tenants." },
+  { k: "rep", l: "Repairs", s: "% of rent", post: "%", tip: "Saved for routine fixes: leaks, appliance repairs, service calls." },
+  { k: "capex", l: "CapEx", s: "% of rent", post: "%", tip: "Saved for big replacements that wear out over the years: roof, HVAC, water heater, flooring." }
 ];
 /* PITI can be split into its parts; they add up into PITI. */
 var SPLIT_FIELDS = [
-  { k: "pi", l: "Principal & interest", s: "the loan only, not escrow /mo", pre: "$" },
+  { k: "pi", l: "Principal & interest", s: "the loan only, not escrow /mo", pre: "$", tip: "The loan payment alone, without the taxes and insurance your lender may collect." },
   { k: "tax", l: "Taxes", s: "per month", pre: "$" },
   { k: "ins", l: "Insurance", s: "per month", pre: "$" },
-  { k: "pmi", l: "PMI", s: "mortgage insurance /mo", pre: "$" }
+  { k: "pmi", l: "PMI", s: "mortgage insurance /mo", pre: "$", tip: "Private mortgage insurance, if your loan has it. It usually ends at 20% equity." }
 ];
-function fieldFor(k) { return FIELDS.concat(SPLIT_FIELDS, RES_FIELDS).filter(function (x) { return x.k === k; })[0]; }
+/* Rent can be broken into its parts; they add up into monthly rent. */
+var INC_FIELDS = [
+  { k: "baseRent", l: "Base rent", s: "per month, all doors", pre: "$", tip: "The rent written in the lease." },
+  { k: "otherInc", l: "Other income", s: "per month", pre: "$", tip: "Parking, storage, utility reimbursements or other monthly charges the tenant pays." }
+];
+function fieldFor(k) { return FIELDS.concat(SPLIT_FIELDS, RES_FIELDS, INC_FIELDS).filter(function (x) { return x.k === k; })[0]; }
 function fieldHtml(f, p, i, ro) {
   var id = "p" + i + "-" + f.k;
-  var tog = f.k === "piti" ? ' <button type="button" class="link split-tog" data-split="' + i + '">' + (p.split ? "Use one total" : "Split it out") + "</button>" : "";
-  return '<div class="field"><label for="' + id + '">' + esc(f.l) + (f.s ? " <small>" + esc(f.s) + "</small>" : "") + "</label>" +
+  var tog = f.k === "piti" ? ' <button type="button" class="link split-tog" data-split="' + i + '">' + (p.split ? "Use one total" : "Split it out") + "</button>"
+    : f.k === "rent" ? ' <button type="button" class="link split-tog" data-inc="' + i + '">' + (p.incSplit ? "Use one total" : "Break it down") + "</button>" : "";
+  var tip = f.tip ? '<span class="tip" tabindex="0" role="button" aria-label="About ' + esc(f.l) + '" data-tip="' + esc(f.tip) + '">?</span>' : "";
+  return '<div class="field"><label for="' + id + '">' + esc(f.l) + tip + (f.s ? " <small>" + esc(f.s) + "</small>" : "") + "</label>" +
     '<div class="box' + (ro ? " ro" : "") + '">' + (f.pre ? "<span>" + f.pre + "</span>" : "") + '<input id="' + id + '" type="text" inputmode="decimal" data-k="' + f.k + '"' + (ro ? " readonly" : "") + ' value="' + esc(fmtField(f, p[f.k])) + '">' + (f.post ? "<span>" + f.post + "</span>" : "") + "</div>" + tog + "</div>";
 }
 function fmtField(f, v) { return f.post ? String(v) : (v ? Math.round(v).toLocaleString("en-US") : ""); }
@@ -894,7 +932,8 @@ function renderProps() {
       (state.props.length > 1 ? (rmAsk === i
         ? '<span class="rm-ask">Remove?<button type="button" class="rm-yes" data-rm-yes="' + i + '">Yes</button><button type="button" class="link" data-rm-no>Cancel</button></span>'
         : '<button type="button" class="rm" data-rm="' + i + '" aria-label="Remove property ' + (i + 1) + '" title="Remove property">&minus;</button>') : "") + "</div>" +
-      '<div class="inputs">' + FIELDS.map(function (f) { return fieldHtml(f, p, i, f.k === "piti" && p.split); }).join("") + "</div>" +
+      '<div class="inputs">' + FIELDS.map(function (f) { return fieldHtml(f, p, i, (f.k === "piti" && p.split) || (f.k === "rent" && p.incSplit)); }).join("") + "</div>" +
+      (p.incSplit ? '<div class="inputs split" aria-label="Rent, broken down">' + INC_FIELDS.map(function (f) { return fieldHtml(f, p, i, false); }).join("") + "</div>" : "") +
       (p.split ? '<div class="inputs split" aria-label="Mortgage, split out">' + SPLIT_FIELDS.map(function (f) { return fieldHtml(f, p, i, false); }).join("") + "</div>" : "") +
       '<details class="disc res-fold" data-res="' + i + '"' + (p.resOpen ? " open" : "") + '><summary><span class="disc-t">Reserves</span><span class="chip off" id="res-chip-' + i + '"></span></summary>' +
         '<div class="inputs">' + RES_FIELDS.map(function (f) { return fieldHtml(f, p, i, false); }).join("") + "</div></details>" +
@@ -907,6 +946,11 @@ $("props").addEventListener("input", function (e) {
   var p = state.props[+card.dataset.i], k = el.dataset.k;
   if (k === "name") p.name = el.value;
   else p[k] = k === "doors" ? Math.max(1, Math.round(num(el.value)) || 1) : Math.max(0, num(el.value));
+  // Broken-down rent adds up its parts.
+  if (p.incSplit && INC_FIELDS.some(function (f) { return f.k === k; })) {
+    p.rent = INC_FIELDS.reduce(function (t, f) { return t + (p[f.k] || 0); }, 0);
+    var rt = $("p" + card.dataset.i + "-rent"); if (rt) rt.value = fmtField(fieldFor("rent"), p.rent);
+  }
   // A split PITI adds up its parts.
   if (p.split && SPLIT_FIELDS.some(function (f) { return f.k === k; })) {
     p.piti = SPLIT_FIELDS.reduce(function (t, f) { return t + (p[f.k] || 0); }, 0);
@@ -920,6 +964,15 @@ $("props").addEventListener("focusout", function (e) {
   el.value = fmtField(f, state.props[+card.dataset.i][f.k]);
 });
 $("props").addEventListener("click", function (e) {
+  var ic = e.target.closest("[data-inc]");
+  if (ic) {
+    var pi = state.props[+ic.dataset.inc];
+    pi.incSplit = !pi.incSplit;
+    // Starting a breakdown, or parts that no longer add up: all of today's rent goes under base rent.
+    var incSum = INC_FIELDS.reduce(function (t, f) { return t + (pi[f.k] || 0); }, 0);
+    if (pi.incSplit && Math.abs(incSum - (pi.rent || 0)) > 0.5) { pi.baseRent = pi.rent || 0; pi.otherInc = 0; }
+    renderProps(); render(); return;
+  }
   var sp = e.target.closest("[data-split]");
   if (sp) {
     var ps = state.props[+sp.dataset.split];
@@ -1162,6 +1215,54 @@ $("quiz").addEventListener("click", function (e) {
   });
   update();
 })();
+
+/* ---------- field tips: one shared box, kept on screen, works on hover, focus and tap ---------- */
+(function () {
+  var box = document.createElement("div"); box.id = "tipbox"; box.setAttribute("role", "tooltip"); box.hidden = true; document.body.appendChild(box);
+  var cur = null;
+  function show(t) {
+    cur = t; box.textContent = t.dataset.tip; box.hidden = false;
+    var r = t.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+    var left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+    var top = r.top - h - 8; if (top < 8) top = r.bottom + 8;
+    box.style.left = left + "px"; box.style.top = top + "px";
+  }
+  function hide() { cur = null; box.hidden = true; }
+  document.addEventListener("mouseover", function (e) { var t = e.target.closest(".tip"); if (t) { if (t !== cur) show(t); } else if (cur && document.activeElement !== cur) hide(); });
+  document.addEventListener("focusin", function (e) { var t = e.target.closest(".tip"); if (t) show(t); });
+  document.addEventListener("focusout", function (e) { if (e.target.closest(".tip")) hide(); });
+  // A tap on a tip shows it without focusing the field behind its label.
+  document.addEventListener("click", function (e) { var t = e.target.closest(".tip"); if (t) { e.preventDefault(); show(t); } else if (cur) hide(); });
+  window.addEventListener("scroll", hide, { passive: true });
+})();
+
+/* ---------- print or save the proposal as a one-page summary ---------- */
+function buildPrintSheet() {
+  var sheet = $("print-sheet");
+  if (!sheet) { sheet = document.createElement("div"); sheet.id = "print-sheet"; document.body.appendChild(sheet); }
+  var t = tierById(state.tier), names = state.props.map(function (p, i) { return p.name || "Property " + (i + 1); });
+  var logo = document.querySelector(".brand img").getAttribute("src");
+  var today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  function clone(id) { var el = $(id); return el ? el.outerHTML.replace(/ id="[^"]*"/g, "") : ""; }
+  function first(id) { return $(id).firstChild ? $(id).firstChild.textContent : ""; }
+  sheet.innerHTML =
+    '<div class="ps-head"><img src="' + logo + '" alt=""><div><b>Raynor Realty</b><span>Property management proposal</span></div>' +
+      '<div class="ps-date"><b style="letter-spacing:0;text-transform:none;font-size:13px">' + esc(names.join(", ")) + "</b><span>" + today + "</span></div></div>" +
+    "<h2>" + esc(t.name) + ", " + esc($("pick-out").firstChild.textContent) + " monthly fee</h2>" +
+    '<dl class="ps-tiles"><div><dt>Monthly fee, per door</dt><dd>' + first("fq-mo") + "</dd></div>" +
+      "<div><dt>Leasing fee, per door</dt><dd>" + first("fq-lease") + "</dd></div>" +
+      "<div><dt>Renewal fee, per door</dt><dd>" + first("fq-renew") + "</dd></div>" +
+      "<div><dt>Our fees, first year</dt><dd>" + $("s-fees").textContent + "</dd></div></dl>" +
+    "<h2>" + esc($("big-h").textContent) + "</h2>" +
+    '<dl class="ps-tiles"><div><dt>Before reserves</dt><dd class="pre">' + first("s-pre") + "</dd></div>" +
+      '<div><dt>Reserves</dt><dd style="color:var(--gold)">' + first("s-res") + "</dd></div>" +
+      '<div><dt>After reserves</dt><dd class="pos">' + first("s-cf") + "</dd></div></dl>" +
+    '<div class="ps-two"><div><h2>' + esc($("ledger-h").textContent) + "</h2>" + clone("ledger") + "</div>" +
+      "<div><h2>" + esc($("fee-all-h").textContent) + "</h2>" + clone("fee-all") + "<h2>The three packages</h2>" + clone("cmp") + "</div></div>" +
+    '<p class="fine">' + $("est-fine").innerHTML + "</p>";
+}
+$("print-btn").addEventListener("click", function () { buildPrintSheet(); try { window.print(); } catch (err) {} });
+window.addEventListener("beforeprint", buildPrintSheet);
 
 renderProps();
 render();
