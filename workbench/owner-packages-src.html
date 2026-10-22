@@ -316,6 +316,22 @@
   .print-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-top:14px; }
   .print-row span{ font-size:12.5px; color:var(--ink-3); }
   #print-sheet{ display:none; }
+  #print-sheet{ color:var(--ink); font-family:var(--font-ui); font-size:12px; }
+  #print-sheet .ps-head{ display:flex; align-items:center; gap:14px; padding-bottom:10px; border-bottom:2px solid var(--gold-line); margin-bottom:14px; }
+  #print-sheet .ps-head img{ width:58px; height:58px; border-radius:50%; }
+  #print-sheet .ps-head b{ display:block; font-size:15px; letter-spacing:.12em; text-transform:uppercase; color:var(--navy); }
+  #print-sheet .ps-head span{ display:block; color:var(--ink-3); }
+  #print-sheet .ps-head .ps-date{ margin-left:auto; text-align:right; }
+  #print-sheet h2{ font-family:var(--font-display); font-size:17px; color:var(--navy); margin:16px 0 6px; break-after:avoid; }
+  #print-sheet .ps-tiles{ display:flex; gap:10px; margin:0; }
+  #print-sheet .ps-tiles div{ flex:1; border:1px solid var(--rule); border-radius:8px; padding:8px 10px; }
+  #print-sheet .ps-tiles dt{ font-size:11px; color:var(--ink-3); }
+  #print-sheet .ps-tiles dd{ margin:2px 0 0; font:600 16px var(--font-data); }
+  #print-sheet table{ width:100%; break-inside:avoid; }
+  #print-sheet .ps-two{ display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+  #print-sheet .fine{ margin-top:14px; font-size:10.5px; color:var(--ink-3); }
+  #print-sheet .ps-note{ margin:0 0 14px; padding:8px 12px; border-radius:8px; background:var(--accent-tint); color:var(--accent-ink); font-size:12.5px; }
+  @media (max-width:640px){ #print-sheet .ps-two{ grid-template-columns:1fr; } #print-sheet .ps-tiles{ flex-wrap:wrap; } #print-sheet .ps-tiles div{ flex:1 1 40%; } }
   @media print{
     :root, :root:not([data-theme="light"]), :root[data-theme="dark"]{ color-scheme:light;
       --bg:#fff; --panel:#fff; --panel-2:#f4f7fa; --rule:#d3dce5; --rule-soft:#e4eaf0; --ink:#132232; --ink-2:#475869; --ink-3:#768594;
@@ -324,20 +340,8 @@
     @page{ margin:14mm; }
     body{ background:#fff !important; }
     body > *:not(#print-sheet){ display:none !important; }
-    #print-sheet{ display:block; color:var(--ink); font-family:var(--font-ui); font-size:12px; }
-    #print-sheet .ps-head{ display:flex; align-items:center; gap:14px; padding-bottom:10px; border-bottom:2px solid var(--gold-line); margin-bottom:14px; }
-    #print-sheet .ps-head img{ width:58px; height:58px; border-radius:50%; }
-    #print-sheet .ps-head b{ display:block; font-size:15px; letter-spacing:.12em; text-transform:uppercase; color:var(--navy); }
-    #print-sheet .ps-head span{ color:var(--ink-3); }
-    #print-sheet .ps-head .ps-date{ margin-left:auto; text-align:right; }
-    #print-sheet h2{ font-family:var(--font-display); font-size:17px; color:var(--navy); margin:16px 0 6px; break-after:avoid; }
-    #print-sheet .ps-tiles{ display:flex; gap:10px; margin:0; }
-    #print-sheet .ps-tiles div{ flex:1; border:1px solid var(--rule); border-radius:8px; padding:8px 10px; }
-    #print-sheet .ps-tiles dt{ font-size:11px; color:var(--ink-3); }
-    #print-sheet .ps-tiles dd{ margin:2px 0 0; font:600 16px var(--font-data); }
-    #print-sheet table{ width:100%; break-inside:avoid; }
-    #print-sheet .ps-two{ display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
-    #print-sheet .fine{ margin-top:14px; font-size:10.5px; color:var(--ink-3); }
+    #print-sheet{ display:block !important; }
+    #print-sheet .ps-note{ display:none; }
   }
   .split-tog{ align-self:flex-start; justify-self:start; font-size:12.5px; margin-top:2px; }
   .inputs .field small{ font-size:11.5px; color:var(--ink-3); font-weight:500; }
@@ -499,7 +503,7 @@
           </div>
         </div>
       </div>
-      <div class="print-row"><button type="button" class="btn" id="print-btn">Save or print this proposal</button><span>Choose “Save as PDF” in the print window to keep a copy.</span></div>
+      <div class="print-row" id="print-row" hidden><button type="button" class="btn" id="print-btn">Download this proposal</button><span id="print-msg">A one-page summary. Open it to print or save as a PDF.</span></div>
       <p class="fine" id="est-fine">Estimates to help you plan, not a quote and not financial or tax advice. Forecasts one 12-month year at the rent you enter, with vacancy, repairs and CapEx set aside as a share of rent. If the home sits empty, there's no monthly fee on rent we don't collect; the $99 fee while vacant applies instead. Maintenance coordination fees, add-ons and the cost of repairs themselves aren't included beyond your repairs set-aside.</p>
     </div>
   </section>
@@ -1261,7 +1265,38 @@ function buildPrintSheet() {
       "<div><h2>" + esc($("fee-all-h").textContent) + "</h2>" + clone("fee-all") + "<h2>The three packages</h2>" + clone("cmp") + "</div></div>" +
     '<p class="fine">' + $("est-fine").innerHTML + "</p>";
 }
-$("print-btn").addEventListener("click", function () { buildPrintSheet(); try { window.print(); } catch (err) {} });
+// Printing is blocked inside the claude.ai viewer, so the summary is handed over as its own page to open, print or save as a PDF.
+// The viewer's claude.use can appear after this script runs; wait up to 10 s for it.
+var downloadsP = new Promise(function (res) {
+  var n = 0;
+  (function look() {
+    if (window.claude && window.claude.use) res(window.claude.use("downloads"));
+    else if (++n < 100) setTimeout(look, 100); else res(null);
+  })();
+});
+downloadsP.then(function (dl) {
+  if (!dl) return;
+  $("print-row").hidden = false;
+  $("print-btn").addEventListener("click", function () {
+    buildPrintSheet();
+    var css = Array.prototype.map.call(document.querySelectorAll("style"), function (st) { return st.textContent; }).join("\n");
+    var names = state.props.map(function (p, i) { return p.name || "Property " + (i + 1); }).join(", ");
+    var html = '<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+      "<title>Raynor Realty proposal: " + esc(names) + "</title><style>" + css +
+      "\nbody{background:#fff;margin:0} #print-sheet{display:block !important; max-width:920px; margin:24px auto; padding:0 16px}</style></head><body>" +
+      $("print-sheet").outerHTML.replace('<div class="ps-head">', '<p class="ps-note">To keep a PDF, print this page and choose Save as PDF.</p><div class="ps-head">') +
+      "</body></html>";
+    var file = ("Raynor proposal - " + names).replace(/[\\/:*?"<>|]+/g, " ").slice(0, 120) + ".html";
+    $("print-msg").textContent = "A one-page summary. Open it to print or save as a PDF.";
+    dl.save({ filename: file, data: html }).then(function () {
+      $("print-msg").textContent = "Downloaded. Open the file to print it or save it as a PDF.";
+    }, function (err) {
+      if (err && err.code === "declined") return;
+      if (err && err.code === "rate_limited") { $("print-msg").textContent = "One moment, then try again."; return; }
+      $("print-row").hidden = true;
+    });
+  });
+});
 window.addEventListener("beforeprint", buildPrintSheet);
 
 renderProps();
