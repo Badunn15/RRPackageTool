@@ -460,6 +460,16 @@
   .compare td.colstart, .compare th[colspan]{ border-left:1px solid var(--rule); }
   .compare thead th.cmp-pkg, .compare .pkg-name{ color:var(--accent-ink); }
   .compare thead .door-n{ color:var(--gold); }
+  .rate-groups{ display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid var(--rule-soft); border-radius:8px; }
+  .rg-list{ display:flex; flex-direction:column; gap:4px; }
+  .rg-row{ display:grid; grid-template-columns:minmax(0,1fr) 80px 70px 22px; gap:6px; align-items:center; }
+  .rg-row .affix{ width:100%; } .rg-row .affix input.num{ width:100%; min-width:0; }
+  .rg-head{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); }
+  .rg-head span:nth-child(2), .rg-head span:nth-child(3){ text-align:right; padding-right:8px; }
+  .rg-rest{ font-size:12.5px; color:var(--ink-2); padding:4px 5px 0; border-top:1px solid var(--rule-soft); }
+  .rg-rest > span:first-child{ white-space:nowrap; padding-left:5px; } .rg-rest .mono{ text-align:right; padding-right:8px; }
+  .rg-avg{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; font-size:12.5px; }
+  .rg-avg b{ color:var(--accent-ink); }
   .compare tr.sec td{ font-family:var(--font-ui); text-align:left; font-size:10.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--gold); padding-top:14px; padding-bottom:4px; border-bottom:1px solid var(--rule); }
   .addon-cost{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
   /* In the details panel, keep everything inside the panel: the cost note wraps under the amount, inputs never overflow. */
