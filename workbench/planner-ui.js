@@ -992,8 +992,6 @@
         help: "They share the costs every unit comes with (not turnovers, listings or guarantees), which lowers the cost per package door. AppFolio bills them as residential." },
       { id: "f-comm", label: "Commercial units", suffix: "units", get: function (d) { return d.G.comm; }, set: function (d, v) { d.G.comm = Math.max(0, Math.round(v)); d.af.cd = d.G.comm; }, step: 1, min: 0,
         help: "They share the costs every unit comes with (not turnovers, listings or guarantees), which lowers the cost per package door. AppFolio bills them at its commercial rate." },
-      { id: "f-total", label: "Total units managed", suffix: "units", readonly: function (d) { return fmtNum(allUnits(d)); },
-        help: "Long-term residential doors + STR + commercial. The costs every unit comes with are spread over this many units. Updates on its own." }
 
     ] },
     { title: "Yearly activity, whole portfolio", fields: [
@@ -1037,6 +1035,8 @@
         help: "Long-term residential doors, plus STR units when Include STR is on. Updates on its own." },
       { id: "f-afcd", label: "Commercial units", suffix: "units", readonly: function (d) { return fmtNum(d.af.cd); },
         help: "From STR and commercial above. Updates on its own." },
+      { id: "f-total", label: "Total units managed", suffix: "units", readonly: function (d) { return fmtNum(allUnits(d)); },
+        help: "Long-term residential doors + STR + commercial, whether or not the Include switches below are on. The costs every unit comes with are spread over this many units. Updates on its own." },
       { id: "f-afcr", label: "Commercial rate", prefix: "$", suffix: "/unit/mo", get: function (d) { return d.af.cr; }, set: function (d, v) { d.af.cr = v; }, step: 0.01, min: 0,
         help: "What AppFolio charges per commercial unit each month. Only counted when commercial units are included below." },
       { id: "f-afistr", label: "Include STR", toggle: function (d) { return !!d.af.istr; }, setToggle: function (d, on) { d.af.istr = on ? 1 : 0; d.af.rd = afResUnits(d); },
