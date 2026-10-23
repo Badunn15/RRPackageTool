@@ -484,6 +484,34 @@
   function showsBurden(doc, r, g) { return g.id === "staff" || g.id === "exec" || (doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0)) > 0; }
   function splitLine(doc, r, g) { return !CALC_ROWS[r.id] && r.e !== "af" && (g.id === "brok" || (doc.pmShare && doc.pmShare[r.id] != null)); }
 
+  /* Per-unit lines paid at more than one rate (PM comp by agent). The line's amount is the rate for every unit not listed. */
+  function RateGroups(props) {
+    var doc = props.doc, r = props.row, name = props.name, update = props.update, rs = rateSplit(doc, r);
+    function edit(fn, label) { update(function (d) { d.rateGroups[r.id] = (d.rateGroups[r.id] || []).slice(); fn(d.rateGroups[r.id]); if (!d.rateGroups[r.id].length) delete d.rateGroups[r.id]; }, name + ": " + label); }
+    return html`<div class="rate-groups">
+      <div class="sub-h">Rates by agent</div>
+      ${rs.groups.length ? html`<div class="rg-list">
+        <div class="rg-row rg-head" aria-hidden="true"><span>Who</span><span>Units</span><span>$/unit/mo</span><span></span></div>
+        ${rs.groups.map(function (g, i) {
+          return html`<div key=${i} class="rg-row">
+            <input type="text" class="txt" id=${"rg-n-" + r.id + "-" + i} aria-label="Who this rate is for" value=${g.name || ""} placeholder="Agent"
+              onChange=${function (e) { var v = e.target.value; edit(function (l) { l[i] = Object.assign({}, l[i], { name: v }); }, "rate name"); }} />
+            <${Affix} id=${"rg-d-" + r.id + "-" + i} cls="w-sm" min=${0} label=${"Units at this rate"} value=${g.doors || 0}
+              onChange=${function (v) { edit(function (l) { l[i] = Object.assign({}, l[i], { doors: Math.max(0, Math.round(v)) }); }, "units at a rate"); }} />
+            <${Affix} id=${"rg-r-" + r.id + "-" + i} prefix="$" cls="w-sm" min=${0} label=${"Rate per unit per month"} value=${g.rate || 0}
+              onChange=${function (v) { edit(function (l) { l[i] = Object.assign({}, l[i], { rate: v }); }, "rate"); }} />
+            <button type="button" class="x" aria-label=${"Remove " + (g.name || "this rate")} onClick=${function () { edit(function (l) { l.splice(i, 1); }, "removed a rate"); }}>×</button>
+          </div>`;
+        })}
+        <div class="rg-row rg-rest"><span>All others</span><span class="mono small">${fmtNum(rs.rest)}</span><span class="mono small">${money(rs.base, 2)}</span><span></span></div>
+      </div>
+      <div class="rg-avg"><span>Average</span><b class="mono">${money(rs.avg, 2)}/unit/mo</b><span class="small faint">${money(rs.mo)}/mo across ${fmtNum(rs.inGroups + rs.rest)} units</span></div>
+      ${rs.over ? html`<p class="small warn" style=${{ margin: 0 }}>The rates list ${fmtNum(rs.inGroups)} units but the portfolio has ${fmtNum(rs.units)}. Lower a count, or the extra units are paid for anyway.</p>` : null}`
+      : html`<p class="small muted" style=${{ margin: 0 }}>Every unit is paid ${money(rs.base, 2)}. Add a rate for an agent whose doors are paid differently; the amount above stays the rate for everyone else.</p>`}
+      <button type="button" class="btn sm" style=${{ alignSelf: "flex-start" }} onClick=${function () { edit(function (l) { l.push({ name: "", doors: 0, rate: rs.base }); }, "added a rate"); }}>+ Add a rate</button>
+    </div>`;
+  }
+
   function CostInspector(props) {
     var doc = props.doc, found = findCostRow(doc, props.id), update = props.update;
     if (!found) return html`<p class="small muted">That line was removed.</p>`;
@@ -499,7 +527,7 @@
       <div class="kv">
         ${isAf ? html`<span>Amount</span><span class="small">Set under Portfolio → AppFolio</span>`
           : isLb ? html`<span>Amount</span><span class="small">Each tier's own leasing fee</span>`
-          : html`<span>${r.id === "evict_g" ? "Attorney cap" : splitLine(doc, r, g) ? "P&L total" : "Amount"}</span><${Affix} id=${"i-v-" + r.id} prefix="$" cls="w-lg" label=${"Amount for " + name}
+          : html`<span>${r.id === "evict_g" ? "Attorney cap" : splitLine(doc, r, g) ? "P&L total" : r.e === "door" && rateGroupsOf(doc, r.id).length ? "All others" : "Amount"}</span><${Affix} id=${"i-v-" + r.id} prefix="$" cls="w-lg" label=${"Amount for " + name}
             value=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v} onChange=${function (val) { update(function (d) { d.vl[r.id] = val; }, name + ": amount"); }} />`}
         ${calc ? null : html`<span>Per</span><select id=${"i-b-" + r.id} aria-label="Per" value=${r.e}
           onChange=${function (e) { var val = e.target.value; update(function (d) { if (r.promoted) d.pbase[r.id] = val; else d.CG.find(function (x) { return x.id === g.id; }).rows.find(function (x) { return x.id === r.id; }).e = val; }, name + ": basis"); }}>
@@ -524,6 +552,7 @@
         </select>
         <span>${isLb ? "Waives fee" : "In tier"}</span><${TierChecks} idp=${"i-ck-" + r.id} flags=${f} onToggle=${function (t) { toggleCk(update, "ck", r.id, t, name); }} />
       </div>
+      ${r.e === "door" && !calc ? html`<${RateGroups} doc=${doc} row=${r} name=${name} update=${update} />` : null}
       <div class="math">${formulaLines(r, doc, g.id, doc.cv).map(function (l, i) { return html`<div key=${i}>${l}</div>`; })}</div>
       <${Impact} head="Cost/door/mo" vals=${vals} C=${props.C} costLike=${true} />
       ${r.id === "evict_g" ? html`<p class="note">Linked: turning this on for a tier also turns on its Eviction service (Services). Every eviction this line doesn't cover is billed to the owner under Add-on fees.</p>` : null}
@@ -1269,6 +1298,7 @@
                   <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : BASIS_NAMES[r.e]}</td>
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
                       value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)} onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />`
+                    : r.e === "door" && rateGroupsOf(doc, r.id).length ? html`<span class="small faint" title="Paid at more than one rate. Change them in the line's details.">avg ${money(rateSplit(doc, r).avg, 2)} · ${rateGroupsOf(doc, r.id).length + 1} rates</span>`
                     : r.e === "seat" && seatBaseOf(doc, r.id) ? html`<span class="small faint" title="Flat monthly base on top of the per-seat price. Change it in the line's details.">+ ${money(seatBaseOf(doc, r.id))}/mo base</span>`
                     : splitLine(doc, r, g) && pmShareOf(doc, r.id) !== 100 ? html`<span class="small faint" title="PM's share of the P&L total. Change it in the line's details.">${fmtNum(Math.round(pmShareOf(doc, r.id)))}% PM · ${money((doc.vl[r.id] != null ? doc.vl[r.id] : r.v) * pmShareOf(doc, r.id) / 100)}${BASIS_NAMES[r.e].replace("$", "")}</span>`
                     : r.e === "annual" && showsBurden(doc, r, g) ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
@@ -2236,6 +2266,7 @@
       var va = a.vl[id] != null ? a.vl[id] : ra.v, vb = b.vl[id] != null ? b.vl[id] : rb.v;
       if (va !== vb) put(nm + ": " + money(va || 0, 2) + " → " + money(vb || 0, 2));
       if (seatBaseOf(a, id) !== seatBaseOf(b, id)) put(nm + " base: " + money(seatBaseOf(a, id)) + "/mo → " + money(seatBaseOf(b, id)) + "/mo");
+      if (JSON.stringify(rateGroupsOf(a, id)) !== JSON.stringify(rateGroupsOf(b, id))) put(nm + " rates by agent: " + rateGroupsOf(a, id).length + " → " + rateGroupsOf(b, id).length + " set, average " + money(cmo(ra, a) / (allUnits(a) || 1), 2) + " → " + money(cmo(rb, b) / (allUnits(b) || 1), 2) + "/unit/mo");
       if (pmShareOf(a, id) !== pmShareOf(b, id)) put(nm + " PM share: " + fmtNum(Math.round(pmShareOf(a, id))) + "% → " + fmtNum(Math.round(pmShareOf(b, id))) + "%");
       tiersLine(nm, ca.ck[id] || {}, cb.ck[id] || {});
     });
