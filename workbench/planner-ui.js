@@ -533,6 +533,11 @@
           onChange=${function (e) { var val = e.target.value; update(function (d) { if (r.promoted) d.pbase[r.id] = val; else d.CG.find(function (x) { return x.id === g.id; }).rows.find(function (x) { return x.id === r.id; }).e = val; }, name + ": basis"); }}>
           ${BASES.filter(function (b) { return b !== "af" || isAf; }).map(function (b) { return html`<option key=${b} value=${b}>${BASIS_NAMES[b]}</option>`; })}
         </select>`}
+        ${perDoorBasis(r) && !calc ? html`<span>Paid on</span><select id=${"i-ub-" + r.id} aria-label="Paid on" value=${doorsOnly(doc, r) ? "doors" : "all"}
+          onChange=${function (e) { var val = e.target.value; update(function (d) { d.unitBase[r.id] = val; }, name + ": paid on " + (val === "doors" ? "residential doors" : "all units")); }}>
+          <option value="doors">Residential doors (${fmtNum(doc.G.doors || 0)})</option>
+          <option value="all">All units, incl. STR and commercial (${fmtNum(allUnits(doc))})</option>
+        </select>` : null}
         ${calc || r.e === "claim" ? html`<span>${isLb ? "Lease breaks" : r.id === "evict_g" ? "Attorney uses" : "Events"}</span><${Affix} id=${"i-ev-" + r.id} suffix="/yr" cls="w-sm" min=${0}
           label="Per year across the portfolio" value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)}
           onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />` : null}
@@ -2266,7 +2271,8 @@
       var va = a.vl[id] != null ? a.vl[id] : ra.v, vb = b.vl[id] != null ? b.vl[id] : rb.v;
       if (va !== vb) put(nm + ": " + money(va || 0, 2) + " → " + money(vb || 0, 2));
       if (seatBaseOf(a, id) !== seatBaseOf(b, id)) put(nm + " base: " + money(seatBaseOf(a, id)) + "/mo → " + money(seatBaseOf(b, id)) + "/mo");
-      if (JSON.stringify(rateGroupsOf(a, id)) !== JSON.stringify(rateGroupsOf(b, id))) put(nm + " rates by agent: " + rateGroupsOf(a, id).length + " → " + rateGroupsOf(b, id).length + " set, average " + money(cmo(ra, a) / (allUnits(a) || 1), 2) + " → " + money(cmo(rb, b) / (allUnits(b) || 1), 2) + "/unit/mo");
+      if (perDoorBasis(rb) && doorsOnly(a, ra) !== doorsOnly(b, rb)) put(nm + " paid on: " + (doorsOnly(a, ra) ? "residential doors" : "all units") + " → " + (doorsOnly(b, rb) ? "residential doors" : "all units"));
+      if (JSON.stringify(rateGroupsOf(a, id)) !== JSON.stringify(rateGroupsOf(b, id))) put(nm + " rates by agent: " + rateGroupsOf(a, id).length + " → " + rateGroupsOf(b, id).length + " set, average " + money(cmo(ra, a) / (unitsFor(a, ra) || 1), 2) + " → " + money(cmo(rb, b) / (unitsFor(b, rb) || 1), 2) + "/unit/mo");
       if (pmShareOf(a, id) !== pmShareOf(b, id)) put(nm + " PM share: " + fmtNum(Math.round(pmShareOf(a, id))) + "% → " + fmtNum(Math.round(pmShareOf(b, id))) + "%");
       tiersLine(nm, ca.ck[id] || {}, cb.ck[id] || {});
     });
