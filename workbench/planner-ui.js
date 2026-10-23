@@ -767,6 +767,8 @@
         help: "They share the costs every unit comes with (not turnovers, listings or guarantees), which lowers the cost per package door. AppFolio bills them as residential." },
       { id: "f-comm", label: "Commercial units", get: function (d) { return d.G.comm; }, set: function (d, v) { d.G.comm = Math.max(0, Math.round(v)); d.af.cd = d.G.comm; }, step: 1, min: 0,
         help: "They share the costs every unit comes with (not turnovers, listings or guarantees), which lowers the cost per package door. AppFolio bills them at its commercial rate." },
+      { id: "f-total", label: "Total units managed", readonly: function (d) { return fmtNum(allUnits(d)); },
+        help: "Long-term residential doors + STR + commercial. The costs every unit comes with are spread over this many units. Updates on its own." }
 
     ] },
     { title: "Yearly activity, whole portfolio", fields: [
