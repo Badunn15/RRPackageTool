@@ -1107,6 +1107,18 @@ function normalizeDoc(raw) {
       d.removed.gusto_base = true;
     }
   }
+  // v16 (2026-10-26): EZ Repair, Property Meld's after-hours coverage at $0.39/unit/mo, next to Meld Max on Call in every scenario.
+  if (ver < 16 && !findRow(d, "ez_repair") && !d.removed.ez_repair) {
+    var sw = d.CG.find(function (g) { return g.rows.some(function (x) { return x.id === "meld_max"; }); }) || d.CG.find(function (g) { return g.id === "sw"; });
+    if (sw) {
+      var at = sw.rows.findIndex(function (x) { return x.id === "meld_max"; });
+      var ez = { id: "ez_repair", name: "EZ Repair", e: "door", v: 0.39,
+        d: "Property Meld's after-hours coverage, $0.39 per unit a month. An add-on to Meld Max on Call; Meld also sells it on its own." };
+      if (at < 0) sw.rows.push(ez); else sw.rows.splice(at + 1, 0, ez);
+      d.vl.ez_repair = 0.39;
+      d.templates.forEach(function (t) { t.ck.ez_repair = Object.assign({ min: true, special: true, plus: true }, t.ck.meld_max || {}); });
+    }
+  }
   if (d.G.vacantDays == null) d.G.vacantDays = 0;
   // Move-ins a year across the portfolio (admin fees). Starts at one per door every average tenancy.
   if (d.G.moveIns == null) d.G.moveIns = d.G.tenancy > 0 ? Math.round((d.G.doors || 0) / d.G.tenancy) : 0;
@@ -1128,7 +1140,7 @@ function normalizeDoc(raw) {
   // v1 defaulted vacancy to 4% (an owner-side assumption from the fee-choice pricing file). Raynor only collects fees once a renter is placed, so v2 defaults it to 0.
   var vacancy = P.vacancyPct != null && (P.v || 1) >= 2 ? P.vacancyPct : (P.vacancyPct != null && P.vacancyPct !== 4 ? P.vacancyPct : DEFAULT_PRICING.vacancyPct);
   d.pricing = {
-    v: 15,
+    v: 16,
     // v10 (2026-10-12): up-front discount, 10% off when the whole lease term is paid up front.
     // v11: discount steps are set by the owner's monthly fee (atPct) instead of the share paid up front.
     upfrontDiscount: normalizeDiscount(P.upfrontDiscount),
