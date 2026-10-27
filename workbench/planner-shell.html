@@ -470,6 +470,14 @@
   .rg-rest > span:first-child{ white-space:nowrap; padding-left:5px; } .rg-rest .mono{ text-align:right; padding-right:8px; }
   .rg-avg{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; font-size:12.5px; }
   .rg-avg b{ color:var(--accent-ink); }
+  .score-table td.warn{ color:var(--warn); } .score-table td.good, .score-table td.bad, .score-table td.warn{ font-weight:600; }
+  .score-table th.score-bench, .score-table td.score-bench{ font-family:var(--font-ui); color:var(--ink-3); font-size:12px; font-weight:500; white-space:normal; max-width:190px; text-align:right; }
+  .score-note{ text-transform:none; letter-spacing:0; font-weight:500; color:var(--ink-3); margin-left:8px; }
+  .score-inputs{ display:grid; grid-template-columns:minmax(0,1fr); gap:14px; }
+  .score-staff select{ max-width:180px; }
+  .score-staff td, .score-staff th{ text-align:left; } .score-staff td:nth-child(2), .score-staff th:nth-child(2){ text-align:right; }
+  .score-staff td:first-child{ white-space:nowrap; }
+  .acq-kpis b.warn{ color:var(--warn); }
   .compare tr.sec td{ font-family:var(--font-ui); text-align:left; font-size:10.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--gold); padding-top:14px; padding-bottom:4px; border-bottom:1px solid var(--rule); }
   .addon-cost{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
   /* In the details panel, keep everything inside the panel: the cost note wraps under the amount, inputs never overflow. */

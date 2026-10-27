@@ -759,6 +759,71 @@ function scaleToDoors(doc, n) {
   return d;
 }
 
+/* ---------- scorecard: ProfitCoach unit economics, per package ---------- */
+/*
+ * Each cost line has a scorecard type (doc.scoreType[id]): direct labor, management labor, sales labor, advertising, or
+ * other expense. Unset: Staffing lines are direct labor, Executive lines management labor, Marketing advertising,
+ * everything else other expense. Labor ratios use gross wages, before payroll burden.
+ */
+var SCORE_TYPES = { direct: "Direct labor", mgmt: "Management labor", sales: "Sales labor", adv: "Advertising", other: "Other expense" };
+var SCORE_BENCH = { dler: 4.0, dlerPoor: 3.0, mler: 5.53, tler: 2.4, tlerPoor: 2.0, facil: 17, facilAvg: 24, upf: 59, upfAvg: 49, payback: 3, paybackMax: 4, ltpUac: 10 };
+function scoreTypeOf(doc, row, gid) {
+  var t = doc.scoreType && doc.scoreType[row.id];
+  if (t && SCORE_TYPES[t]) return t;
+  if (gid === "staff") return "direct";
+  if (gid === "exec") return "mgmt";
+  if (row.id === "marketing") return "adv";
+  return "other";
+}
+function isLabor(type) { return type === "direct" || type === "mgmt" || type === "sales"; }
+/* A line's monthly wages before payroll burden (burden only applies to yearly lines). */
+function grossMo(doc, row) {
+  var mo = cmo(row, doc), bd = doc.bd[row.id] != null ? doc.bd[row.id] : (row.n_bd || 0);
+  return row.e === "annual" && bd ? mo / (1 + bd / 100) : mo;
+}
+/* Labor lines with their type, monthly cost, gross wages and full-time equivalents (doc.fte[id], null when not entered). */
+function laborLines(doc) {
+  var out = [];
+  forEachCostRow(doc, function (row, gid) {
+    var type = scoreTypeOf(doc, row, gid);
+    if (!isLabor(type)) return;
+    out.push({ row: row, gid: gid, type: type, mo: cmo(row, doc), gross: grossMo(doc, row), fte: doc.fte && doc.fte[row.id] != null ? doc.fte[row.id] : null });
+  });
+  return out;
+}
+/*
+ * The scorecard for one package, as if every residential door were on it, with everything counted (Fully Loaded).
+ * All amounts are per residential door per month; the ratios are the same as on portfolio totals.
+ */
+function scorecard(doc, tier) {
+  var c = tierCost(doc, "loaded"), m = tierMargin(doc, tier, c.perDoor[tier], "loaded"), ck = activeTemplate(doc).ck;
+  var w = { direct: 0, mgmt: 0, sales: 0 }, people = 0, adv = 0;
+  forEachCostRow(doc, function (row, gid) {
+    var f = ck[row.id] || {};
+    if (!f[tier]) return;
+    var type = scoreTypeOf(doc, row, gid), mo = cmo(row, doc);
+    if (isLabor(type)) { w[type] += linePerDoor(doc, grossMo(doc, row), row, gid); people += linePerDoor(doc, mo, row, gid); }
+    else if (type === "adv") adv += linePerDoor(doc, mo, row, gid);
+  });
+  var rev = m.revenue, occ = 1 - leaseCycle(doc).vacantShare;
+  var other = m.cost - people - adv;
+  var fte = laborLines(doc).filter(function (x) { return x.type === "direct" && x.fte != null; }).reduce(function (s, x) { return s + x.fte; }, 0);
+  var S = doc.score || {}, uac = S.uac > 0 ? S.uac : null, churn = S.churnPct > 0 ? S.churnPct : null;
+  var ppu = m.margin, ppuAdj = ppu + adv + w.sales, rpu = occ > 0 ? rev / occ : rev;
+  var lifetime = churn ? 12 / (churn / 100) : null, ltp = lifetime != null ? ppuAdj * lifetime : null;
+  return {
+    rpu: rpu, ppu: ppu, ppuAdj: ppuAdj, revenue: rev, cost: m.cost, wages: w, people: people, adv: adv, other: other, occupied: occ,
+    dler: w.direct > 0 ? rev / w.direct : null,
+    mler: w.mgmt > 0 ? (rev - w.direct) / w.mgmt : null,
+    tler: w.direct + w.mgmt + w.sales > 0 ? rev / (w.direct + w.mgmt + w.sales) : null,
+    facilPct: rev > 0 ? other / rev * 100 : null,
+    fte: fte, unitsPerFte: fte > 0 ? allUnits(doc) / fte : null,
+    uac: uac, churnPct: churn, revPaybackMo: uac && rpu > 0 ? uac / rpu : null,
+    cashflowMo: uac ? (ppuAdj > 0 ? uac / ppuAdj : Infinity) : null,
+    lifetimeMo: lifetime, ltp: ltp, ltpUac: uac && ltp != null ? ltp / uac : null
+  };
+}
+
 /* ---------- acquisitions: a book of business added to today's portfolio ---------- */
 function newDeal(doc) {
   var G = doc.G, D = G.doors || 1, n = 50;
@@ -829,7 +894,13 @@ function acquisitionImpact(doc, deal, view) {
     var res = residentPerDoor(book.doc, t), monthlyRes = res.on ? res.items.rbp + res.items.pet + res.items.late : 0;
     residentRamp += tiers[t].doors * monthlyRes * 12 * (1 - onRaynorYr1);
   });
-  return { tiers: tiers, kept: book.kept, doorsAfter: after.doc.G.doors, bookYr: bookYr, bookRevYr: bookRevYr, upfront: upfront,
+  // Unit economics (ProfitCoach): the deal's up-front cost per door bought is its acquisition cost; its year-one churn sets the lifetime.
+  var kept = book.kept, uac = upfront > 0 && deal.doors > 0 ? upfront / deal.doors : null;
+  var bookRpu = kept > 0 ? bookRevYr / 12 / kept : 0, bookPpu = kept > 0 ? bookYr / 12 / kept : 0;
+  var lifetimeMo = deal.lost > 0 ? 12 / (Math.min(100, deal.lost) / 100) : null, ltp = lifetimeMo != null ? bookPpu * lifetimeMo : null;
+  var unit = { uac: uac, rpu: bookRpu, ppu: bookPpu, revPaybackMo: uac && bookRpu > 0 ? uac / bookRpu : null,
+    lifetimeMo: lifetimeMo, ltp: ltp, ltpUac: uac && ltp != null ? ltp / uac : null };
+  return { tiers: tiers, kept: book.kept, doorsAfter: after.doc.G.doors, bookYr: bookYr, bookRevYr: bookRevYr, upfront: upfront, unit: unit,
     paybackMo: bookYr > 0 ? upfront / (bookYr / 12) : null, firstYearNet: bookYr - upfront - residentRamp, residentRamp: residentRamp,
     onRaynorYr1: onRaynorYr1, mixSum: mixSum, afterDoc: after.doc };
 }
@@ -931,11 +1002,12 @@ function scopeFormulaLines(doc, id) {
 
 function normalizeDoc(raw) {
   var d = JSON.parse(JSON.stringify(raw));
-  ["vl", "bd", "ev", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "secView", "MASTER", "removed", "udest", "seats", "pmShare", "seatBase", "rateGroups", "unitBase"].forEach(function (k) {
+  ["vl", "bd", "ev", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "secView", "MASTER", "removed", "udest", "seats", "pmShare", "seatBase", "rateGroups", "unitBase", "scoreType", "fte"].forEach(function (k) {
     if (!d[k] || typeof d[k] !== "object") d[k] = {};
   });
   if (!Array.isArray(d.CATS)) d.CATS = [];
   if (!Array.isArray(d.acq)) d.acq = [];
+  if (!d.score || typeof d.score !== "object") d.score = { uac: null, churnPct: null };
   if (!d.cv) d.cv = "allocated";
   // The lease break waiver was renamed the Leasing guarantee (it only covers tenants Raynor placed).
   d.CG.forEach(function (g) { (g.rows || []).forEach(function (r) { if (r.id === "lease_brk" && r.name === "Lease break waiver") r.name = "Leasing guarantee"; }); });
@@ -1221,7 +1293,7 @@ function copyAddonInto(src, dst, addonId, matchTiers) {
   if (!a) return ["That add-on isn't in this scenario."];
   a = JSON.parse(JSON.stringify(a));
   var sid = a.svc, kind = null;
-  var MAPS = ["vl", "ev", "bd", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "udest", "pmShare", "seatBase", "rateGroups", "unitBase"];
+  var MAPS = ["vl", "ev", "bd", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "udest", "pmShare", "seatBase", "rateGroups", "unitBase", "scoreType", "fte"];
   function copyMaps(id) { MAPS.forEach(function (k) { if (src[k] && src[k][id] != null) { dst[k] = dst[k] || {}; dst[k][id] = JSON.parse(JSON.stringify(src[k][id])); } }); }
   if (sid) {
     var hit = null;
@@ -1266,5 +1338,5 @@ function validDoc(d) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { linkKind: linkKind, linkedInTier: linkedInTier, addonStateShown: addonStateShown, setAddonState: setAddonState, seatBaseOf: seatBaseOf, pmShareOf: pmShareOf, rateGroupsOf: rateGroupsOf, rateSplit: rateSplit, unitsFor: unitsFor, doorsOnly: doorsOnly, perDoorBasis: perDoorBasis, cmoFull: cmoFull, copyAddonInto: copyAddonInto, tierOn: tierOn, onTiers: onTiers, woYr: woYr, residentPerDoor: residentPerDoor, residentKeepPct: residentKeepPct, feeBase: feeBase, petRentMo: petRentMo, priceFrame: priceFrame, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, upfrontDiscountPct: upfrontDiscountPct, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { linkKind: linkKind, linkedInTier: linkedInTier, addonStateShown: addonStateShown, setAddonState: setAddonState, seatBaseOf: seatBaseOf, pmShareOf: pmShareOf, rateGroupsOf: rateGroupsOf, rateSplit: rateSplit, scorecard: scorecard, scoreTypeOf: scoreTypeOf, laborLines: laborLines, grossMo: grossMo, SCORE_TYPES: SCORE_TYPES, SCORE_BENCH: SCORE_BENCH, unitsFor: unitsFor, doorsOnly: doorsOnly, perDoorBasis: perDoorBasis, cmoFull: cmoFull, copyAddonInto: copyAddonInto, tierOn: tierOn, onTiers: onTiers, woYr: woYr, residentPerDoor: residentPerDoor, residentKeepPct: residentKeepPct, feeBase: feeBase, petRentMo: petRentMo, priceFrame: priceFrame, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, upfrontDiscountPct: upfrontDiscountPct, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }

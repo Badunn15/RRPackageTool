@@ -17,7 +17,8 @@
     { id: "prices", label: "Prices", n: 5 },
     { id: "growth", label: "Growth" },
     { id: "acq", label: "Acquisitions" },
-    { id: "compare", label: "Compare" }
+    { id: "compare", label: "Compare" },
+    { id: "score", label: "Scorecard" }
   ];
   var PAGE_IDS = PAGES.map(function (p) { return p.id; });
 
@@ -554,6 +555,10 @@
           onChange=${function (e) { var val = e.target.value; update(function (d) { if (val) d.itemView[r.id] = val; else delete d.itemView[r.id]; }, name + ": counts from"); }}>
           <option value="">Same as ${g.label} (${VIEW_NAMES[doc.secView[g.id] || "direct"]})</option>
           ${VIEWS.map(function (vw) { return html`<option key=${vw} value=${vw}>${VIEW_NAMES[vw]}</option>`; })}
+        </select>
+        <span>Scorecard</span><select id=${"i-st2-" + r.id} aria-label="Scorecard type" value=${scoreTypeOf(doc, r, g.id)}
+          onChange=${function (e) { var val = e.target.value; update(function (d) { d.scoreType[r.id] = val; }, name + ": scorecard type"); }}>
+          ${Object.keys(SCORE_TYPES).map(function (k) { return html`<option key=${k} value=${k}>${SCORE_TYPES[k]}</option>`; })}
         </select>
         <span>${isLb ? "Waives fee" : "In tier"}</span><${TierChecks} idp=${"i-ck-" + r.id} flags=${f} onToggle=${function (t) { toggleCk(update, "ck", r.id, t, name); }} />
       </div>
@@ -1869,6 +1874,101 @@
     </div>`;
   }
 
+  /* ------------------------------ scorecard ------------------------------ */
+  /* ProfitCoach's unit economics for each package, as if every door were on it, with everything counted. */
+  function Scorecard(props) {
+    var doc = props.doc, update = props.update, B = SCORE_BENCH, S = doc.score || {};
+    var on = TIERS.filter(function (t) { return tierOn(doc, t); });
+    var sc = {}; on.forEach(function (t) { sc[t] = scorecard(doc, t); });
+    var labor = laborLines(doc);
+    function num(v, d) { return v == null ? "—" : v === Infinity ? "never" : fmtNum(Math.round(v * Math.pow(10, d == null ? 2 : d)) / Math.pow(10, d == null ? 2 : d)); }
+    function mo(v) { return v == null ? "—" : v === Infinity ? "never" : num(v, 1) + " mo"; }
+    // [label, value, status (good / warn / bad / ""), benchmark text, what it means]
+    var groups = [
+      { title: "Revenue and profit", rows: [
+        ["Revenue per unit (RPU)", function (s) { return money(s.rpu, 2); }, function () { return ""; }, "—",
+          ["Residential PM revenue per occupied door a month: management, leasing and renewal fees, owner fees and the resident revenue Raynor keeps. STR and commercial are left out.",
+            doc.pricing.countVacancy ? "Vacancy is counted, so this is revenue ÷ occupied doors (" + pct(sc[on[0]] ? sc[on[0]].occupied * 100 : 100, 1) + " occupied)." : "Vacancy isn't counted, so every door is occupied here."]],
+        ["Profit per unit (PPU)", function (s) { return money(s.ppu, 2); }, function (s) { return s.ppu > 0 ? "good" : "bad"; }, "above $0",
+          ["Margin per long-term residential door a month with every cost counted (Fully Loaded)."]]
+      ] },
+      { title: "Labor", rows: [
+        ["Direct labor efficiency (DLER)", function (s) { return num(s.dler); }, function (s) { return s.dler == null ? "" : s.dler >= B.dler ? "good" : s.dler >= B.dlerPoor ? "warn" : "bad"; }, "4.0 (under 3.0 is poor)",
+          ["PM revenue ÷ direct labor gross wages: the people who serve owners and tenants (PMs, coordinators, accounting, inspectors).", "Gross wages, before payroll taxes and benefits. Levers: price, pay, productivity."]],
+        ["Management labor efficiency (MLER)", function (s) { return num(s.mler); }, function (s) { return s.mler == null ? "" : s.mler >= B.mler ? "good" : "warn"; }, "5.53",
+          ["Contribution margin ÷ management gross wages, where contribution margin here is revenue less direct labor wages (ProfitCoach's definition, not the Direct COGS view).", "Management is anyone not mostly serving owners or tenants directly."]],
+        ["Total labor efficiency (TLER)", function (s) { return num(s.tler); }, function (s) { return s.tler == null ? "" : s.tler >= B.tler ? "good" : s.tler >= B.tlerPoor ? "warn" : "bad"; }, "2.4 (2.0 = half of revenue on wages)",
+          ["PM revenue ÷ all gross wages: direct, management and sales."]],
+        ["Units per direct FTE", function (s) { return s.unitsPerFte == null ? "—" : num(s.unitsPerFte, 1); }, function (s) { return s.unitsPerFte == null ? "" : s.unitsPerFte >= B.upf ? "good" : s.unitsPerFte >= B.upfAvg ? "warn" : "bad"; }, "59 (49 average)",
+          ["All units managed ÷ full-time equivalents in direct labor. Enter FTEs in the staff table below.", "Same for every package: it's about the team, not the price."]]
+      ] },
+      { title: "Expenses", rows: [
+        ["Facilities and other operating", function (s) { return s.facilPct == null ? "—" : pct(s.facilPct); }, function (s) { return s.facilPct == null ? "" : s.facilPct <= B.facil ? "good" : s.facilPct <= B.facilAvg ? "warn" : "bad"; }, "17% (24% average)",
+          ["Every cost that isn't people or advertising, as a % of revenue: software, overhead, turnover and service costs, guarantees, add-on costs.", "Advertising this package carries: " + money(sc[on[0]] ? sc[on[0]].adv : 0, 2) + "/door/mo."]]
+      ] },
+      { title: "Growth and retention", note: S.uac > 0 && S.churnPct > 0 ? null : "Enter an acquisition cost and churn above to fill these in.", rows: [
+        ["Revenue payback", function (s) { return mo(s.revPaybackMo); }, function (s) { return s.revPaybackMo == null ? "" : s.revPaybackMo <= B.payback ? "good" : s.revPaybackMo <= B.paybackMax ? "warn" : "bad"; }, "3–4 months",
+          ["Acquisition cost ÷ RPU: months of revenue to match what it cost to win the door. Ignores expenses, so it isn't profit."]],
+        ["Time to cash flow", function (s) { return mo(s.cashflowMo); }, function (s) { return s.cashflowMo == null || s.lifetimeMo == null ? "" : s.cashflowMo <= s.lifetimeMo ? "good" : "bad"; }, "shorter than unit lifetime",
+          ["Acquisition cost ÷ PPU, with advertising and sales wages added back to profit so they aren't counted twice: months a door must stay before it has paid for itself."]],
+        ["Unit lifetime", function (s) { return mo(s.lifetimeMo); }, function () { return ""; }, "—",
+          ["12 ÷ annual churn: how long the average door stays, implied by churn. An estimate, not a guarantee."]],
+        ["Lifetime profit (LTP)", function (s) { return s.ltp == null ? "—" : money(s.ltp); }, function () { return ""; }, "—",
+          ["PPU, before advertising and sales, × unit lifetime."]],
+        ["LTP to acquisition cost", function (s) { return s.ltpUac == null ? "—" : num(s.ltpUac, 1) + " : 1"; }, function (s) { return s.ltpUac == null ? "" : s.ltpUac >= B.ltpUac ? "good" : s.ltpUac >= 1 ? "warn" : "bad"; }, "10 : 1 (1 : 1 breaks even)",
+          ["Lifetime profit dollars for every dollar spent winning the door. ProfitCoach's broadest check: it reflects price, labor, expenses, acquisition and retention together."]]
+      ] }
+    ];
+    function setScore(k, v, label) { update(function (d) { d.score = Object.assign({}, d.score, (function () { var o = {}; o[k] = v > 0 ? v : null; return o; })()); }, "Scorecard: " + label); }
+    return html`<div class="page">
+      <${PageHead} kicker="Benchmarks" title="Scorecard" lead="ProfitCoach's property management unit economics for each package, as if every door were on it, with every cost counted. Green meets their benchmark, amber is short of it, red is well short." />
+      <section class="panel">
+        <div class="panel-h"><h2>Package scorecard</h2><span class="small muted">${fmtNum(doc.G.doors)} residential doors · Fully Loaded</span></div>
+        <div class="table-wrap"><table class="compare score-table">
+          <thead><tr><th>Metric</th>${on.map(function (t) { return html`<th key=${t} class="cmp-pkg">${TIER_NAMES[t]}</th>`; })}<th class="score-bench">ProfitCoach benchmark</th></tr></thead>
+          <tbody>${groups.map(function (g) {
+            return [html`<tr key=${g.title} class="sec"><td colSpan=${on.length + 2}>${g.title}${g.note ? html` <span class="score-note">${g.note}</span>` : null}</td></tr>`].concat(g.rows.map(function (r) {
+              return html`<tr key=${r[0]}><td>${r[0]} <${Info} plain=${true} label=${r[0]} lines=${r[4]} /></td>
+                ${on.map(function (t) { var st = r[2](sc[t]); return html`<td key=${t} class=${st}>${r[1](sc[t])}</td>`; })}
+                <td class="score-bench">${r[3]}</td></tr>`;
+            }));
+          })}</tbody>
+        </table></div>
+      </section>
+      <div class="score-inputs">
+        <section class="panel">
+          <div class="panel-h"><h2>Acquisition and retention</h2><span class="small muted">Optional, until you have real numbers</span></div>
+          <div class="panel-b fieldset">
+            <div class="frow acq-row"><label for="sc-uac">Acquisition cost per door</label>
+              <div class="fctrl"><${Affix} id="sc-uac" prefix="$" suffix="/door" step=${25} min=${0} label="Acquisition cost per door" value=${S.uac || 0} onChange=${function (v) { setScore("uac", v, "acquisition cost"); }} /></div>
+              <div class="help">Sales and marketing spend (ads, referral payments, sales wages) ÷ new doors won in the same period. Use gross new doors, not net growth.</div></div>
+            <div class="frow acq-row"><label for="sc-churn">Annual churn</label>
+              <div class="fctrl"><${Affix} id="sc-churn" suffix="%/yr" step=${1} min=${0} max=${100} label="Annual churn" value=${S.churnPct || 0} onChange=${function (v) { setScore("churnPct", Math.min(100, v), "churn"); }} /></div>
+              <div class="help">Doors lost in a year ÷ doors at the start of it. Doors added and lost within the year don't count.</div></div>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h2>Staff</h2><span class="small muted">Labor type and FTEs</span></div>
+          <div class="table-wrap"><table class="compare score-staff">
+            <thead><tr><th>Line</th><th>Gross wages</th><th>Type</th><th>FTEs</th></tr></thead>
+            <tbody>${labor.map(function (x) {
+              var nm = rowName(doc, x.row);
+              return html`<tr key=${x.row.id}><td>${nm}</td><td>${money(x.gross)}/mo</td>
+                <td><select id=${"sc-t-" + x.row.id} aria-label=${"Labor type for " + nm} value=${x.type}
+                  onChange=${function (e) { var v = e.target.value; update(function (d) { d.scoreType[x.row.id] = v; }, nm + ": scorecard type"); }}>
+                  ${Object.keys(SCORE_TYPES).map(function (k) { return html`<option key=${k} value=${k}>${SCORE_TYPES[k]}</option>`; })}
+                </select></td>
+                <td>${x.type === "direct" ? html`<${Affix} id=${"sc-f-" + x.row.id} cls="w-sm" step=${0.5} min=${0} label=${"FTEs for " + nm} value=${x.fte || 0}
+                  onChange=${function (v) { update(function (d) { if (v > 0) d.fte[x.row.id] = v; else delete d.fte[x.row.id]; }, nm + ": FTEs"); }} />` : html`<span class="faint small">—</span>`}</td></tr>`;
+            })}</tbody>
+          </table></div>
+          <p class="note" style=${{ padding: "8px 14px 12px" }}>Staffing lines count as direct labor and Executive as management unless you change them. Any other cost line's type is in its details on the Costs page (for example Marketing is advertising). Wages are shown before payroll burden.</p>
+        </section>
+      </div>
+      <p class="note">Benchmarks are ProfitCoach's, from Chris Cannady's metric series. Every figure here comes from this model's costs and prices, not Raynor's books.</p>
+    </div>`;
+  }
+
   function Growth(props) {
     var doc = props.doc, today = doc.G.doors, C = props.C;
     var fallback = today < 250 ? 250 : Math.round((today + 100) / 10) * 10;
@@ -1885,7 +1985,7 @@
     var rowsDef = [
       ["RPU (revenue / door / mo)", function (m) { return money(m.revenue, 2); }, function (m) { return m.revenue; }, 1],
       ["Cost / door / mo", function (m) { return money(m.cost, 2); }, function (m) { return m.cost; }, -1],
-      ["Margin / door / mo", function (m) { return money(m.margin, 2); }, function (m) { return m.margin; }, 1],
+      ["Margin / door / mo (PPU)", function (m) { return money(m.margin, 2); }, function (m) { return m.margin; }, 1],
       ["Margin %", function (m) { return pct(m.marginPct); }, function (m) { return m.marginPct; }, 1],
       ["Margin / yr, all doors", function (m) { return money(m.portfolioMo * 12); }, function (m) { return m.portfolioMo * 12; }, 1]
     ];
@@ -2092,6 +2192,19 @@
               <div><span class="small muted">Payback</span><b class="mono">${r.upfront <= 0 ? "—" : r.paybackMo == null ? "never" : fmtNum(Math.round(r.paybackMo * 10) / 10) + " mo"}</b><span class="tiny faint">${money(r.upfront)} up front</span></div>
               <div><span class="small muted">First-year net</span><b class=${"mono " + (r.firstYearNet < 0 ? "bad" : "good")}>${money(r.firstYearNet)}</b><span class="tiny faint">book margin less up-front cost${r.residentRamp > 0.5 ? ", less " + money(r.residentRamp) + " resident revenue still ramping in" : ""}</span>
                 ${r.residentRamp > 0.5 ? html`<${Info} plain=${true} label="Resident revenue ramp" lines=${["RBP, pet rent and late fees only come from tenants Raynor placed or renewed.", "The book's tenants move onto Raynor leases as each lease renews or turns over, so they're on one for about " + pct(r.onRaynorYr1 * 100, 0) + " of year one.", "Book earns a year and payback use the full amount once everyone has moved over."]} />` : null}</div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-h"><h2>Unit economics</h2><${Info} plain=${true} label="Unit economics" lines=${[
+              "ProfitCoach's measures for the book's doors. Acquisition cost is the up-front cost ÷ doors bought (gross, before churn).",
+              "Revenue payback = acquisition cost ÷ the book's revenue per door a month. Lifetime = 12 ÷ the churn above. Lifetime profit = the book's margin per door × lifetime.",
+              "ProfitCoach's benchmarks: revenue payback within 3–4 months, lifetime profit at least 10× acquisition cost (1× breaks even)."
+            ]} /></div>
+            <div class="panel-b acq-kpis">
+              <div><span class="small muted">Acquisition cost</span><b class="mono">${r.unit.uac == null ? "—" : money(r.unit.uac) + "/door"}</b><span class="tiny faint">${r.unit.uac == null ? "add a price or one-time cost" : money(r.upfront) + " ÷ " + fmtNum(deal.doors) + " doors"}</span></div>
+              <div><span class="small muted">Revenue payback</span><b class=${"mono " + (r.unit.revPaybackMo == null ? "" : r.unit.revPaybackMo <= 3 ? "good" : r.unit.revPaybackMo <= 4 ? "warn" : "bad")}>${r.unit.revPaybackMo == null ? "—" : fmtNum(Math.round(r.unit.revPaybackMo * 10) / 10) + " mo"}</b><span class="tiny faint">at ${money(r.unit.rpu, 2)} RPU</span></div>
+              <div><span class="small muted">Unit lifetime</span><b class="mono">${r.unit.lifetimeMo == null ? "—" : fmtNum(Math.round(r.unit.lifetimeMo * 10) / 10) + " mo"}</b><span class="tiny faint">${r.unit.lifetimeMo == null ? "set churn above 0%" : "at " + fmtNum(deal.lost) + "% churn"}</span></div>
+              <div><span class="small muted">Lifetime profit : cost</span><b class=${"mono " + (r.unit.ltpUac == null ? "" : r.unit.ltpUac >= 10 ? "good" : r.unit.ltpUac >= 1 ? "warn" : "bad")}>${r.unit.ltpUac == null ? "—" : fmtNum(Math.round(r.unit.ltpUac * 10) / 10) + " : 1"}</b><span class="tiny faint">${r.unit.ltp == null ? "needs cost and churn" : money(r.unit.ltp) + " lifetime profit a door"}</span></div>
             </div>
           </section>
           <section class="panel">
@@ -2349,7 +2462,7 @@
     var rowsDef = [
       ["Revenue / door / mo", function (m) { return money(m.revenue, 2); }, function (m) { return m.revenue; }, 1],
       ["Cost / door / mo", function (m) { return money(m.cost, 2); }, function (m) { return m.cost; }, -1],
-      ["Margin / door / mo", function (m) { return money(m.margin, 2); }, function (m) { return m.margin; }, 1],
+      ["Margin / door / mo (PPU)", function (m) { return money(m.margin, 2); }, function (m) { return m.margin; }, 1],
       ["Margin %", function (m) { return pct(m.marginPct); }, function (m) { return m.marginPct; }, 1],
       ["Margin / yr, all doors", function (m) { return money(m.portfolioMo * 12); }, function (m) { return m.portfolioMo * 12; }, 1]
     ];
@@ -2679,7 +2792,7 @@
 
     var page = ui.page, props = { doc: doc, C: C, ui: ui, setUi: setUi, update: update, go: go, jump: jump, source: source, setMsg: setMsg, cloud: cloud, lists: lists, names: names, scen: scen, dirty: dirty };
     var body = page === "portfolio" ? h(Portfolio, props) : page === "costs" ? h(Costs, props) : page === "services" ? h(Services, props)
-      : page === "fees" ? h(AddOns, props) : page === "prices" ? h(Prices, props) : page === "growth" ? h(Growth, props) : page === "compare" ? h(Compare, props) : page === "acq" ? h(Acquisitions, props) : h(Summary, props);
+      : page === "fees" ? h(AddOns, props) : page === "prices" ? h(Prices, props) : page === "growth" ? h(Growth, props) : page === "compare" ? h(Compare, props) : page === "score" ? h(Scorecard, props) : page === "acq" ? h(Acquisitions, props) : h(Summary, props);
 
     return html`<div class="app">
       <header class="bar">
