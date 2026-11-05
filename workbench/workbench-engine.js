@@ -1191,6 +1191,15 @@ function normalizeDoc(raw) {
       d.templates.forEach(function (t) { t.ck.ez_repair = Object.assign({ min: true, special: true, plus: true }, t.ck.meld_max || {}); });
     }
   }
+  // v17 (2026-11-05): Aptly Access bills $99/mo plus $1 per active lock (7 today), not per unit.
+  if (ver < 17) {
+    var ap = findRow(d, "aptly_acc");
+    if (ap && ap.e === "door") {
+      ap.e = "seat";
+      d.vl.aptly_acc = 1; d.seats.aptly_acc = 7; d.seatBase.aptly_acc = 99;
+      ap.d = "Aptly Access: $99/mo plus $1 per active lock a month. Seats here are active locks.";
+    }
+  }
   if (d.G.vacantDays == null) d.G.vacantDays = 0;
   // Move-ins a year across the portfolio (admin fees). Starts at one per door every average tenancy.
   if (d.G.moveIns == null) d.G.moveIns = d.G.tenancy > 0 ? Math.round((d.G.doors || 0) / d.G.tenancy) : 0;
@@ -1212,7 +1221,7 @@ function normalizeDoc(raw) {
   // v1 defaulted vacancy to 4% (an owner-side assumption from the fee-choice pricing file). Raynor only collects fees once a renter is placed, so v2 defaults it to 0.
   var vacancy = P.vacancyPct != null && (P.v || 1) >= 2 ? P.vacancyPct : (P.vacancyPct != null && P.vacancyPct !== 4 ? P.vacancyPct : DEFAULT_PRICING.vacancyPct);
   d.pricing = {
-    v: 16,
+    v: 17,
     // v10 (2026-10-12): up-front discount, 10% off when the whole lease term is paid up front.
     // v11: discount steps are set by the owner's monthly fee (atPct) instead of the share paid up front.
     upfrontDiscount: normalizeDiscount(P.upfrontDiscount),
