@@ -532,7 +532,7 @@
             value=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v} onChange=${function (val) { update(function (d) { d.vl[r.id] = val; }, name + ": amount"); }} />`}
         ${calc ? null : html`<span>Per</span><select id=${"i-b-" + r.id} aria-label="Per" value=${r.e}
           onChange=${function (e) { var val = e.target.value; update(function (d) { if (r.promoted) d.pbase[r.id] = val; else d.CG.find(function (x) { return x.id === g.id; }).rows.find(function (x) { return x.id === r.id; }).e = val; }, name + ": basis"); }}>
-          ${BASES.filter(function (b) { return b !== "af" || isAf; }).map(function (b) { return html`<option key=${b} value=${b}>${BASIS_NAMES[b]}</option>`; })}
+          ${BASES.filter(function (b) { return b !== "af" || isAf; }).map(function (b) { return html`<option key=${b} value=${b}>${b === "count" ? basisName(doc, { e: "count", id: r.id }) : BASIS_NAMES[b]}</option>`; })}
         </select>`}
         ${perDoorBasis(r) && !calc ? html`<span>Paid on</span><select id=${"i-ub-" + r.id} aria-label="Paid on" value=${doorsOnly(doc, r) ? "doors" : "all"}
           onChange=${function (e) { var val = e.target.value; update(function (d) { d.unitBase[r.id] = val; }, name + ": paid on " + (val === "doors" ? "residential doors" : "all units")); }}>
@@ -544,6 +544,12 @@
           onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />` : null}
         ${r.e === "annual" && !calc && showsBurden(doc, r, g) ? html`<span>Burden</span><${Affix} id=${"i-bd-" + r.id} suffix="%" cls="w-sm" label="Burden %"
           value=${doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0)} onChange=${function (val) { update(function (d) { d.bd[r.id] = val; }, name + ": burden"); }} />` : null}
+        ${r.e === "count" && !calc ? html`<span>Base</span><${Affix} id=${"i-qb-" + r.id} prefix="$" suffix="/mo" cls="w-sm" min=${0} label=${"Flat monthly base for " + name}
+          value=${seatBaseOf(doc, r.id)} onChange=${function (val) { update(function (d) { if (val) d.seatBase[r.id] = val; else delete d.seatBase[r.id]; }, name + ": base"); }} />` : null}
+        ${r.e === "count" && !calc ? html`<span>How many</span><${Affix} id=${"i-q-" + r.id} cls="w-sm" min=${0} suffix=${qtyUnitOf(doc, r.id) + "s"} label=${"How many for " + name}
+          value=${qtyOf(doc, r.id)} onChange=${function (val) { update(function (d) { d.qty[r.id] = Math.max(0, val); }, name + ": count"); }} />` : null}
+        ${r.e === "count" && !calc ? html`<span>Billed per</span><input type="text" class="txt" id=${"i-qu-" + r.id} aria-label="What it's billed per" value=${qtyUnitOf(doc, r.id)}
+          onChange=${function (e) { var val = e.target.value.trim(); update(function (d) { if (val) d.qtyUnit[r.id] = val; else delete d.qtyUnit[r.id]; }, name + ": billed per"); }} />` : null}
         ${r.e === "seat" && !calc ? html`<span>Base</span><${Affix} id=${"i-sb-" + r.id} prefix="$" suffix="/mo" cls="w-sm" min=${0} label=${"Flat monthly base for " + name}
           value=${seatBaseOf(doc, r.id)} onChange=${function (val) { update(function (d) { if (val) d.seatBase[r.id] = val; else delete d.seatBase[r.id]; }, name + ": base"); }} />` : null}
         ${r.e === "seat" && !calc ? html`<span>Seats</span><${Affix} id=${"i-st-" + r.id} cls="w-sm" min=${0} label=${"Seats paid for " + name}
@@ -1305,12 +1311,13 @@
                   <td>${isAf ? html`<span class="small faint">AppFolio rates</span>` : isLb ? html`<span class="small faint">tier's leasing fee</span>`
                     : html`<${Affix} id=${"v-" + r.id} prefix="$" cls="w-amt" label=${"Amount for " + name} value=${doc.vl[r.id] != null ? doc.vl[r.id] : r.v}
                       onChange=${function (val) { update(function (d) { d.vl[r.id] = val; }, name + ": amount"); }} />`}</td>
-                  <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : BASIS_NAMES[r.e]}</td>
+                  <td class="l small muted">${isLb ? "per lease break" : r.id === "evict_g" ? "attorney use + court fees" : basisName(doc, r)}</td>
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
                       value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)} onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />`
                     : r.e === "door" && rateGroupsOf(doc, r.id).length ? html`<span class="small faint" title="Paid at more than one rate. Change them in the line's details.">avg ${money(rateSplit(doc, r).avg, 2)} · ${rateGroupsOf(doc, r.id).length + 1} rates</span>`
+                    : r.e === "count" ? html`<span class="small faint" title="Its own count and base. Change them in the line's details.">× ${fmtNum(qtyOf(doc, r.id))} ${qtyUnitOf(doc, r.id)}s${seatBaseOf(doc, r.id) ? " + " + money(seatBaseOf(doc, r.id)) + "/mo base" : ""}</span>`
                     : r.e === "seat" && seatBaseOf(doc, r.id) ? html`<span class="small faint" title="Flat monthly base on top of the per-seat price. Change it in the line's details.">+ ${money(seatBaseOf(doc, r.id))}/mo base</span>`
-                    : splitLine(doc, r, g) && pmShareOf(doc, r.id) !== 100 ? html`<span class="small faint" title="PM's share of the P&L total. Change it in the line's details.">${fmtNum(Math.round(pmShareOf(doc, r.id)))}% PM · ${money((doc.vl[r.id] != null ? doc.vl[r.id] : r.v) * pmShareOf(doc, r.id) / 100)}${BASIS_NAMES[r.e].replace("$", "")}</span>`
+                    : splitLine(doc, r, g) && pmShareOf(doc, r.id) !== 100 ? html`<span class="small faint" title="PM's share of the P&L total. Change it in the line's details.">${fmtNum(Math.round(pmShareOf(doc, r.id)))}% PM · ${money((doc.vl[r.id] != null ? doc.vl[r.id] : r.v) * pmShareOf(doc, r.id) / 100)}${basisName(doc, r).replace("$", "")}</span>`
                     : r.e === "annual" && showsBurden(doc, r, g) ? html`<span class="small faint">${fmtNum(doc.bd[r.id] != null ? doc.bd[r.id] : (r.n_bd || 0))}% burden</span>` : null}</td>
                   <td class="mono">${isLb ? lbText : money(perDoor, 2)}</td>
                   ${TIERS.map(function (t) {
@@ -2383,6 +2390,7 @@
       if (!ra) { put("Added: " + nm); return; }
       var va = a.vl[id] != null ? a.vl[id] : ra.v, vb = b.vl[id] != null ? b.vl[id] : rb.v;
       if (va !== vb) put(nm + ": " + money(va || 0, 2) + " → " + money(vb || 0, 2));
+      if (qtyOf(a, id) !== qtyOf(b, id) && (ra.e === "count" || rb.e === "count")) put(nm + ": " + fmtNum(qtyOf(a, id)) + " → " + fmtNum(qtyOf(b, id)) + " " + qtyUnitOf(b, id) + "s");
       if (seatBaseOf(a, id) !== seatBaseOf(b, id)) put(nm + " base: " + money(seatBaseOf(a, id)) + "/mo → " + money(seatBaseOf(b, id)) + "/mo");
       if (perDoorBasis(rb) && doorsOnly(a, ra) !== doorsOnly(b, rb)) put(nm + " paid on: " + (doorsOnly(a, ra) ? "residential doors" : "all units") + " → " + (doorsOnly(b, rb) ? "residential doors" : "all units"));
       if (JSON.stringify(rateGroupsOf(a, id)) !== JSON.stringify(rateGroupsOf(b, id))) put(nm + " rates by agent: " + rateGroupsOf(a, id).length + " → " + rateGroupsOf(b, id).length + " set, average " + money(cmo(ra, a) / (unitsFor(a, ra) || 1), 2) + " → " + money(cmo(rb, b) / (unitsFor(b, rb) || 1), 2) + "/unit/mo");
