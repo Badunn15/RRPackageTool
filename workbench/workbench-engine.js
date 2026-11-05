@@ -1221,6 +1221,18 @@ function normalizeDoc(raw) {
       ap2.d = "Aptly Access: $99/mo plus $1 per active electronic lock a month. The lock count is its own and doesn't follow doors.";
     }
   }
+  // v19 (2026-11-05): Canva is split 50/50 with the brokerage: it moves into Brokerage Split with a 50% PM share.
+  if (ver < 19) {
+    var brokG = d.CG.find(function (g) { return g.id === "brok"; });
+    if (brokG) d.CG.forEach(function (g) {
+      if (g === brokG) return;
+      g.rows.filter(function (x) { return /^canva$/i.test((x.name || "").trim()); }).forEach(function (x) {
+        g.rows = g.rows.filter(function (y) { return y !== x; });
+        brokG.rows.push(x);
+        if (d.pmShare[x.id] == null) d.pmShare[x.id] = 50;
+      });
+    });
+  }
   if (d.G.vacantDays == null) d.G.vacantDays = 0;
   // Move-ins a year across the portfolio (admin fees). Starts at one per door every average tenancy.
   if (d.G.moveIns == null) d.G.moveIns = d.G.tenancy > 0 ? Math.round((d.G.doors || 0) / d.G.tenancy) : 0;
@@ -1242,7 +1254,7 @@ function normalizeDoc(raw) {
   // v1 defaulted vacancy to 4% (an owner-side assumption from the fee-choice pricing file). Raynor only collects fees once a renter is placed, so v2 defaults it to 0.
   var vacancy = P.vacancyPct != null && (P.v || 1) >= 2 ? P.vacancyPct : (P.vacancyPct != null && P.vacancyPct !== 4 ? P.vacancyPct : DEFAULT_PRICING.vacancyPct);
   d.pricing = {
-    v: 18,
+    v: 19,
     // v10 (2026-10-12): up-front discount, 10% off when the whole lease term is paid up front.
     // v11: discount steps are set by the owner's monthly fee (atPct) instead of the share paid up front.
     upfrontDiscount: normalizeDiscount(P.upfrontDiscount),
