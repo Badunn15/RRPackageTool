@@ -1260,6 +1260,28 @@ function normalizeDoc(raw) {
       d.templates.forEach(function (t) { t.ck[psRow.id] = { min: true, special: true, plus: true }; });
     }
   }
+  // v21 (2026-11-10): 1Password at $11.97 per member a month, 5-member minimum ($59.85), 8 members, in every package.
+  if (ver < 21 && !d.removed.onepassword) {
+    var opRow = null;
+    d.CG.forEach(function (g) { g.rows.forEach(function (x) { if (/^1\s*password$/i.test((x.name || "").trim())) opRow = x; }); });
+    if (!opRow) {
+      var swOp = d.CG.find(function (g) { return g.id === "sw"; });
+      if (swOp) {
+        opRow = { id: "onepassword", name: "1Password", e: "count", v: 11.97 };
+        var cu = swOp.rows.findIndex(function (x) { return x.id === "clickup"; });
+        if (cu < 0) swOp.rows.push(opRow); else swOp.rows.splice(cu + 1, 0, opRow);
+      }
+    }
+    if (opRow) {
+      opRow.e = "count";
+      opRow.d = "Password manager: $59.85/mo for the first 5 members, $11.97 for each one after.";
+      d.vl[opRow.id] = 11.97;
+      if (d.qty[opRow.id] == null) d.qty[opRow.id] = 8;
+      d.qtyUnit[opRow.id] = "member";
+      if (!d.minMo[opRow.id]) d.minMo[opRow.id] = 59.85;
+      d.templates.forEach(function (t) { t.ck[opRow.id] = { min: true, special: true, plus: true }; });
+    }
+  }
   if (d.G.vacantDays == null) d.G.vacantDays = 0;
   // Move-ins a year across the portfolio (admin fees). Starts at one per door every average tenancy.
   if (d.G.moveIns == null) d.G.moveIns = d.G.tenancy > 0 ? Math.round((d.G.doors || 0) / d.G.tenancy) : 0;
@@ -1281,7 +1303,7 @@ function normalizeDoc(raw) {
   // v1 defaulted vacancy to 4% (an owner-side assumption from the fee-choice pricing file). Raynor only collects fees once a renter is placed, so v2 defaults it to 0.
   var vacancy = P.vacancyPct != null && (P.v || 1) >= 2 ? P.vacancyPct : (P.vacancyPct != null && P.vacancyPct !== 4 ? P.vacancyPct : DEFAULT_PRICING.vacancyPct);
   d.pricing = {
-    v: 20,
+    v: 21,
     // v10 (2026-10-12): up-front discount, 10% off when the whole lease term is paid up front.
     // v11: discount steps are set by the owner's monthly fee (atPct) instead of the share paid up front.
     upfrontDiscount: normalizeDiscount(P.upfrontDiscount),
