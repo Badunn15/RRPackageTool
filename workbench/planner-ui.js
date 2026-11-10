@@ -557,6 +557,8 @@
           onChange=${function (val) { update(function (d) { if (val === d.G.seats) delete d.seats[r.id]; else d.seats[r.id] = val; }, name + ": seats"); }} />` : null}
         ${splitLine(doc, r, g) ? html`<span>PM share</span><${Affix} id=${"i-ps-" + r.id} suffix="%" cls="w-sm" min=${0} max=${100} step=${5} label="PM's share"
           value=${Math.round(pmShareOf(doc, r.id) * 100) / 100} onChange=${function (val) { update(function (d) { d.pmShare[r.id] = Math.min(100, Math.max(0, val)); }, name + ": PM share"); }} />` : null}
+        ${calc || isAf ? null : html`<span>Minimum</span><${Affix} id=${"i-min-" + r.id} prefix="$" suffix="/mo" cls="w-sm" min=${0} label=${"Monthly minimum for " + name}
+          value=${minMoOf(doc, r.id)} onChange=${function (val) { update(function (d) { if (val > 0) d.minMo[r.id] = val; else delete d.minMo[r.id]; }, name + ": monthly minimum"); }} />`}
         <span>Counts from</span><select id=${"i-iv-" + r.id} aria-label="Counts from" value=${doc.itemView[r.id] || ""}
           onChange=${function (e) { var val = e.target.value; update(function (d) { if (val) d.itemView[r.id] = val; else delete d.itemView[r.id]; }, name + ": counts from"); }}>
           <option value="">Same as ${g.label} (${VIEW_NAMES[doc.secView[g.id] || "direct"]})</option>
@@ -1315,6 +1317,7 @@
                   <td>${calc || r.e === "claim" ? html`<${Affix} id=${"ev-" + r.id} cls="w-sm" min=${0} label="Per year across the portfolio"
                       value=${doc.ev[r.id] != null ? doc.ev[r.id] : (r.n_ev || 0)} onChange=${function (val) { update(function (d) { d.ev[r.id] = val; }, name + ": per year"); }} />`
                     : r.e === "door" && rateGroupsOf(doc, r.id).length ? html`<span class="small faint" title="Paid at more than one rate. Change them in the line's details.">avg ${money(rateSplit(doc, r).avg, 2)} · ${rateGroupsOf(doc, r.id).length + 1} rates</span>`
+                    : minMoOf(doc, r.id) ? html`<span class="small faint" title="Billed at least this each month. Change it in the line's details.">${cmoUsage(r, doc) < minMoOf(doc, r.id) ? "at " : ""}${money(minMoOf(doc, r.id))}/mo minimum</span>`
                     : r.e === "count" ? html`<span class="small faint" title="Its own count and base. Change them in the line's details.">× ${fmtNum(qtyOf(doc, r.id))} ${qtyUnitOf(doc, r.id)}s${seatBaseOf(doc, r.id) ? " + " + money(seatBaseOf(doc, r.id)) + "/mo base" : ""}</span>`
                     : r.e === "seat" && seatBaseOf(doc, r.id) ? html`<span class="small faint" title="Flat monthly base on top of the per-seat price. Change it in the line's details.">+ ${money(seatBaseOf(doc, r.id))}/mo base</span>`
                     : splitLine(doc, r, g) && pmShareOf(doc, r.id) !== 100 ? html`<span class="small faint" title="PM's share of the P&L total. Change it in the line's details.">${fmtNum(Math.round(pmShareOf(doc, r.id)))}% PM · ${money((doc.vl[r.id] != null ? doc.vl[r.id] : r.v) * pmShareOf(doc, r.id) / 100)}${basisName(doc, r).replace("$", "")}</span>`
@@ -2390,6 +2393,7 @@
       if (!ra) { put("Added: " + nm); return; }
       var va = a.vl[id] != null ? a.vl[id] : ra.v, vb = b.vl[id] != null ? b.vl[id] : rb.v;
       if (va !== vb) put(nm + ": " + money(va || 0, 2) + " → " + money(vb || 0, 2));
+      if (minMoOf(a, id) !== minMoOf(b, id)) put(nm + " minimum: " + money(minMoOf(a, id)) + "/mo → " + money(minMoOf(b, id)) + "/mo");
       if (qtyOf(a, id) !== qtyOf(b, id) && (ra.e === "count" || rb.e === "count")) put(nm + ": " + fmtNum(qtyOf(a, id)) + " → " + fmtNum(qtyOf(b, id)) + " " + qtyUnitOf(b, id) + "s");
       if (seatBaseOf(a, id) !== seatBaseOf(b, id)) put(nm + " base: " + money(seatBaseOf(a, id)) + "/mo → " + money(seatBaseOf(b, id)) + "/mo");
       if (perDoorBasis(rb) && doorsOnly(a, ra) !== doorsOnly(b, rb)) put(nm + " paid on: " + (doorsOnly(a, ra) ? "residential doors" : "all units") + " → " + (doorsOnly(b, rb) ? "residential doors" : "all units"));

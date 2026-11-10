@@ -495,7 +495,11 @@ function qtyUnitOf(doc, id) { return (doc.qtyUnit && doc.qtyUnit[id]) || "item";
 function basisName(doc, row) { return row.e === "count" ? "$/" + qtyUnitOf(doc, row.id) + "/mo" : BASIS_NAMES[row.e]; }
 
 /* A cost line's full monthly cost, before PM's share. */
-function cmoFull(row, doc) {
+/* A line's monthly minimum (doc.minMo[id]; 0 when unset): the vendor bills at least this, whatever the usage. */
+function minMoOf(doc, id) { return (doc.minMo && doc.minMo[id]) || 0; }
+function cmoFull(row, doc) { return Math.max(cmoUsage(row, doc), minMoOf(doc, row.id)); }
+/* A line's monthly cost from its amount and basis, before any minimum. */
+function cmoUsage(row, doc) {
   var v = doc.vl[row.id] != null ? doc.vl[row.id] : row.v;
   var bd = doc.bd[row.id] != null ? doc.bd[row.id] : (row.n_bd || 0);
   var ev = doc.ev[row.id] != null ? doc.ev[row.id] : (row.n_ev || 0);
@@ -931,7 +935,8 @@ function formulaLines(row, doc, groupId, view) {
   var v = doc.vl[row.id] != null ? doc.vl[row.id] : row.v;
   var G = doc.G, mo = cmo(row, doc), resOnly = residentialOnly(row, groupId, doc), share = pmShareOf(doc, row.id);
   var perDoor = linePerDoor(doc, mo, row, groupId);
-  var tail = " = " + (share !== 100 ? usd(cmoFull(row, doc)) + "/mo × " + fmtN(Math.round(share * 100) / 100) + "% PM share" : "") + (share !== 100 ? " = " : "") + usd(mo) + "/mo → " + usd(perDoor) + "/door/mo" + (otherUnits(doc) ? (resOnly ? " (package doors only)" : " (spread over " + fmtN(allUnits(doc)) + " units)") : "");
+  var minUp = minMoOf(doc, row.id) > cmoUsage(row, doc);
+  var tail = " = " + (minUp ? usd(cmoUsage(row, doc)) + "/mo, billed at the " + usd(minMoOf(doc, row.id)) + "/mo minimum" + (share !== 100 ? " × " + fmtN(Math.round(share * 100) / 100) + "% PM share = " + usd(mo) + "/mo" : "") + " → " : "") + (minUp ? "" : (share !== 100 ? usd(cmoFull(row, doc)) + "/mo × " + fmtN(Math.round(share * 100) / 100) + "% PM share" : "") + (share !== 100 ? " = " : "") + usd(mo) + "/mo → ") + usd(perDoor) + "/door/mo" + (otherUnits(doc) ? (resOnly ? " (package doors only)" : " (spread over " + fmtN(allUnits(doc)) + " units)") : "");
   var lines = [];
   if (CALC_ROWS[row.id]) return calcRowLines(row, doc, groupId, view);
   switch (row.e) {
@@ -965,6 +970,8 @@ function formulaLines(row, doc, groupId, view) {
       lines.push("Residential " + usd(af.rr) + " × " + fmtN(af.rd) + " units" + (af.istr ? "" : " (STR not included)") + (af.ic ? " + commercial " + usd(af.cr) + " × " + fmtN(af.cd) + " units" : " (commercial not included)") + tail);
       break;
   }
+  var minMo = minMoOf(doc, row.id), use = cmoUsage(row, doc);
+  if (minMo) lines.push(use < minMo ? "Usage is under the " + usd(minMo) + "/mo minimum, so the minimum is what's billed. Usage passes it at about " + fmtN(Math.ceil(minMo / (v || 1))) + " " + (row.e === "listing" ? "listings" : "units") + "." : "Usage is over the " + usd(minMo) + "/mo minimum, so usage is billed.");
   var rv = rowView(doc, row.id, groupId);
   if (!isVisible(rv, view)) lines.push("Not counted at " + VIEW_NAMES[view] + ": this line only counts at " + VIEW_NAMES[rv] + ".");
   return lines;
@@ -1013,7 +1020,7 @@ function scopeFormulaLines(doc, id) {
 
 function normalizeDoc(raw) {
   var d = JSON.parse(JSON.stringify(raw));
-  ["vl", "bd", "ev", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "secView", "MASTER", "removed", "udest", "seats", "pmShare", "seatBase", "rateGroups", "unitBase", "scoreType", "fte", "qty", "qtyUnit"].forEach(function (k) {
+  ["vl", "bd", "ev", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "secView", "MASTER", "removed", "udest", "seats", "pmShare", "seatBase", "rateGroups", "unitBase", "scoreType", "fte", "qty", "qtyUnit", "minMo"].forEach(function (k) {
     if (!d[k] || typeof d[k] !== "object") d[k] = {};
   });
   if (!Array.isArray(d.CATS)) d.CATS = [];
@@ -1233,6 +1240,26 @@ function normalizeDoc(raw) {
       });
     });
   }
+  // v20 (2026-11-10): Property Shield, fraud prevention at $4.25 per active listing a month with a $100/mo minimum, in every package.
+  if (ver < 20 && !d.removed.prop_shield) {
+    var psRow = null;
+    d.CG.forEach(function (g) { g.rows.forEach(function (x) { if (/^property\s*shield$/i.test((x.name || "").trim())) psRow = x; }); });
+    if (!psRow) {
+      var swG = d.CG.find(function (g) { return g.id === "sw"; }) || d.CG.find(function (g) { return g.rows.some(function (x) { return x.id === "rentcheck"; }); });
+      if (swG) {
+        psRow = { id: "prop_shield", name: "Property Shield", e: "listing", v: 4.25 };
+        var rc = swG.rows.findIndex(function (x) { return x.id === "rentcheck"; });
+        if (rc < 0) swG.rows.push(psRow); else swG.rows.splice(rc + 1, 0, psRow);
+      }
+    }
+    if (psRow) {
+      psRow.e = "listing";
+      psRow.d = "Fraud prevention: $4.25 per active listing a month, $100/mo minimum.";
+      d.vl[psRow.id] = 4.25;
+      if (!d.minMo[psRow.id]) d.minMo[psRow.id] = 100;
+      d.templates.forEach(function (t) { t.ck[psRow.id] = { min: true, special: true, plus: true }; });
+    }
+  }
   if (d.G.vacantDays == null) d.G.vacantDays = 0;
   // Move-ins a year across the portfolio (admin fees). Starts at one per door every average tenancy.
   if (d.G.moveIns == null) d.G.moveIns = d.G.tenancy > 0 ? Math.round((d.G.doors || 0) / d.G.tenancy) : 0;
@@ -1254,7 +1281,7 @@ function normalizeDoc(raw) {
   // v1 defaulted vacancy to 4% (an owner-side assumption from the fee-choice pricing file). Raynor only collects fees once a renter is placed, so v2 defaults it to 0.
   var vacancy = P.vacancyPct != null && (P.v || 1) >= 2 ? P.vacancyPct : (P.vacancyPct != null && P.vacancyPct !== 4 ? P.vacancyPct : DEFAULT_PRICING.vacancyPct);
   d.pricing = {
-    v: 19,
+    v: 20,
     // v10 (2026-10-12): up-front discount, 10% off when the whole lease term is paid up front.
     // v11: discount steps are set by the owner's monthly fee (atPct) instead of the share paid up front.
     upfrontDiscount: normalizeDiscount(P.upfrontDiscount),
@@ -1335,7 +1362,7 @@ function copyAddonInto(src, dst, addonId, matchTiers) {
   if (!a) return ["That add-on isn't in this scenario."];
   a = JSON.parse(JSON.stringify(a));
   var sid = a.svc, kind = null;
-  var MAPS = ["vl", "ev", "bd", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "udest", "pmShare", "seatBase", "rateGroups", "unitBase", "scoreType", "fte", "qty", "qtyUnit"];
+  var MAPS = ["vl", "ev", "bd", "psv", "psh", "pbase", "place", "scopeOwner", "icat", "itemView", "udest", "pmShare", "seatBase", "rateGroups", "unitBase", "scoreType", "fte", "qty", "qtyUnit", "minMo"];
   function copyMaps(id) { MAPS.forEach(function (k) { if (src[k] && src[k][id] != null) { dst[k] = dst[k] || {}; dst[k][id] = JSON.parse(JSON.stringify(src[k][id])); } }); }
   if (sid) {
     var hit = null;
@@ -1380,5 +1407,5 @@ function validDoc(d) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { linkKind: linkKind, linkedInTier: linkedInTier, addonStateShown: addonStateShown, setAddonState: setAddonState, seatBaseOf: seatBaseOf, qtyOf: qtyOf, qtyUnitOf: qtyUnitOf, basisName: basisName, pmShareOf: pmShareOf, rateGroupsOf: rateGroupsOf, rateSplit: rateSplit, scorecard: scorecard, scoreTypeOf: scoreTypeOf, laborLines: laborLines, grossMo: grossMo, SCORE_TYPES: SCORE_TYPES, SCORE_BENCH: SCORE_BENCH, unitsFor: unitsFor, doorsOnly: doorsOnly, perDoorBasis: perDoorBasis, cmoFull: cmoFull, copyAddonInto: copyAddonInto, tierOn: tierOn, onTiers: onTiers, woYr: woYr, residentPerDoor: residentPerDoor, residentKeepPct: residentKeepPct, feeBase: feeBase, petRentMo: petRentMo, priceFrame: priceFrame, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, upfrontDiscountPct: upfrontDiscountPct, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
+  module.exports = { linkKind: linkKind, linkedInTier: linkedInTier, addonStateShown: addonStateShown, setAddonState: setAddonState, seatBaseOf: seatBaseOf, minMoOf: minMoOf, cmoUsage: cmoUsage, qtyOf: qtyOf, qtyUnitOf: qtyUnitOf, basisName: basisName, pmShareOf: pmShareOf, rateGroupsOf: rateGroupsOf, rateSplit: rateSplit, scorecard: scorecard, scoreTypeOf: scoreTypeOf, laborLines: laborLines, grossMo: grossMo, SCORE_TYPES: SCORE_TYPES, SCORE_BENCH: SCORE_BENCH, unitsFor: unitsFor, doorsOnly: doorsOnly, perDoorBasis: perDoorBasis, cmoFull: cmoFull, copyAddonInto: copyAddonInto, tierOn: tierOn, onTiers: onTiers, woYr: woYr, residentPerDoor: residentPerDoor, residentKeepPct: residentKeepPct, feeBase: feeBase, petRentMo: petRentMo, priceFrame: priceFrame, rbpSpread: rbpSpread, leaseCycle: leaseCycle, linkedAddonCost: linkedAddonCost, addonFixedCost: addonFixedCost, billedEvictionsYr: billedEvictionsYr, leaseBreakMo: leaseBreakMo, findRow: findRow, scopeValue: scopeValue, addonTimesPerDoorYr: addonTimesPerDoorYr, afResUnits: afResUnits, linePerDoor: linePerDoor, allUnits: allUnits, otherUnits: otherUnits, otherRevenueMo: otherRevenueMo, dealCount: dealCount, acquisitionImpact: acquisitionImpact, newDeal: newDeal, marginsAt: marginsAt, scaleToDoors: scaleToDoors, leaseBreakCost: leaseBreakCost, syncLinked: syncLinked, activeTemplate: activeTemplate, billedEvictionsYr: billedEvictionsYr, cmo: cmo, addonShare: addonShare, addonPerDoor: addonPerDoor, tierCost: tierCost, tierMargin: tierMargin, normalizeDoc: normalizeDoc, monthlyPctFor: monthlyPctFor, quote: quote, upfrontDiscountPct: upfrontDiscountPct, revenuePerDoor: revenuePerDoor, ownerChoiceRange: ownerChoiceRange };
 }
